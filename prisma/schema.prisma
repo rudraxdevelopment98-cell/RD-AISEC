@@ -1,0 +1,42 @@
+// RD-AISEC data model — engagements and their findings.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A unit of work: a pentest, forensics case, or consulting engagement.
+model Engagement {
+  id           String    @id @default(cuid())
+  name         String
+  client       String    @default("")
+  // "pentest" | "forensics" | "consulting"
+  type         String    @default("pentest")
+  // "planning" | "active" | "completed"
+  status       String    @default("planning")
+  scope        String    @default("")
+  authorized   Boolean   @default(false)
+  authorizedBy String    @default("")
+  ownerEmail   String    @default("")
+  findings     Finding[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// A single issue discovered during an engagement.
+model Finding {
+  id             String     @id @default(cuid())
+  engagement     Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId   String
+  title          String
+  // "info" | "low" | "medium" | "high" | "critical"
+  severity       String     @default("medium")
+  // "open" | "fixed" | "accepted" | "false_positive"
+  status         String     @default("open")
+  description    String     @default("")
+  recommendation String     @default("")
+  createdAt      DateTime   @default(now())
+}

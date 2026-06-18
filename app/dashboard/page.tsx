@@ -4,17 +4,21 @@ import { Icon } from "@/components/icons";
 import { PILLARS } from "@/data/portal";
 import { TOOLS } from "@/data/tools";
 import { listTopics } from "@/lib/knowledge";
+import { prisma } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardOverview() {
   const session = await auth();
   const firstName = session?.user?.name?.split(" ")[0] ?? "operator";
   const topics = listTopics();
+  const engagementCount = await prisma.engagement.count();
 
   const stats = [
+    { label: "Engagements", value: engagementCount },
     { label: "Workflow stages", value: PILLARS.reduce((n, p) => n + p.stages.length, 0) },
     { label: "Tools cataloged", value: TOOLS.length },
     { label: "Knowledge topics", value: topics.length },
-    { label: "Pillars", value: PILLARS.length },
   ];
 
   return (

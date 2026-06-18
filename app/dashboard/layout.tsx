@@ -5,7 +5,10 @@ import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 const NAV: NavGroup[] = [
   {
     section: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: "grid" }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: "grid" },
+      { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
+    ],
   },
   {
     section: "Pillars",

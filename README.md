@@ -28,12 +28,16 @@ Next.js 14 (App Router) · TypeScript · Tailwind CSS · Auth.js (NextAuth v5).
 ## Getting started
 
 ```bash
-npm install
-cp .env.example .env.local   # then fill in the values
+npm install                  # also runs `prisma generate`
+cp .env.example .env         # then fill in the values (DATABASE_URL is preset)
+npx prisma migrate deploy    # create the SQLite tables
 npm run dev
 ```
 
 Open http://localhost:3000.
+
+Data (engagements, findings) is stored in a local SQLite database via Prisma —
+see `prisma/schema.prisma`. Inspect it with `npm run db:studio`.
 
 ### Configuration
 

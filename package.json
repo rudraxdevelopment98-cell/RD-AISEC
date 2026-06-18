@@ -7,9 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "gray-matter": "^4.0.3",
     "marked": "^18.0.5",
     "next": "14.2.5",
@@ -25,6 +29,7 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5",
     "postcss": "^8.4.39",
+    "prisma": "^6.19.3",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.3"
   }
