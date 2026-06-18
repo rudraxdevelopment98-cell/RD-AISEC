@@ -51,6 +51,17 @@ body {
   }
 }
 
+/* Print: clean white page for reports (chrome is hidden via print:hidden) */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
+
 /* Accent helpers so pillars can theme themselves */
 .accent-emerald { @apply text-emerald-300; }
 .accent-sky { @apply text-sky-300; }

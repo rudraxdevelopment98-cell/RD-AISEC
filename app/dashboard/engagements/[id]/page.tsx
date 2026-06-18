@@ -52,6 +52,12 @@ export default async function EngagementDetail({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={`/dashboard/engagements/${e.id}/report`}
+              className="btn-ghost"
+            >
+              <Icon name="book" className="h-4 w-4" /> Report
+            </Link>
             <EngagementStatusBadge value={e.status} />
           </div>
         </div>

@@ -38,7 +38,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 p-4 sm:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 p-4 sm:flex print:!hidden">
         <Link href="/" className="flex items-center gap-2 px-2">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
             R
@@ -73,7 +73,7 @@ export default async function DashboardLayout({
       </aside>
 
       <div className="flex-1">
-        <header className="flex items-center justify-between border-b border-surface-border px-6 py-3">
+        <header className="flex items-center justify-between border-b border-surface-border px-6 py-3 print:hidden">
           <p className="text-sm text-gray-500">
             Security operations portal
           </p>
