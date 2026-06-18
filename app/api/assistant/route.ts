@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { generateAnswer } from "@/lib/ai";
+import { findTopic } from "@/lib/knowledge";
 import { TOOLS } from "@/data/tools";
 
 export async function POST(req: Request) {
@@ -22,18 +23,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A topic is required" }, { status: 400 });
   }
 
-  const answer = await generateAnswer(topic);
+  // Hybrid: serve the local knowledge base first; fall back to a generated
+  // answer when no write-up matches.
+  const answer = findTopic(topic) ?? (await generateAnswer(topic));
 
-  // Surface related tools from the catalog by simple keyword overlap.
-  const lower = topic.toLowerCase();
-  answer.relatedTools = TOOLS.filter(
-    (t) =>
-      lower.includes(t.name.toLowerCase()) ||
-      lower.includes(t.category.toLowerCase()) ||
-      t.category.toLowerCase().split(/[^a-z]+/).some((w) => w && lower.includes(w)),
-  )
-    .slice(0, 5)
-    .map((t) => t.name);
+  // If the entry didn't declare related tools, infer them from the catalog.
+  if (answer.relatedTools.length === 0) {
+    const lower = topic.toLowerCase();
+    answer.relatedTools = TOOLS.filter(
+      (t) =>
+        lower.includes(t.name.toLowerCase()) ||
+        lower.includes(t.category.toLowerCase()),
+    )
+      .slice(0, 5)
+      .map((t) => t.name);
+  }
 
   return NextResponse.json(answer);
 }
