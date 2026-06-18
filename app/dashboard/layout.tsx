@@ -1,10 +1,27 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 
-const NAV = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/assistant", label: "AI Assistant" },
-  { href: "/dashboard/tools", label: "Tool Catalog" },
+const NAV: NavGroup[] = [
+  {
+    section: "Overview",
+    items: [{ href: "/dashboard", label: "Dashboard", icon: "grid" }],
+  },
+  {
+    section: "Pillars",
+    items: [
+      { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
+      { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
+      { href: "/dashboard/consulting", label: "Security Consulting", icon: "briefcase" },
+    ],
+  },
+  {
+    section: "Resources",
+    items: [
+      { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
+      { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
+    ],
+  },
 ];
 
 export default async function DashboardLayout({
@@ -14,26 +31,31 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   const user = session?.user;
+  const initial = (user?.name ?? user?.email ?? "U").charAt(0).toUpperCase();
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 p-5 sm:flex">
-        <Link href="/" className="font-mono text-lg font-bold text-brand">
-          RD-AISEC
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 p-4 sm:flex">
+        <Link href="/" className="flex items-center gap-2 px-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
+            R
+          </span>
+          <span className="font-mono text-base font-bold">
+            RD<span className="text-brand">-AISEC</span>
+          </span>
         </Link>
-        <nav className="mt-8 flex flex-col gap-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-lg px-3 py-2 text-sm text-gray-300 transition hover:bg-surface-border hover:text-white"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-auto space-y-3 pt-6 text-xs text-gray-400">
-          {user?.email && <p className="truncate">{user.email}</p>}
+
+        <SidebarNav groups={NAV} />
+
+        <div className="mt-auto space-y-3 pt-6">
+          <div className="flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-brand/20 text-xs font-bold text-brand">
+              {initial}
+            </span>
+            <span className="truncate text-xs text-gray-400">
+              {user?.email ?? "Signed in"}
+            </span>
+          </div>
           <form
             action={async () => {
               "use server";
@@ -48,21 +70,24 @@ export default async function DashboardLayout({
       </aside>
 
       <div className="flex-1">
-        {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-surface-border px-5 py-3 sm:hidden">
-          <Link href="/dashboard" className="font-mono font-bold text-brand">
-            RD-AISEC
-          </Link>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button type="submit" className="text-xs text-gray-400">
-              Sign out
-            </button>
-          </form>
+        <header className="flex items-center justify-between border-b border-surface-border px-6 py-3">
+          <p className="text-sm text-gray-500">
+            Security operations portal
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="tag ring-emerald accent-emerald">● Authorized session</span>
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
+              className="sm:hidden"
+            >
+              <button type="submit" className="text-xs text-gray-400">
+                Sign out
+              </button>
+            </form>
+          </div>
         </header>
         <main className="px-6 py-8">{children}</main>
       </div>

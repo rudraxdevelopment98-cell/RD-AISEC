@@ -3,16 +3,16 @@ import { auth } from "@/auth";
 
 const FEATURES = [
   {
-    title: "AI Security Assistant",
-    body: "Ask about any tool or technique. Get a structured walkthrough: how it works, how it's tested and exploited, and how to protect, find, and fix it.",
+    title: "Digital Forensics",
+    body: "Acquire evidence soundly, analyze disk and memory, build timelines, and report — chain of custody intact, start to finish.",
   },
   {
-    title: "Tool Catalog",
-    body: "A searchable library of modern open-source and paid security tools — recon, web testing, exploitation, scanning, and defense.",
+    title: "Penetration Testing",
+    body: "The full kill chain: recon, scanning, vulnerability analysis, exploitation, and reporting. Whatever you need to test, guided step by step.",
   },
   {
-    title: "Locked Down",
-    body: "Sign in with OAuth, gated by an authorized-email allowlist. Only the people you approve get through the door.",
+    title: "Security Consulting",
+    body: "Engagements, scoping & authorization, risk against standards, findings, and client-ready reports — the business wrapper around testing.",
   },
 ];
 
@@ -32,15 +32,15 @@ export default async function Home() {
       </div>
 
       <section className="mt-20 max-w-3xl">
-        <p className="tag">AI-powered · Defensive & authorized testing</p>
+        <p className="tag">Forensics · Pentesting · Consulting — AI-powered</p>
         <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-          Your AI cybersecurity{" "}
-          <span className="text-brand">play dashboard</span>.
+          Your all-in-one{" "}
+          <span className="text-brand">security operations portal</span>.
         </h1>
         <p className="mt-5 text-lg text-gray-300">
-          Bring every modern tool into one place and learn, hands-on, how to
-          test, exploit, protect, find bugs, and fix them — guided by AI, behind
-          a secure login.
+          Digital forensics, penetration testing, and security consulting in one
+          place — every workflow guided step by step, with AI and your own
+          knowledge base alongside, behind a secure login.
         </p>
         <div className="mt-8 flex gap-3">
           <Link href={session?.user ? "/dashboard" : "/login"} className="btn-primary">

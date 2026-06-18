@@ -9,17 +9,21 @@
 body {
   @apply bg-surface text-gray-100 antialiased;
   background-image: radial-gradient(
-      circle at 20% -10%,
-      rgba(16, 185, 129, 0.12),
-      transparent 40%
+      circle at 15% -10%,
+      rgba(16, 185, 129, 0.14),
+      transparent 42%
     ),
-    radial-gradient(circle at 90% 0%, rgba(52, 211, 153, 0.08), transparent 35%);
+    radial-gradient(circle at 95% 0%, rgba(56, 189, 248, 0.08), transparent 38%),
+    radial-gradient(circle at 50% 120%, rgba(245, 158, 11, 0.06), transparent 45%);
   min-height: 100vh;
 }
 
 @layer components {
   .card {
     @apply rounded-xl border border-surface-border bg-surface-card/70 p-5 backdrop-blur;
+  }
+  .card-hover {
+    @apply card transition duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-lg hover:shadow-brand/5;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
@@ -31,6 +35,26 @@ body {
     @apply btn border border-surface-border text-gray-200 hover:border-brand hover:text-brand;
   }
   .tag {
-    @apply inline-flex items-center rounded-full border border-surface-border px-2.5 py-0.5 text-xs text-gray-300;
+    @apply inline-flex items-center gap-1 rounded-full border border-surface-border px-2.5 py-0.5 text-xs text-gray-300;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-400 transition hover:bg-surface-border/60 hover:text-white;
+  }
+  .nav-link-active {
+    @apply bg-brand/10 text-brand;
+  }
+  .nav-section {
+    @apply px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600;
+  }
+  .stat-num {
+    @apply text-3xl font-bold text-brand;
   }
 }
+
+/* Accent helpers so pillars can theme themselves */
+.accent-emerald { @apply text-emerald-300; }
+.accent-sky { @apply text-sky-300; }
+.accent-amber { @apply text-amber-300; }
+.ring-emerald { @apply border-emerald-500/40 bg-emerald-500/10; }
+.ring-sky { @apply border-sky-500/40 bg-sky-500/10; }
+.ring-amber { @apply border-amber-500/40 bg-amber-500/10; }
