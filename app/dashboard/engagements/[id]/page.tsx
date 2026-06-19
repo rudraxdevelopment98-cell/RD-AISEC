@@ -8,7 +8,6 @@ import {
 } from "@/components/badges";
 import {
   getEngagement,
-  addFinding,
   updateEngagementStatus,
   updateFindingStatus,
   deleteFinding,
@@ -16,9 +15,10 @@ import {
 } from "@/lib/engagements";
 import {
   ENGAGEMENT_STATUSES,
-  SEVERITIES,
   FINDING_STATUSES,
 } from "@/lib/engagement-constants";
+import { getPillar } from "@/data/portal";
+import { EngagementWorkbench } from "@/components/engagement-workbench";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,7 @@ export default async function EngagementDetail({
   if (!e) notFound();
 
   const openCount = e.findings.filter((f) => f.status === "open").length;
+  const pillar = getPillar(e.type);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -114,49 +115,25 @@ export default async function EngagementDetail({
         </h2>
       </div>
 
-      {/* Add finding */}
-      <details className="card mt-3">
-        <summary className="cursor-pointer font-semibold text-brand">
-          + Add finding
-        </summary>
-        <form action={addFinding} className="mt-4 grid gap-3">
-          <input type="hidden" name="engagementId" value={e.id} />
-          <div className="flex gap-3">
-            <input
-              name="title"
-              required
-              placeholder="Finding title *"
-              className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-            <select
-              name="severity"
-              defaultValue="medium"
-              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm capitalize outline-none focus:border-brand"
-            >
-              {SEVERITIES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <textarea
-            name="description"
-            placeholder="Description — what & where, with evidence"
-            rows={2}
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <textarea
-            name="recommendation"
-            placeholder="Recommendation — how to fix and verify"
-            rows={2}
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <button type="submit" className="btn-primary">
-            Add finding
-          </button>
-        </form>
-      </details>
+      {/* Add finding — with quick-start chips from the matching workflow */}
+      <EngagementWorkbench
+        engagementId={e.id}
+        pillarTitle={pillar?.title ?? null}
+        stages={(pillar?.stages ?? []).map((s) => ({
+          name: s.name,
+          summary: s.summary,
+        }))}
+      />
+
+      {pillar && (
+        <p className="mt-2 text-xs text-gray-500">
+          Following the{" "}
+          <Link href={`/dashboard/${pillar.slug}`} className="text-brand hover:underline">
+            {pillar.title} workflow
+          </Link>
+          ? Use the stage chips above to log findings as you go.
+        </p>
+      )}
 
       {/* Findings list */}
       <div className="mt-4 space-y-3">

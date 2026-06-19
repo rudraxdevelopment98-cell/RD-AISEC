@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { Workflow } from "@/components/workflow";
 import type { Pillar } from "@/data/portal";
@@ -22,6 +23,9 @@ export function PillarView({ pillar }: { pillar: Pillar }) {
           Authorized engagements only. Confirm scope and written permission
           before any testing.
         </p>
+        <Link href="/dashboard/engagements" className="btn-ghost mt-4">
+          <Icon name="briefcase" className="h-4 w-4" /> Track this in an engagement
+        </Link>
       </header>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wider text-gray-500">
