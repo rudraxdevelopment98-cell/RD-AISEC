@@ -94,6 +94,16 @@ export default async function DashboardOverview() {
             Browse modern open-source and paid security tools by category.
           </p>
         </Link>
+        <Link href="/dashboard/shiva" className="card-hover sm:col-span-2">
+          <h3 className="flex items-center gap-2 font-semibold text-brand-glow">
+            <Icon name="book" className="h-5 w-5" /> Shiva — MCP Security
+          </h3>
+          <p className="mt-2 text-sm text-gray-400">
+            The research control room for securing the Model Context Protocol —
+            roadmap, threat model, and attack write-ups, rendered with live
+            diagrams.
+          </p>
+        </Link>
       </section>
 
       <p className="mt-10 flex items-center gap-2 text-xs text-gray-500">

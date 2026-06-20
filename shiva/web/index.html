@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shiva — Project Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Login -->
+  <div id="login">
+    <div class="card">
+      <span class="mode local" id="li-mode">● LOCAL</span>
+      <div class="logo">☩</div>
+      <h1>Shiva Project Portal</h1>
+      <p class="sub">Sign in to your account</p>
+      <label class="field"><span>Username</span><input id="li-user" placeholder="username" autocomplete="username"></label>
+      <label class="field"><span>Password</span><input id="li-pass" type="password" placeholder="••••••••" autocomplete="current-password"></label>
+      <div class="err" id="li-err"></div>
+      <button class="btn primary" style="width:100%;justify-content:center" onclick="doLogin()">Sign in</button>
+      <div class="hint" id="li-hint" style="display:none">
+        <b>First run.</b> Default owner account:<br>
+        username <b>kuldeep</b> · password <b>Shiva@2026</b><br>
+        Change it under <b>My Profile</b> after signing in.
+      </div>
+    </div>
+  </div>
+
+  <!-- App shell (rendered by app.js) -->
+  <div id="app"></div>
+
+  <!-- Supabase JS (only used if config.js has keys; harmless otherwise) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="store.js"></script>
+  <script src="canvas.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

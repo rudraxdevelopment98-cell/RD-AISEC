@@ -1,0 +1,64 @@
+site_name: Shiva — MCP Security Control Room
+site_description: Detection & policy layer for the Model Context Protocol — plan, progress, and charts.
+repo_url: https://github.com/rudraxdevelopment98-cell/shiva
+repo_name: rudraxdevelopment98-cell/shiva
+edit_uri: edit/claude/dazzling-galileo-j9yt04/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.sections
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Overview (mindmap): overview.md
+  - Roadmap: roadmap.md
+  - Progress board: progress.md
+  - Learning tracker: learning.md
+  - Architecture: architecture.md
+  - Threat model: threat-model.md
+  - Platform: platform.md
+  - Improvements: improvements.md
+  - Evidence / claims: evidence.md
+  - How to view: how-to-view.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search

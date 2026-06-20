@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / TypeScript
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+
+# Data / local
+*.sqlite
+*.duckdb
+*.db
+logs/
+*.log
+
+# Large media — keep these on the SSD / Releases / LFS, not in git history
+*.mp4
+*.mov
+*.zip
+media/
+secret.txt
+
+# Obsidian (keep notes, ignore local workspace state)
+.obsidian/workspace*
+.obsidian/cache
+
+# MkDocs build output
+site/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
