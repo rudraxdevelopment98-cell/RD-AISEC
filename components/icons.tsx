@@ -111,6 +111,14 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  chart: (
+    <>
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-6" />
+      <path d="M3 20h18" />
+    </>
+  ),
 };
 
 export function Icon({ name, className }: { name: string } & IconProps) {

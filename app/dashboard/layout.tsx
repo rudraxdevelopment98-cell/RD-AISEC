@@ -8,6 +8,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
+      { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
     ],
   },
   {
