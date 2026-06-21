@@ -69,3 +69,69 @@ body {
 .ring-emerald { @apply border-emerald-500/40 bg-emerald-500/10; }
 .ring-sky { @apply border-sky-500/40 bg-sky-500/10; }
 .ring-amber { @apply border-amber-500/40 bg-amber-500/10; }
+
+/* ── Cinematic / infographic styling ──────────────────────────────── */
+.text-gradient {
+  background: linear-gradient(90deg, #fff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-glow-blue {
+  color: #7dd3fc;
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+}
+.text-glow-red {
+  color: #fca5a5;
+  text-shadow: 0 0 20px rgba(248, 113, 113, 0.45);
+}
+
+/* Glowing split "globe" */
+.orb {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background:
+    radial-gradient(circle at 32% 35%, rgba(56, 189, 248, 0.5), transparent 55%),
+    radial-gradient(circle at 70% 66%, rgba(239, 68, 68, 0.45), transparent 55%),
+    radial-gradient(circle, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 1));
+  box-shadow:
+    0 0 70px rgba(56, 189, 248, 0.22),
+    0 0 90px rgba(239, 68, 68, 0.15),
+    inset 0 0 60px rgba(2, 6, 23, 0.85);
+}
+.orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 17px, rgba(148, 163, 184, 0.08) 17px 18px),
+    repeating-linear-gradient(90deg, transparent 0 17px, rgba(148, 163, 184, 0.08) 17px 18px);
+  -webkit-mask: radial-gradient(circle, #000 58%, transparent 72%);
+  mask: radial-gradient(circle, #000 58%, transparent 72%);
+}
+
+/* Icon tile chips (like the infographic capability tiles) */
+.tile {
+  @apply flex flex-col items-center justify-center gap-1.5 rounded-xl border border-surface-border bg-gradient-to-b from-white/5 to-transparent px-2 py-3 text-center text-[11px] leading-tight text-gray-300;
+}
+.tile-icon {
+  @apply flex h-8 w-8 items-center justify-center rounded-lg border;
+}
+
+/* Soft colored panel glow for the comparison cards */
+.panel-red {
+  border-color: rgba(239, 68, 68, 0.35);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(239, 68, 68, 0.12), transparent 60%),
+    rgba(17, 24, 39, 0.7);
+}
+.panel-blue {
+  border-color: rgba(56, 189, 248, 0.35);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(56, 189, 248, 0.12), transparent 60%),
+    rgba(17, 24, 39, 0.7);
+}
