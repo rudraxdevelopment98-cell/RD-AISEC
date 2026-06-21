@@ -29,15 +29,18 @@ Next.js 14 (App Router) · TypeScript · Tailwind CSS · Auth.js (NextAuth v5).
 
 ```bash
 npm install                  # also runs `prisma generate`
-cp .env.example .env         # then fill in the values (DATABASE_URL is preset)
-npx prisma migrate deploy    # create the SQLite tables
+cp .env.example .env         # set DATABASE_URL to a Postgres connection string
+npx prisma migrate deploy    # create the tables
 npm run dev
 ```
 
 Open http://localhost:3000.
 
-Data (engagements, findings) is stored in a local SQLite database via Prisma —
-see `prisma/schema.prisma`. Inspect it with `npm run db:studio`.
+Data (engagements, findings) is stored in **PostgreSQL** via Prisma — see
+`prisma/schema.prisma`. For local dev, use any Postgres (a free Neon/Supabase DB
+works, or a local instance). Inspect data with `npm run db:studio`.
+
+**Deploying?** See [DEPLOY.md](DEPLOY.md) for step-by-step Vercel + Postgres setup.
 
 ### Configuration
 
