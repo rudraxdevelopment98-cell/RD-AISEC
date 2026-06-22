@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { runScan } from "@/lib/scanner";
+import { runScan, runScans, parseTargets } from "@/lib/scanner";
 
 /**
  * Re-run the scan server-side (so we trust the data, not the client) and save
@@ -31,6 +31,42 @@ export async function saveScanFindings(formData: FormData) {
       recommendation: c.recommendation,
     })),
   });
+  await prisma.engagement.update({
+    where: { id: engagementId },
+    data: { updatedAt: new Date() },
+  });
+
+  revalidatePath(`/dashboard/engagements/${engagementId}`);
+  redirect(`/dashboard/engagements/${engagementId}`);
+}
+
+/**
+ * Bulk variant: re-run scans for every target server-side and save all failed
+ * checks (across all targets) as findings on the chosen engagement.
+ */
+export async function saveBulkScanFindings(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const engagementId = String(formData.get("engagementId") ?? "");
+  const targets = parseTargets(String(formData.get("targets") ?? ""));
+  if (!engagementId || targets.length === 0) return;
+
+  const results = await runScans(targets);
+  const data = results.flatMap((r) =>
+    r.checks
+      .filter((c) => !c.passed)
+      .map((c) => ({
+        engagementId,
+        title: `${c.name} — ${r.target}`,
+        severity: c.severity,
+        description: `Automated posture scan of ${r.finalUrl ?? r.target}.\n\n${c.detail}`,
+        recommendation: c.recommendation,
+      })),
+  );
+  if (data.length === 0) return;
+
+  await prisma.finding.createMany({ data });
   await prisma.engagement.update({
     where: { id: engagementId },
     data: { updatedAt: new Date() },

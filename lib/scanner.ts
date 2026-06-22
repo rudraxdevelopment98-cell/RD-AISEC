@@ -43,6 +43,26 @@ function getSetCookies(headers: Headers): string[] {
   return raw ? [raw] : [];
 }
 
+/** Max targets accepted in one bulk scan. */
+export const MAX_BULK_TARGETS = 10;
+
+/** Parse a newline/comma/space-separated list of targets, de-duplicated. */
+export function parseTargets(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\n,\s]+/)
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, MAX_BULK_TARGETS);
+}
+
+/** Scan many targets concurrently. */
+export async function runScans(targets: string[]): Promise<ScanResult[]> {
+  return Promise.all(targets.map((t) => runScan(t)));
+}
+
 export async function runScan(input: string): Promise<ScanResult> {
   const target = normalizeUrl(input);
   const base: ScanResult = {
