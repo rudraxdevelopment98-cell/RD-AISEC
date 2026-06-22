@@ -7,13 +7,13 @@ export function PillarView({ pillar }: { pillar: Pillar }) {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="card relative overflow-hidden">
-        <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full blur-3xl ring-${pillar.accent}`} />
+        <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ring-${pillar.accent}`} />
         <div className="flex items-center gap-3">
           <span className={`flex h-12 w-12 items-center justify-center rounded-xl border ring-${pillar.accent} accent-${pillar.accent}`}>
             <Icon name={pillar.icon} className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold">{pillar.title}</h1>
+            <h1 className="text-2xl font-bold text-gradient">{pillar.title}</h1>
             <p className={`text-sm accent-${pillar.accent}`}>{pillar.tagline}</p>
           </div>
         </div>
@@ -23,9 +23,14 @@ export function PillarView({ pillar }: { pillar: Pillar }) {
           Authorized engagements only. Confirm scope and written permission
           before any testing.
         </p>
-        <Link href="/dashboard/engagements" className="btn-ghost mt-4">
-          <Icon name="briefcase" className="h-4 w-4" /> Track this in an engagement
-        </Link>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Link href="/dashboard/engagements" className="btn-ghost">
+            <Icon name="briefcase" className="h-4 w-4" /> Track this in an engagement
+          </Link>
+          <span className={`tag ring-${pillar.accent} accent-${pillar.accent}`}>
+            {pillar.stages.length} stages
+          </span>
+        </div>
       </header>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wider text-gray-500">
