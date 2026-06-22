@@ -38,7 +38,10 @@ export async function getEngagement(id: string) {
   await requireUser();
   return prisma.engagement.findUnique({
     where: { id },
-    include: { findings: { orderBy: { createdAt: "desc" } } },
+    include: {
+      findings: { orderBy: { createdAt: "desc" } },
+      resources: { orderBy: { createdAt: "desc" } },
+    },
   });
 }
 

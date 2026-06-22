@@ -22,8 +22,26 @@ model Engagement {
   authorizedBy String    @default("")
   ownerEmail   String    @default("")
   findings     Finding[]
+  resources    Resource[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// A catalog entry in the Resource Vault. The actual file lives offline (e.g. on
+// an external drive) — we store only the metadata + a link or drive location.
+model Resource {
+  id           String      @id @default(cuid())
+  title        String
+  // "link" | "book" | "exploit" | "tool" | "cheatsheet" | "other"
+  type         String      @default("link")
+  url          String      @default("") // online resources
+  location     String      @default("") // offline drive label, e.g. "SSD:/Books/nmap.pdf"
+  tags         String      @default("")
+  notes        String      @default("")
+  ownerEmail   String      @default("")
+  engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  engagementId String?
+  createdAt    DateTime    @default(now())
 }
 
 // A single issue discovered during an engagement.

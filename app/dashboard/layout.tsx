@@ -28,6 +28,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
       { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
+      { href: "/dashboard/library", label: "Resource Vault", icon: "server" },
       { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
       { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "book" },
     ],
