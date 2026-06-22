@@ -39,20 +39,27 @@ export default async function DashboardLayout({
   const initial = (user?.name ?? user?.email ?? "U").charAt(0).toUpperCase();
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 p-4 sm:flex print:!hidden">
-        <Link href="/" className="flex items-center gap-2 px-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
-            R
-          </span>
-          <span className="font-mono text-base font-bold">
-            RD<span className="text-brand">-AISEC</span>
-          </span>
-        </Link>
+    <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
+      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 sm:flex print:!hidden">
+        {/* Sidebar header — pinned top */}
+        <div className="shrink-0 border-b border-surface-border p-4">
+          <Link href="/" className="flex items-center gap-2 px-2">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
+              R
+            </span>
+            <span className="font-mono text-base font-bold">
+              RD<span className="text-brand">-AISEC</span>
+            </span>
+          </Link>
+        </div>
 
-        <SidebarNav groups={NAV} />
+        {/* Nav — scrolls if it overflows */}
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <SidebarNav groups={NAV} />
+        </div>
 
-        <div className="mt-auto space-y-3 pt-6">
+        {/* Sidebar footer — pinned bottom */}
+        <div className="shrink-0 space-y-3 border-t border-surface-border p-4">
           <div className="flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2">
             <span className="grid h-7 w-7 place-items-center rounded-full bg-brand/20 text-xs font-bold text-brand">
               {initial}
@@ -74,11 +81,10 @@ export default async function DashboardLayout({
         </div>
       </aside>
 
-      <div className="flex-1">
-        <header className="flex items-center justify-between border-b border-surface-border px-6 py-3 print:hidden">
-          <p className="text-sm text-gray-500">
-            Security operations portal
-          </p>
+      <div className="flex h-screen flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">
+        {/* Top header — pinned on every page */}
+        <header className="z-10 flex shrink-0 items-center justify-between border-b border-surface-border bg-surface/80 px-6 py-3 backdrop-blur print:hidden">
+          <p className="text-sm text-gray-500">Security operations portal</p>
           <div className="flex items-center gap-3">
             <span className="tag ring-emerald accent-emerald">● Authorized session</span>
             <form
@@ -94,7 +100,10 @@ export default async function DashboardLayout({
             </form>
           </div>
         </header>
-        <main className="px-6 py-8">{children}</main>
+        {/* Scrollable content area */}
+        <main className="flex-1 overflow-y-auto px-6 py-8 print:overflow-visible">
+          {children}
+        </main>
       </div>
     </div>
   );
