@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { createResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { ResourceList, type ResourceItem } from "@/components/resource-list";
+import { DriveProvider, ConnectDriveButton } from "@/components/drive";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,16 @@ export default async function LibraryPage() {
         </form>
       </details>
 
-      <ResourceList resources={resources} />
+      <DriveProvider>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-surface-border bg-surface-card/40 px-4 py-3">
+          <p className="text-xs text-gray-400">
+            Plug in your external drive and connect it to open offline files
+            locally — nothing is uploaded.
+          </p>
+          <ConnectDriveButton />
+        </div>
+        <ResourceList resources={resources} />
+      </DriveProvider>
     </div>
   );
 }

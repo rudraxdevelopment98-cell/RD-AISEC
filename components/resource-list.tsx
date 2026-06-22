@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
+import { OpenFromDriveButton } from "@/components/drive";
 import { deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 
@@ -112,6 +113,7 @@ export function ResourceList({ resources }: { resources: ResourceItem[] }) {
                 </a>
               )}
               {r.location && <CopyLocation value={r.location} />}
+              {r.location && <OpenFromDriveButton location={r.location} />}
             </div>
 
             {(r.tags || r.engagementName) && (
