@@ -12,9 +12,20 @@ const devEnabled = process.env.ALLOW_DEV_LOGIN === "true";
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { callbackUrl?: string };
+  searchParams: { callbackUrl?: string; error?: string };
 }) {
   const callbackUrl = searchParams.callbackUrl ?? "/dashboard";
+
+  const ERROR_MESSAGES: Record<string, string> = {
+    AccessDenied:
+      "This account isn't on the authorized list. Ask an admin to add your email to AUTHORIZED_EMAILS.",
+    CredentialsSignin: "Incorrect email or password.",
+    Configuration:
+      "Sign-in isn't configured correctly. Check the server environment variables.",
+  };
+  const errorMessage = searchParams.error
+    ? ERROR_MESSAGES[searchParams.error] ?? "Could not sign you in. Please try again."
+    : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
@@ -25,6 +36,12 @@ export default function LoginPage({
       <p className="mt-2 text-sm text-gray-400">
         Access is restricted to authorized accounts.
       </p>
+
+      {errorMessage && (
+        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {errorMessage}
+        </p>
+      )}
 
       <div className="card mt-8 space-y-3">
         {googleEnabled && (
