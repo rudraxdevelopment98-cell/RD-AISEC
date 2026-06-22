@@ -34,7 +34,7 @@ export default function LoginPage({
               await signIn("google", { redirectTo: callbackUrl });
             }}
           >
-            <button type="submit" className="btn-ghost w-full">
+            <button type="submit" className="btn-primary w-full">
               Continue with Google
             </button>
           </form>
@@ -53,6 +53,13 @@ export default function LoginPage({
           </form>
         )}
 
+        {devEnabled && (githubEnabled || googleEnabled) && (
+          <div className="flex items-center gap-3 py-1 text-xs text-gray-600">
+            <span className="h-px flex-1 bg-surface-border" /> or{" "}
+            <span className="h-px flex-1 bg-surface-border" />
+          </div>
+        )}
+
         {devEnabled && (
           <form
             action={async (formData: FormData) => {
@@ -63,7 +70,7 @@ export default function LoginPage({
                 redirectTo: callbackUrl,
               });
             }}
-            className="space-y-3 border-t border-surface-border pt-3"
+            className="space-y-3"
           >
             <p className="text-xs text-gray-500">Developer login (dev only)</p>
             <input
