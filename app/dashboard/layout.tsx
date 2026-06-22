@@ -20,6 +20,10 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    section: "Automation",
+    items: [{ href: "/dashboard/scan", label: "Auto Scan", icon: "radar" }],
+  },
+  {
     section: "Resources",
     items: [
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },

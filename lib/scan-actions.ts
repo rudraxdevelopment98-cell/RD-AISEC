@@ -1,0 +1,41 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { runScan } from "@/lib/scanner";
+
+/**
+ * Re-run the scan server-side (so we trust the data, not the client) and save
+ * every FAILED check as a finding on the chosen engagement.
+ */
+export async function saveScanFindings(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const engagementId = String(formData.get("engagementId") ?? "");
+  const target = String(formData.get("target") ?? "").slice(0, 2048);
+  if (!engagementId || !target.trim()) return;
+
+  const result = await runScan(target);
+  const failed = result.checks.filter((c) => !c.passed);
+  if (failed.length === 0) return;
+
+  await prisma.finding.createMany({
+    data: failed.map((c) => ({
+      engagementId,
+      title: `${c.name} — ${result.target}`,
+      severity: c.severity,
+      description: `Automated posture scan of ${result.finalUrl ?? result.target}.\n\n${c.detail}`,
+      recommendation: c.recommendation,
+    })),
+  });
+  await prisma.engagement.update({
+    where: { id: engagementId },
+    data: { updatedAt: new Date() },
+  });
+
+  revalidatePath(`/dashboard/engagements/${engagementId}`);
+  redirect(`/dashboard/engagements/${engagementId}`);
+}

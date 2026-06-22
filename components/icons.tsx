@@ -119,6 +119,14 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M3 20h18" />
     </>
   ),
+  radar: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 12L7 7" />
+      <path d="M12 3a9 9 0 0 1 9 9" />
+      <circle cx="12" cy="12" r="1.5" />
+    </>
+  ),
 };
 
 export function Icon({ name, className }: { name: string } & IconProps) {
