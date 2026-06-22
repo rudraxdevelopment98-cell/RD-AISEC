@@ -145,3 +145,9 @@ export function findTopic(query: string): AssistantAnswer | null {
 
   return best ? best.topic.answer : null;
 }
+
+/** Fetch one topic's full answer by slug (for the Knowledge Library viewer). */
+export function getTopicBySlug(slug: string): AssistantAnswer | null {
+  const found = allTopics().find((t) => t.meta.slug === slug);
+  return found ? found.answer : null;
+}

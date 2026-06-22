@@ -7,6 +7,8 @@ const nextConfig = {
     outputFileTracingIncludes: {
       "/api/assistant": ["./content/**/*"],
       "/dashboard/assistant": ["./content/**/*"],
+      "/dashboard/knowledge": ["./content/**/*"],
+      "/dashboard/knowledge/[slug]": ["./content/**/*"],
       "/dashboard/shiva": ["./shiva/docs/**/*"],
       "/dashboard/shiva/[slug]": ["./shiva/docs/**/*"],
     },
