@@ -23,6 +23,7 @@ model Engagement {
   ownerEmail   String    @default("")
   findings     Finding[]
   resources    Resource[]
+  scans        ScanRun[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -57,4 +58,22 @@ model Finding {
   description    String     @default("")
   recommendation String     @default("")
   createdAt      DateTime   @default(now())
+}
+
+// A single reconnaissance/security scan run. Tracks scan execution history,
+// results, and progress for trend analysis and audit trail.
+model ScanRun {
+  id             String     @id @default(cuid())
+  engagement     Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId   String
+  target         String     // URL, IP, or domain being scanned
+  scanType       String     // "dns" | "port" | "web" | "posture" | "osint"
+  // "pending" | "running" | "completed" | "failed"
+  status         String     @default("pending")
+  progress       Int        @default(0) // 0-100 percentage
+  result         String     @default("{}") // JSON: parsed scan results
+  error          String     @default("") // error message if failed
+  durationMs     Int        @default(0) // execution time in ms
+  createdAt      DateTime   @default(now())
+  completedAt    DateTime? // when scan finished
 }
