@@ -19,6 +19,7 @@ import {
 } from "@/lib/engagement-constants";
 import { getPillar } from "@/data/portal";
 import { EngagementWorkbench } from "@/components/engagement-workbench";
+import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 
@@ -272,6 +273,17 @@ export default async function EngagementDetail({
                   className="text-xs text-brand hover:underline"
                 >
                   Open link ↗
+              {/* Reconnaissance Scanner — for pentest engagements */}
+              {e.type === "pentest" && e.authorized && (
+                <section className="mt-6">
+                  <ReconnaissanceScanner
+                    engagementId={e.id}
+                    onScanComplete={() => {
+                      // Refresh will happen via revalidatePath in server action
+                    }}
+                  />
+                </section>
+              )}
                 </a>
               )}
             </div>
