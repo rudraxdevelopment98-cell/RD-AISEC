@@ -138,12 +138,7 @@ export default async function EngagementDetail({
       {/* Reconnaissance Scanner — for pentest engagements */}
       {e.type === "pentest" && e.authorized && (
         <section className="mt-6">
-          <ReconnaissanceScanner
-            engagementId={e.id}
-            onScanComplete={() => {
-              // Page will refresh via revalidatePath in server action
-            }}
-          />
+          <ReconnaissanceScanner engagementId={e.id} />
         </section>
       )}
 
@@ -312,17 +307,6 @@ export default async function EngagementDetail({
                   className="text-xs text-brand hover:underline"
                 >
                   Open link ↗
-              {/* Reconnaissance Scanner — for pentest engagements */}
-              {e.type === "pentest" && e.authorized && (
-                <section className="mt-6">
-                  <ReconnaissanceScanner
-                    engagementId={e.id}
-                    onScanComplete={() => {
-                      // Refresh will happen via revalidatePath in server action
-                    }}
-                  />
-                </section>
-              )}
                 </a>
               )}
             </div>
@@ -336,6 +320,13 @@ export default async function EngagementDetail({
           </div>
         ))}
       </div>
+
+      {/* Reconnaissance Scanner — for pentest engagements */}
+      {e.type === "pentest" && e.authorized && (
+        <section className="mt-6">
+          <ReconnaissanceScanner engagementId={e.id} />
+        </section>
+      )}
 
       {/* Danger zone */}
       <form action={deleteEngagement} className="mt-10">

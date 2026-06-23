@@ -5,7 +5,6 @@ import { executeReconnaissanceScan, startReconnaissanceScan } from "@/lib/scan-o
 
 type ReconProgressProps = {
   engagementId: string;
-  onScanComplete?: () => void;
 };
 
 type ReconResults = {
@@ -15,10 +14,7 @@ type ReconResults = {
   message: string;
 };
 
-export function ReconnaissanceScanner({
-  engagementId,
-  onScanComplete,
-}: ReconProgressProps) {
+export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
   const [target, setTarget] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanId, setScanId] = useState<string | null>(null);
@@ -65,9 +61,7 @@ export function ReconnaissanceScanner({
         message: "Reconnaissance complete. Findings automatically created.",
       });
 
-      if (onScanComplete) {
-        setTimeout(onScanComplete, 1000);
-      }
+      // Page will auto-refresh via revalidatePath in server action
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setProgress(0);
