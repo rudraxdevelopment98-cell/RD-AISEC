@@ -41,6 +41,7 @@ export async function getEngagement(id: string) {
     include: {
       findings: { orderBy: { createdAt: "desc" } },
       resources: { orderBy: { createdAt: "desc" } },
+      scans: { orderBy: { createdAt: "desc" } },
     },
   });
 }

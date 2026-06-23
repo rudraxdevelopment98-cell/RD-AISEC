@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { executeReconnaissanceScan, startReconnaissanceScan } from "@/lib/scan-orchestration";
+import { executeReconnaissanceScan, startReconnaissanceScan, getScanResult } from "@/lib/scan-orchestration";
+import { ReconnaissanceResultsTabs } from "./reconnaissance-results-tabs";
 
 type ReconProgressProps = {
   engagementId: string;
@@ -12,6 +13,16 @@ type ReconResults = {
   scansRun: string[];
   findingsCreated: number;
   message: string;
+  parsedResults?: Record<string, unknown>;
+};
+
+type ScanData = {
+  target: string;
+  dnsEnumeration?: Record<string, unknown>;
+  portDiscovery?: Record<string, unknown>;
+  webTechDetection?: Record<string, unknown>;
+  osintGathering?: Record<string, unknown>;
+  durationMs?: number;
 };
 
 export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
@@ -21,6 +32,8 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [results, setResults] = useState<ReconResults | null>(null);
+  const [scanData, setScanData] = useState<ScanData | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   const handleStartScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,13 +66,31 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
 
       setProgress(100);
 
-      // Simulate result retrieval (in real app, fetch from DB)
+      // Fetch actual results from DB
+      const resultData = await getScanResult(id);
+      if (resultData?.result) {
+        try {
+          const parsed = typeof resultData.result === "string" 
+            ? JSON.parse(resultData.result) 
+            : resultData.result;
+          setScanData({
+            target,
+            ...parsed,
+          });
+        } catch {
+          setScanData({ target });
+        }
+      } else {
+        setScanData({ target });
+      }
+
       setResults({
         status: "completed",
         scansRun: ["DNS Enumeration", "Port Discovery", "Web Tech Detection", "OSINT"],
         findingsCreated: 2,
         message: "Reconnaissance complete. Findings automatically created.",
       });
+      setShowResults(true);
 
       // Page will auto-refresh via revalidatePath in server action
     } catch (err) {
@@ -123,41 +154,89 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
           </button>
         </form>
       ) : (
-        <div className="space-y-4 rounded bg-emerald-900/10 border border-emerald-700 p-4">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
+        <div className="space-y-4">
+          {showResults && scanData ? (
+            <>
+              <ReconnaissanceResultsTabs
+                results={scanData as any}
+                onClose={() => {
+                  setShowResults(false);
+                  setResults(null);
+                  setScanData(null);
+                  setTarget("");
+                  setScanId(null);
+                  setProgress(0);
+                }}
               />
-            </svg>
-            <span className="font-semibold">Reconnaissance Complete</span>
-          </div>
 
-          <div className="text-sm space-y-2">
-            <p>
-              <strong>Target:</strong> {target}
-            </p>
-            <p>
-              <strong>Scans Run:</strong> {(results.scansRun as string[])?.join(", ")}
-            </p>
-            <p className="text-emerald-400">
-              <strong>Findings Created:</strong> {results.findingsCreated}
-            </p>
-          </div>
+              <div className="space-y-2 rounded bg-emerald-900/10 border border-emerald-700 p-4">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="font-semibold">{results.message}</span>
+                </div>
+                <p className="text-sm text-emerald-300">
+                  <strong>Findings Created:</strong> {results.findingsCreated}
+                </p>
+              </div>
 
-          <button
-            onClick={() => {
-              setResults(null);
-              setTarget("");
-              setScanId(null);
-              setProgress(0);
-            }}
-            className="btn-ghost w-full py-2 rounded text-sm"
-          >
-            Scan Another Target
-          </button>
+              <button
+                onClick={() => {
+                  setResults(null);
+                  setScanData(null);
+                  setShowResults(false);
+                  setTarget("");
+                  setScanId(null);
+                  setProgress(0);
+                }}
+                className="btn-ghost w-full py-2 rounded text-sm"
+              >
+                Scan Another Target
+              </button>
+            </>
+          ) : (
+            <div className="space-y-4 rounded bg-emerald-900/10 border border-emerald-700 p-4">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="font-semibold">Reconnaissance Complete</span>
+              </div>
+
+              <div className="text-sm space-y-2">
+                <p>
+                  <strong>Target:</strong> {target}
+                </p>
+                <p>
+                  <strong>Scans Run:</strong> {(results?.scansRun as string[])?.join(", ")}
+                </p>
+                <p className="text-emerald-400">
+                  <strong>Findings Created:</strong> {results?.findingsCreated}
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setResults(null);
+                  setTarget("");
+                  setScanId(null);
+                  setProgress(0);
+                }}
+                className="btn-ghost w-full py-2 rounded text-sm"
+              >
+                Scan Another Target
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

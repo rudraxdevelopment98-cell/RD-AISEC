@@ -21,6 +21,7 @@ import {
 import { getPillar } from "@/data/portal";
 import { EngagementWorkbench } from "@/components/engagement-workbench";
 import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
+import { ScanHistory } from "@/components/scan-history";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 
@@ -137,8 +138,11 @@ export default async function EngagementDetail({
 
       {/* Reconnaissance Scanner — for pentest engagements */}
       {e.type === "pentest" && e.authorized && (
-        <section className="mt-6">
+        <section className="mt-6 space-y-4">
           <ReconnaissanceScanner engagementId={e.id} />
+          {e.scans && e.scans.length > 0 && (
+            <ScanHistory scans={e.scans} engagementId={e.id} />
+          )}
         </section>
       )}
 
