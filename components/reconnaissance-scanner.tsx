@@ -8,6 +8,13 @@ type ReconProgressProps = {
   onScanComplete?: () => void;
 };
 
+type ReconResults = {
+  status: string;
+  scansRun: string[];
+  findingsCreated: number;
+  message: string;
+};
+
 export function ReconnaissanceScanner({
   engagementId,
   onScanComplete,
@@ -17,7 +24,7 @@ export function ReconnaissanceScanner({
   const [scanId, setScanId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [results, setResults] = useState<Record<string, unknown> | null>(null);
+  const [results, setResults] = useState<ReconResults | null>(null);
 
   const handleStartScan = async (e: React.FormEvent) => {
     e.preventDefault();
