@@ -321,13 +321,6 @@ export default async function EngagementDetail({
         ))}
       </div>
 
-      {/* Reconnaissance Scanner — for pentest engagements */}
-      {e.type === "pentest" && e.authorized && (
-        <section className="mt-6">
-          <ReconnaissanceScanner engagementId={e.id} />
-        </section>
-      )}
-
       {/* Danger zone */}
       <form action={deleteEngagement} className="mt-10">
         <input type="hidden" name="id" value={e.id} />
