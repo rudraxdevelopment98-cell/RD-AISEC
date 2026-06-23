@@ -135,6 +135,18 @@ export default async function EngagementDetail({
         </form>
       </section>
 
+      {/* Reconnaissance Scanner — for pentest engagements */}
+      {e.type === "pentest" && e.authorized && (
+        <section className="mt-6">
+          <ReconnaissanceScanner
+            engagementId={e.id}
+            onScanComplete={() => {
+              // Page will refresh via revalidatePath in server action
+            }}
+          />
+        </section>
+      )}
+
       {/* Findings */}
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-semibold">
