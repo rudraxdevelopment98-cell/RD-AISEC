@@ -74,6 +74,19 @@ export async function updateEngagementStatus(formData: FormData) {
   revalidatePath(`/dashboard/engagements/${id}`);
 }
 
+export async function updateEngagementAuthorization(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const authorized = String(formData.get("authorized") ?? "") === "true";
+  const authorizedBy = String(formData.get("authorizedBy") ?? "").trim();
+
+  await prisma.engagement.update({
+    where: { id },
+    data: { authorized, authorizedBy: authorized ? authorizedBy || email : "" },
+  });
+  revalidatePath(`/dashboard/engagements/${id}`);
+}
+
 export async function deleteEngagement(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");
