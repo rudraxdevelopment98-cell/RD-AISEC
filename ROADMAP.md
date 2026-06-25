@@ -162,7 +162,8 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [x] Analytics (early Monitoring)
 - [ ] **Assets model** — track hosts/domains/apps per engagement (separate from
       free-form Resources). Feeds scope + scan targets.
-- [ ] **Scan history** — persist scans over time; chart posture trend per asset.
+- [x] **Scan history / Monitoring** — `/dashboard/history`: unified timeline of
+      recon ScanRuns + Runner Jobs with 14-day activity chart and breakdowns.
 - [ ] **Teams / RBAC** — move beyond the email allowlist to roles
       (owner/analyst/viewer) + per-engagement membership.
 - [ ] **Audit log** — record sensitive actions (job queued, finding edited,
