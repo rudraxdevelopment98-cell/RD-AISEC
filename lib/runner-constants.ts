@@ -31,10 +31,12 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     label: "Nmap — port & service scan",
     description: "Discover open ports and the services behind them.",
     active: true,
+    // -Pn skips host discovery: most hosts block nmap's ping probes, which would
+    // otherwise make nmap report "host seems down" and find 0 ports.
     presets: [
-      { id: "quick", label: "Quick (top 100 ports)", args: ["-F", "-T4"] },
-      { id: "service", label: "Service + version", args: ["-sV", "-T4"] },
-      { id: "full", label: "Full TCP (all ports)", args: ["-p-", "-T4"] },
+      { id: "quick", label: "Quick (top 100 ports)", args: ["-Pn", "-F", "-T4"] },
+      { id: "service", label: "Service + version", args: ["-Pn", "-sV", "-T4"] },
+      { id: "full", label: "Full TCP (all ports)", args: ["-Pn", "-p-", "-T4"] },
     ],
   },
   {
