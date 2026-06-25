@@ -55,6 +55,83 @@ export default async function RunnersPage({
         set up the agent.
       </p>
 
+      {/* How-to-connect hint */}
+      <details className="card mt-6">
+        <summary className="cursor-pointer font-semibold text-brand">
+          <Icon name="bolt" className="mr-1 inline h-4 w-4" />
+          How do I connect my Kali Linux?
+        </summary>
+        <div className="mt-4 space-y-4 text-sm text-gray-300">
+          <p className="text-gray-400">
+            Works with any Kali — UTM VM, a physical laptop, bare metal, or a
+            cloud box. The runner only makes <strong>outbound HTTPS</strong>{" "}
+            calls, so there are no ports to open.
+          </p>
+
+          <div>
+            <p className="font-semibold text-white">1. Register a runner</p>
+            <p className="text-gray-400">
+              Use the form below, name it, and <strong>copy the token</strong> —
+              it&apos;s shown only once.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-white">2. Get the agent onto Kali</p>
+            <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
+{`# clone the repo…
+git clone https://github.com/rudraxdevelopment98-cell/rd-aisec.git
+cd rd-aisec/runner
+
+# …or just grab the single file
+curl -O https://raw.githubusercontent.com/rudraxdevelopment98-cell/rd-aisec/main/runner/rdaisec_runner.py`}
+            </pre>
+          </div>
+
+          <div>
+            <p className="font-semibold text-white">3. Install the tools</p>
+            <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
+{`sudo apt update && sudo apt install -y nmap whois dnsutils
+# optional (ProjectDiscovery): httpx, nuclei`}
+            </pre>
+          </div>
+
+          <div>
+            <p className="font-semibold text-white">
+              4. Point it at the portal and run
+            </p>
+            <p className="text-gray-400">
+              Nothing to <code className="font-mono">pip install</code> — it uses
+              the Python 3 standard library.
+            </p>
+            <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
+{`export PORTAL_URL="https://rd-aisec.vercel.app"
+export RUNNER_TOKEN="rdr_...."   # the token from step 1
+python3 rdaisec_runner.py`}
+            </pre>
+          </div>
+
+          <div>
+            <p className="font-semibold text-white">5. Verify &amp; test</p>
+            <p className="text-gray-400">
+              The runner flips to <span className="text-emerald-300">online</span>{" "}
+              below. Queue an <code className="font-mono">nmap</code> →{" "}
+              <em>Quick</em> against{" "}
+              <code className="font-mono">scanme.nmap.org</code>, watch it run,
+              then <strong>Import to findings</strong>.
+            </p>
+          </div>
+
+          <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+            💡 Running the portal locally instead of Vercel? Set{" "}
+            <code className="font-mono">PORTAL_URL=&quot;http://&lt;your-PC-LAN-IP&gt;:3000&quot;</code>{" "}
+            — not <code className="font-mono">localhost</code>, which would point
+            at the Kali box itself. Full guide:{" "}
+            <code className="font-mono">runner/README.md</code>.
+          </p>
+        </div>
+      </details>
+
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
