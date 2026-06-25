@@ -147,11 +147,15 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [x] Findings
 - [x] Reports (Markdown + print)
 - [x] Passive Auto Scan (single + bulk)
-- [ ] **Runner: `Runner` + `Job` models + migration**
-- [ ] **Runner: register / claim / result / queue API routes (auth-gated)**
-- [ ] **Runner: minimal Kali agent script (`runner/`) — runs `nmap`, posts back**
-- [ ] **Runner: portal UI — "Queue scan" + live job list + output viewer**
-- [ ] **Runner: nmap output → Findings parser**
+- [x] **Runner: `Runner` + `Job` models + migration**
+- [x] **Runner: register (server action) / claim / result API + queue action (auth-gated)**
+- [x] **Runner: Kali agent script (`runner/`) — nmap/httpx/nuclei/whois/dig, posts back**
+- [x] **Runner: portal UI — `/dashboard/runners`: register, queue, live jobs, output viewer**
+- [x] **Runner: output → Findings parser (nmap/nuclei/httpx) + "Import to findings"**
+
+> ✅ **Runner vertical slice shipped.** Set up the Kali agent with
+> `runner/README.md`. Next: more output parsers, scan history, and Workflows
+> (Phase 3) that chain runner jobs.
 
 ### Phase 2 — Workspace (Assets · Monitoring · Teams)
 - [x] Resource Vault (early Assets)
