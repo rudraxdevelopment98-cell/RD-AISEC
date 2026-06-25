@@ -41,6 +41,7 @@ export async function getEngagement(id: string) {
     include: {
       findings: { orderBy: { createdAt: "desc" } },
       resources: { orderBy: { createdAt: "desc" } },
+      scans: { orderBy: { createdAt: "desc" } },
     },
   });
 }
@@ -71,6 +72,19 @@ export async function updateEngagementStatus(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const status = oneOf(formData.get("status"), ENGAGEMENT_STATUSES, "planning");
   await prisma.engagement.update({ where: { id }, data: { status } });
+  revalidatePath(`/dashboard/engagements/${id}`);
+}
+
+export async function updateEngagementAuthorization(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const authorized = String(formData.get("authorized") ?? "") === "true";
+  const authorizedBy = String(formData.get("authorizedBy") ?? "").trim();
+
+  await prisma.engagement.update({
+    where: { id },
+    data: { authorized, authorizedBy: authorized ? authorizedBy || email : "" },
+  });
   revalidatePath(`/dashboard/engagements/${id}`);
 }
 

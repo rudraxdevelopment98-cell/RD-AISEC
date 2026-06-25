@@ -9,6 +9,7 @@ import {
 import {
   getEngagement,
   updateEngagementStatus,
+  updateEngagementAuthorization,
   updateFindingStatus,
   deleteFinding,
   deleteEngagement,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/engagement-constants";
 import { getPillar } from "@/data/portal";
 import { EngagementWorkbench } from "@/components/engagement-workbench";
+import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 
@@ -105,7 +107,40 @@ export default async function EngagementDetail({
             {e.scope}
           </p>
         )}
+
+        {/* Authorization toggle form */}
+        <form action={updateEngagementAuthorization} className="mt-4 flex items-center gap-3">
+          <input type="hidden" name="id" value={e.id} />
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="authorized"
+              value="true"
+              defaultChecked={e.authorized}
+              className="h-4 w-4 rounded border-gray-500"
+            />
+            <span>Mark as authorized</span>
+          </label>
+          {!e.authorized && (
+            <input
+              type="text"
+              name="authorizedBy"
+              placeholder="Authorized by (optional)"
+              className="rounded border border-gray-600 bg-gray-800 px-2 py-1 text-xs text-white placeholder-gray-500"
+            />
+          )}
+          <button type="submit" className="btn-ghost text-xs">
+            Update
+          </button>
+        </form>
       </section>
+
+      {/* Reconnaissance Scanner — for pentest engagements */}
+      {e.type === "pentest" && e.authorized && (
+        <section className="mt-6">
+          <ReconnaissanceScanner engagementId={e.id} />
+        </section>
+      )}
 
       {/* Findings */}
       <div className="mt-8 flex items-center justify-between">
