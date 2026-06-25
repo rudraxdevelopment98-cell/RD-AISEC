@@ -23,6 +23,7 @@ model Engagement {
   ownerEmail   String    @default("")
   findings     Finding[]
   resources    Resource[]
+  jobs         Job[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -42,6 +43,43 @@ model Resource {
   engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
   engagementId String?
   createdAt    DateTime    @default(now())
+}
+
+// A registered execution host (e.g. a Kali VM in UTM on an external drive).
+// The portal queues Jobs; the runner polls over HTTPS, executes them locally,
+// and posts results back. The token is stored hashed; the plaintext is shown
+// to the user exactly once at creation.
+model Runner {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  ownerEmail String    @default("")
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  jobs       Job[]
+}
+
+// A single tool execution queued by the portal and run by a Runner.
+model Job {
+  id           String     @id @default(cuid())
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId String
+  runner       Runner?    @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  runnerId     String?
+  // allowlisted tool id, e.g. "nmap" | "nuclei" | "httpx" | "whois" | "dig"
+  tool         String
+  // validated target (in-scope host/URL)
+  target       String
+  // validated, space-separated tool flags (no shell metacharacters)
+  args         String     @default("")
+  // "queued" | "running" | "done" | "failed" | "canceled"
+  status       String     @default("queued")
+  output       String     @default("") // raw tool output (capped)
+  exitCode     Int?
+  queuedBy     String     @default("") // user email, for audit
+  createdAt    DateTime   @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
 }
 
 // A single issue discovered during an engagement.

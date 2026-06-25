@@ -121,6 +121,12 @@ prisma/schema.prisma            Engagement, Finding, Resource models
 
 ## Roadmap / good next tasks
 
+> **See `ROADMAP.md`** for the full phased plan (the CTO blueprint + the Runner
+> architecture, mapped against what's already shipped). Pick the next unchecked
+> item there. The **Runner** (Kali-in-UTM executes jobs the cloud app queues) is
+> the spine of Tool Execution and the Automation/Agents phases — build it first.
+
+
 - Extend **"Open from drive"** to the engagement detail resources list.
 - **AI report writer**: draft an exec summary from an engagement's findings
   (use the `lib/ai.ts` Claude stub).
