@@ -54,7 +54,10 @@ const NAV: NavGroup[] = [
   },
   {
     section: "Admin",
-    items: [{ href: "/dashboard/members", label: "Members", icon: "server" }],
+    items: [
+      { href: "/dashboard/members", label: "Members", icon: "server" },
+      { href: "/dashboard/settings", label: "Settings", icon: "wrench" },
+    ],
   },
 ];
 

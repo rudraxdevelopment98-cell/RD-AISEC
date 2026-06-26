@@ -4,7 +4,7 @@
 // targets. No human in the loop.
 
 import { prisma } from "@/lib/db";
-import { parseScopeTargets, platformLabel } from "@/lib/bugbounty-core";
+import { parseScopeEntries, platformLabel } from "@/lib/bugbounty-core";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
@@ -60,13 +60,69 @@ export async function queueProgramPipeline(
   cap = 15,
 ): Promise<number> {
   const engagementId = await ensureEngagement(p, email);
-  const targets = parseScopeTargets(p.scope)
-    .map((t) => normalizeTarget("httpx", t))
+  const entries = parseScopeEntries(p.scope);
+  const queuedBy = email || p.ownerEmail || "automation";
+
+  // Wildcard domains (*.x) get a subdomain-enum job first; discovered hosts are
+  // scanned when amass finishes (chained in the runner result route). Plain
+  // hosts are scanned directly.
+  const wildcards = entries.filter((e) => e.wildcard).map((e) => e.host).slice(0, 5);
+  const directHosts = entries
+    .filter((e) => !e.wildcard)
+    .map((e) => normalizeTarget("httpx", e.host))
+    .filter((t) => validateTarget("httpx", t))
+    .slice(0, cap);
+
+  const pending = await prisma.job.findMany({
+    where: { engagementId, status: { in: ["queued", "running"] } },
+    select: { tool: true, target: true },
+  });
+  const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
+
+  const data: {
+    engagementId: string;
+    runnerId: string;
+    tool: string;
+    target: string;
+    args: string;
+    autoImport: boolean;
+    queuedBy: string;
+  }[] = [];
+
+  for (const domain of wildcards) {
+    if (validateTarget("amass", domain) && !pendingKey.has(`amass|${domain}`)) {
+      data.push({ engagementId, runnerId, tool: "amass", target: domain, args: "enum -passive", autoImport: true, queuedBy });
+    }
+  }
+  for (const target of directHosts) {
+    for (const step of PIPELINE) {
+      if (pendingKey.has(`${step.tool}|${target}`)) continue;
+      data.push({ engagementId, runnerId, tool: step.tool, target, args: step.args, autoImport: true, queuedBy });
+    }
+  }
+
+  if (data.length > 0) await prisma.job.createMany({ data });
+  await prisma.bugProgram.update({ where: { id: p.id }, data: { lastAutoAt: new Date() } });
+  return data.length;
+}
+
+/**
+ * Queue the httpx + nuclei steps for a set of hosts under an engagement (used to
+ * chain after subdomain enumeration). Deduped against pending jobs. Returns count.
+ */
+export async function queueHostScans(
+  engagementId: string,
+  runnerId: string,
+  hosts: string[],
+  queuedBy: string,
+  cap = 15,
+): Promise<number> {
+  const targets = hosts
+    .map((h) => normalizeTarget("httpx", h))
     .filter((t) => validateTarget("httpx", t))
     .slice(0, cap);
   if (targets.length === 0) return 0;
 
-  // What's already pending for this engagement, to avoid duplicates.
   const pending = await prisma.job.findMany({
     where: { engagementId, status: { in: ["queued", "running"] } },
     select: { tool: true, target: true },
@@ -84,12 +140,11 @@ export async function queueProgramPipeline(
         target,
         args: step.args,
         autoImport: true,
-        queuedBy: email || p.ownerEmail || "automation",
+        queuedBy: queuedBy || "automation",
       });
     }
   }
   if (data.length > 0) await prisma.job.createMany({ data });
-  await prisma.bugProgram.update({ where: { id: p.id }, data: { lastAutoAt: new Date() } });
   return data.length;
 }
 

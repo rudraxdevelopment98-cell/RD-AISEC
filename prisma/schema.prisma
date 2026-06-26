@@ -188,6 +188,18 @@ model Member {
   createdAt   DateTime  @default(now())
 }
 
+// Notification settings (single config). Posts to a Discord/Slack-compatible
+// webhook when a new finding at/above minSeverity lands (e.g. from automation).
+model NotifySetting {
+  id             String   @id @default(cuid())
+  ownerEmail     String   @default("")
+  discordWebhook String   @default("")
+  minSeverity    String   @default("high") // info|low|medium|high|critical
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 // A saved bug-bounty platform account (handle/profile link). No secrets stored
 // by default — it's a convenience pointer to where the programs live.
 model BugAccount {
