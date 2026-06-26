@@ -31,7 +31,7 @@ export const GRANTABLE_KEYS = GRANTABLE_ITEMS.map((i) => i.key);
 // Always reachable by any signed-in member (the landing/overview).
 const ALWAYS_ALLOWED = ["/dashboard"];
 // Owner-only routes (never grantable to a plain member).
-const OWNER_ONLY = ["/dashboard/members"];
+const OWNER_ONLY = ["/dashboard/members", "/dashboard/settings"];
 
 export type AccessInfo = { role?: string | null; access?: string[] | null };
 

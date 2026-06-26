@@ -32,3 +32,32 @@ export function parseScopeTargets(scope: string): string[] {
   }
   return [...out];
 }
+
+/** Like parseScopeTargets but keeps whether each entry was a wildcard (*.x). */
+export function parseScopeEntries(scope: string): { host: string; wildcard: boolean }[] {
+  const seen = new Set<string>();
+  const out: { host: string; wildcard: boolean }[] = [];
+  for (const lineRaw of (scope ?? "").split(/\r?\n/)) {
+    let line = lineRaw.trim();
+    if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+    line = line.split(/\s+/)[0];
+    const wildcard = line.startsWith("*.");
+    line = line.replace(/^\*\./, "").replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split("/")[0];
+    if (line === "*" || !line || !/[a-z0-9]/i.test(line)) continue;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push({ host: line, wildcard });
+  }
+  return out;
+}
+
+/** Extract hostnames from a subdomain-enum tool's output (e.g. amass). */
+export function parseSubdomains(output: string): string[] {
+  const out = new Set<string>();
+  for (const raw of (output ?? "").split(/\r?\n/)) {
+    const line = raw.trim().toLowerCase();
+    // Plain hostname lines only (skip ASN/IP/relationship lines).
+    if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(line)) out.add(line);
+  }
+  return [...out];
+}

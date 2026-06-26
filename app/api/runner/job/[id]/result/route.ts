@@ -4,6 +4,9 @@ import { authenticateRunner } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
+import { parseSubdomains } from "@/lib/bugbounty-core";
+import { queueHostScans } from "@/lib/bug-pipeline";
+import { notifyFindings } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -43,25 +46,41 @@ export async function POST(
     data: { output, exitCode, status, finishedAt: new Date() },
   });
 
-  // Bug-bounty automation: parse results into findings automatically (deduped),
-  // since there's no human to click "Import".
+  // Bug-bounty automation (no human in the loop).
   if (status === "done" && job.autoImport && job.engagementId) {
-    const parsed = tagFindings(parseJobFindings(job.tool, job.target, output), job.tool);
-    if (parsed.length > 0) {
-      const existing = await prisma.finding.findMany({
-        where: { engagementId: job.engagementId },
-        select: { title: true },
-      });
-      const seen = new Set(existing.map((f) => f.title));
-      const fresh = parsed.filter((f) => !seen.has(f.title));
-      if (fresh.length > 0) {
-        await prisma.finding.createMany({
-          data: fresh.map((f) => ({ ...f, engagementId: job.engagementId! })),
+    if (job.tool === "amass") {
+      // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
+      const hosts = parseSubdomains(output);
+      if (hosts.length > 0) {
+        await queueHostScans(
+          job.engagementId,
+          job.runnerId ?? runner.id,
+          hosts,
+          job.queuedBy,
+          15,
+        );
+      }
+    } else {
+      // Parse results into findings automatically (deduped), then notify.
+      const parsed = tagFindings(parseJobFindings(job.tool, job.target, output), job.tool);
+      if (parsed.length > 0) {
+        const existing = await prisma.finding.findMany({
+          where: { engagementId: job.engagementId },
+          select: { title: true },
         });
-        await prisma.engagement.update({
-          where: { id: job.engagementId },
-          data: { updatedAt: new Date() },
-        });
+        const seen = new Set(existing.map((f) => f.title));
+        const fresh = parsed.filter((f) => !seen.has(f.title));
+        if (fresh.length > 0) {
+          await prisma.finding.createMany({
+            data: fresh.map((f) => ({ ...f, engagementId: job.engagementId! })),
+          });
+          const eng = await prisma.engagement.update({
+            where: { id: job.engagementId },
+            data: { updatedAt: new Date() },
+            select: { name: true },
+          });
+          await notifyFindings(fresh, eng.name);
+        }
       }
     }
   }
