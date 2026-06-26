@@ -179,6 +179,9 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [ ] More output parsers (gobuster, wpscan, sslscan, etc.).
 - [x] **Import Burp Suite issues XML** — `/dashboard/import`: parse a Burp issues
       export (upload or paste) into findings on an engagement (no AI).
+- [x] **Network scanning + map** — nmap network presets (ping sweep / top-ports
+      against a CIDR); multi-host parser (`lib/network.ts`); interactive radial
+      SVG map at `/dashboard/network` (hosts, open ports, services; no AI/deps).
 
 ### Phase 4 — Agents (Recon · Vuln · Reporting agents)
 - [x] **AI report writer** — `lib/ai-report.ts` drafts an executive summary
