@@ -79,13 +79,28 @@ export default async function FindingsPage({
 
   const anyFilter = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.q);
 
+  // CSV export honors the current filters.
+  const exportQs = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) if (v) exportQs.set(k, v);
+  const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
+
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-bold">Findings</h1>
-      <p className="mt-1 text-gray-400">
-        Every finding across all engagements. Filter by framework, severity, or
-        status to triage.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Findings</h1>
+          <p className="mt-1 text-gray-400">
+            Every finding across all engagements. Filter by framework, severity,
+            or status to triage.
+          </p>
+        </div>
+        {findings.length > 0 && (
+          <a href={exportHref} className="btn-ghost shrink-0 text-sm" download>
+            <Icon name="copy" className="mr-1 inline h-4 w-4" />
+            Export CSV
+          </a>
+        )}
+      </div>
 
       {/* Search */}
       <form className="mt-5 flex gap-2" action="/dashboard/findings">

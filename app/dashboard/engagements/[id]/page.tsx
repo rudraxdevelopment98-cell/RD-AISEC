@@ -144,13 +144,23 @@ export default async function EngagementDetail({
       )}
 
       {/* Findings */}
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">
           Findings{" "}
           <span className="text-sm font-normal text-gray-500">
             ({e.findings.length} total · {openCount} open)
           </span>
         </h2>
+        {e.findings.length > 0 && (
+          <a
+            href={`/api/findings/export?engagement=${e.id}`}
+            className="btn-ghost shrink-0 text-sm"
+            download
+          >
+            <Icon name="copy" className="mr-1 inline h-4 w-4" />
+            Export CSV
+          </a>
+        )}
       </div>
 
       {/* Add finding — with quick-start chips from the matching workflow */}

@@ -69,7 +69,9 @@ build that item, verify, commit, and merge to `main`.
 ---
 
 ## 🔜 Phase 4 — Reporting & sharing *(no AI)*
-- ⬜ **P4.1** — Export findings as **CSV** (per engagement + all)
+- ✅ **P4.1** — Export findings as **CSV** (per engagement + all, honoring the
+      Findings-page filters) — includes ATT&CK + OWASP columns. Buttons on the
+      Findings page and each engagement.
 - ⬜ **P4.2** — Export findings/engagement as **JSON**
 - ⬜ **P4.3** — **PDF** report export (polish print, or server-side PDF)
 - ⬜ **P4.4** — **Dedupe findings** (same issue from scan + import collapses)
