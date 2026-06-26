@@ -1,30 +1,26 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
-import { canAccess } from "@/lib/access";
 
 /**
- * Gate the dashboard: require authentication, then require per-section access.
- * Runs on the edge — uses only the edge-safe authConfig (no Prisma). Role and
- * access were baked into the JWT at sign-in by the Node-side jwt callback.
+ * Auth gate (edge): require a logged-in user for the dashboard and forward the
+ * request path to the app via a header. Per-section access is enforced in the
+ * dashboard layout against the LIVE database, so changes apply immediately
+ * (no need to sign out/in after an owner edits a member's access).
  */
 export default NextAuth(authConfig).auth((req) => {
-  const user = req.auth?.user as { role?: string; access?: string[] } | undefined;
   const path = req.nextUrl.pathname;
-
   if (!path.startsWith("/dashboard")) return NextResponse.next();
 
-  if (!user) {
+  if (!req.auth?.user) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", path);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (!canAccess(path, { role: user.role, access: user.access })) {
-    return NextResponse.redirect(new URL("/dashboard?denied=1", req.nextUrl.origin));
-  }
-
-  return NextResponse.next();
+  const headers = new Headers(req.headers);
+  headers.set("x-pathname", path);
+  return NextResponse.next({ request: { headers } });
 });
 
 export const config = {
