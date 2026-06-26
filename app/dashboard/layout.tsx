@@ -53,9 +53,10 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      {/* Sci-fi backdrop — behind everything, subtle */}
+      {/* Radar-scope backdrop — behind everything, subtle */}
       <div className="scene print:hidden" aria-hidden>
-        <div className="scene-rays" />
+        <div className="scene-radar" />
+        <div className="scene-radar-rings" />
         <div className="scene-grid" />
         <div className="scene-particles" />
       </div>
