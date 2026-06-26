@@ -49,7 +49,7 @@ export default async function BugBountyPage({
           select: {
             id: true,
             name: true,
-            findings: { select: { severity: true, status: true } },
+            findings: { select: { severity: true, status: true, title: true } },
             jobs: { select: { status: true } },
           },
         },
@@ -258,6 +258,13 @@ export default async function BugBountyPage({
             const exploitable = open.filter((f) =>
               ["low", "medium", "high", "critical"].includes(f.severity),
             ).length;
+            // Auto-exploit results: public exploits found + validated vulns.
+            const exploitsFound = open.filter((f) =>
+              f.title.startsWith("Public exploits available"),
+            ).length;
+            const validatedVulns = open.filter(
+              (f) => /zone transfer|SQL injection|handshake|vuln|CVE-/i.test(f.title) || f.severity === "critical",
+            ).length;
             return (
               <div key={p.id} className="card">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -302,6 +309,14 @@ export default async function BugBountyPage({
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-border">
                         <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
                       </div>
+                    )}
+                    {(exploitsFound > 0 || validatedVulns > 0) && (
+                      <p className="mt-2 text-xs">
+                        <span className="text-red-300">🎯 {exploitsFound} public exploit{exploitsFound === 1 ? "" : "s"} found</span>
+                        {validatedVulns > 0 && (
+                          <span className="text-orange-300"> · {validatedVulns} validated vuln{validatedVulns === 1 ? "" : "s"}</span>
+                        )}
+                      </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">
                       {exploitable > 0 && (
