@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { parseNmapNetwork } from "@/lib/network";
 import { NetworkGraph } from "@/components/network-graph";
 import { LocalScanForm } from "@/components/local-scan-form";
+import { ScanSelect } from "@/components/scan-select";
 import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
@@ -128,28 +129,16 @@ export default async function NetworkPage({
         </div>
       ) : (
         <>
-          {/* Scan selector */}
-          <div className="mt-6 flex flex-wrap gap-2">
-            {jobs.map((j) => {
-              const active = selected?.id === j.id;
-              return (
-                <Link
-                  key={j.id}
-                  href={`/dashboard/network?job=${j.id}`}
-                  className={`rounded-lg border px-3 py-2 text-xs transition ${
-                    active
-                      ? "border-brand bg-brand/10 text-white"
-                      : "border-surface-border text-gray-400 hover:border-brand"
-                  }`}
-                >
-                  <span className="font-mono">{j.target}</span>
-                  <span className="ml-2 text-gray-500">
-                    {j.engagement?.name ?? "—"} · {new Date(j.createdAt).toLocaleDateString()}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          {/* Scan selector (compact dropdown — many scans otherwise flood the page) */}
+          <ScanSelect
+            selectedId={selected?.id}
+            scans={jobs.map((j) => ({
+              id: j.id,
+              target: j.target,
+              engagement: j.engagement?.name ?? "—",
+              date: new Date(j.createdAt).toLocaleDateString(),
+            }))}
+          />
 
           {/* Summary */}
           <section className="mt-6 grid grid-cols-3 gap-4">

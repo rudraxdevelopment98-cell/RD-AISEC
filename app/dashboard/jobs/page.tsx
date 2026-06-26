@@ -113,6 +113,7 @@ export default async function JobsPage({
         engagements={engagements}
         runners={runners.map((r) => ({ id: r.id, name: r.name }))}
         defaultCommand={searchParams.cmd}
+        defaultEngagementId={searchParams.engagement}
       />
 
       {/* ── Active (live) ───────────────────────────────── */}

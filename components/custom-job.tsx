@@ -12,11 +12,13 @@ export function CustomJobForm({
   engagements,
   back = "/dashboard/jobs",
   defaultCommand = "",
+  defaultEngagementId = "",
 }: {
   runners: Opt[];
   engagements: Opt[];
   back?: string;
   defaultCommand?: string;
+  defaultEngagementId?: string;
 }) {
   return (
     <details className="card mt-4 group" open={!!defaultCommand}>
@@ -70,6 +72,7 @@ export function CustomJobForm({
               </label>
               <select
                 name="engagementId"
+                defaultValue={defaultEngagementId}
                 className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
               >
                 <option value="">Quick run (no engagement)</option>

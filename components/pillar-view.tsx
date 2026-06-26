@@ -3,7 +3,13 @@ import { Icon } from "@/components/icons";
 import { Workflow } from "@/components/workflow";
 import type { Pillar } from "@/data/portal";
 
-export function PillarView({ pillar }: { pillar: Pillar }) {
+export function PillarView({
+  pillar,
+  engagements = [],
+}: {
+  pillar: Pillar;
+  engagements?: { id: string; name: string }[];
+}) {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="card relative overflow-hidden">
@@ -36,7 +42,7 @@ export function PillarView({ pillar }: { pillar: Pillar }) {
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wider text-gray-500">
         Workflow · {pillar.stages.length} stages
       </h2>
-      <Workflow stages={pillar.stages} />
+      <Workflow stages={pillar.stages} engagements={engagements} />
     </div>
   );
 }
