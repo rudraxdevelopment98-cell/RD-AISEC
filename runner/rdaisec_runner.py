@@ -20,6 +20,7 @@ For authorized security testing and education only.
 """
 
 import json
+import ipaddress
 import os
 import re
 import shutil
@@ -31,7 +32,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "3"
+RUNNER_VERSION = "4"
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -39,6 +40,35 @@ TOR_SOCKS = ("127.0.0.1", 9050)
 ANON_ON = False
 EXIT_IP = ""
 _tor_proc = None
+
+# Local subnets this machine is on (detected at startup), reported to the portal
+# so you can one-click "scan this runner's network".
+SUBNETS: list[str] = []
+
+
+def detect_subnets() -> list[str]:
+    """Return private IPv4 CIDRs for this host's interfaces (e.g. 10.0.0.0/24)."""
+    nets: set[str] = set()
+    try:
+        out = subprocess.run(
+            ["ip", "-o", "-f", "inet", "addr", "show"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except Exception:  # noqa: BLE001
+        return []
+    for line in out.splitlines():
+        m = re.search(r"\binet\s+(\d+\.\d+\.\d+\.\d+/\d+)", line)
+        if not m or m.group(1).startswith("127."):
+            continue
+        try:
+            net = ipaddress.ip_interface(m.group(1)).network
+        except ValueError:
+            continue
+        if net.is_private and 16 <= net.prefixlen <= 30:
+            nets.add(str(net))
+    return sorted(nets)
 
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
@@ -96,6 +126,7 @@ def request(method: str, path: str, body=None):
     req.add_header("X-Runner-Version", RUNNER_VERSION)
     req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
     req.add_header("X-Runner-Exit-Ip", EXIT_IP)
+    req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=30)
@@ -275,10 +306,14 @@ def post_result(job_id, output, exit_code):
 
 
 def main():
-    global TOOLS
+    global TOOLS, SUBNETS
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
     print(f"RD-AISEC runner → {PORTAL_URL}")
+
+    SUBNETS = detect_subnets()
+    if SUBNETS:
+        print(f"Local network(s): {', '.join(SUBNETS)}")
 
     fetched = fetch_tools()
     if fetched:

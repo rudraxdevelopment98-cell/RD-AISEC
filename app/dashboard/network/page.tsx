@@ -3,20 +3,40 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { parseNmapNetwork } from "@/lib/network";
 import { NetworkGraph } from "@/components/network-graph";
+import { LocalScanForm } from "@/components/local-scan-form";
+import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
 export default async function NetworkPage({
   searchParams,
 }: {
-  searchParams: { job?: string };
+  searchParams: { job?: string; error?: string; queued?: string };
 }) {
-  const jobs = await prisma.job.findMany({
-    where: { tool: "nmap", status: "done" },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-    include: { engagement: { select: { name: true } } },
-  });
+  const [jobs, runnerRows, engagementRows] = await Promise.all([
+    prisma.job.findMany({
+      where: { tool: "nmap", status: "done" },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: { engagement: { select: { name: true } } },
+    }),
+    prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.engagement.findMany({
+      where: { authorized: true },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const now = Date.now();
+  const runners = runnerRows
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      online: !!r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
+      subnets: (r.subnets ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    }))
+    .filter((r) => r.subnets.length > 0);
 
   const selected = jobs.find((j) => j.id === searchParams.job) ?? jobs[0] ?? null;
   const hosts = selected ? parseNmapNetwork(selected.output) : [];
@@ -32,6 +52,25 @@ export default async function NetworkPage({
         against a CIDR (e.g. <code className="font-mono">10.0.0.0/24</code>), then
         view live hosts, open ports, and services here.
       </p>
+
+      {searchParams.error && (
+        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <Icon name="alert" className="mr-1 inline h-4 w-4" />
+          {searchParams.error}
+        </div>
+      )}
+      {searchParams.queued && (
+        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <Icon name="check" className="mr-1 inline h-4 w-4" />
+          Scan queued — it&apos;ll appear below once the runner finishes (refresh
+          in a bit).
+        </div>
+      )}
+
+      {/* One-click: scan the runner's own network */}
+      <div className="mt-6">
+        <LocalScanForm runners={runners} engagements={engagementRows} />
+      </div>
 
       {jobs.length === 0 ? (
         <div className="card mt-6 text-center">

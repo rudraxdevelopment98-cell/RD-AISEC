@@ -32,7 +32,8 @@ build that item, verify, commit, and merge to `main`.
 
 ## ✅ Phase 3 — Network & visualization *(done)*
 - ✅ Network scanning (nmap CIDR presets)
-- ✅ Interactive network map (radial SVG)
+- ✅ Interactive network map (radial SVG, gateway highlighted)
+- ✅ One-click "scan this runner's network" (auto-detected local subnet)
 - ✅ Monitoring timeline (scans + jobs, 14-day chart)
 
 ---

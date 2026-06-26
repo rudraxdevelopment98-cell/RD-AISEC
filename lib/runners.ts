@@ -163,6 +163,66 @@ export async function queueJob(formData: FormData) {
   redirect(back);
 }
 
+// nmap presets for the runner's own LAN (no free-form target — the CIDR comes
+// from what the runner detected, so the scope substring check is skipped).
+const LOCAL_SCAN_PRESETS: Record<string, string[]> = {
+  discovery: ["-sn", "-T4"],
+  network: ["-Pn", "-T4", "--top-ports", "100"],
+};
+
+/**
+ * Queue an nmap scan of one of the runner's OWN detected subnets. The target is
+ * validated against the runner's reported subnets (not user free-form), so this
+ * stays "scan the network this machine is on" — its own infrastructure.
+ */
+export async function queueLocalScan(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const engagementId = String(formData.get("engagementId") ?? "");
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const subnet = String(formData.get("subnet") ?? "").trim();
+  const mode = String(formData.get("mode") ?? "discovery");
+  const back = "/dashboard/network";
+
+  if (!engagementId || !runnerId || !subnet) {
+    redirect(`${back}?error=${encodeURIComponent("Pick a runner, network, and engagement.")}`);
+  }
+
+  const runner = await prisma.runner.findUnique({ where: { id: runnerId } });
+  const reported = (runner?.subnets ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!runner || !reported.includes(subnet)) {
+    redirect(`${back}?error=${encodeURIComponent("That network isn't one this runner detected.")}`);
+  }
+
+  const engagement = await prisma.engagement.findUnique({
+    where: { id: engagementId },
+    select: { authorized: true },
+  });
+  if (!engagement) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (!engagement!.authorized) {
+    redirect(
+      `${back}?error=${encodeURIComponent("Authorize the engagement before scanning.")}`,
+    );
+  }
+
+  const args = LOCAL_SCAN_PRESETS[mode] ?? LOCAL_SCAN_PRESETS.discovery;
+  await prisma.job.create({
+    data: {
+      engagementId,
+      runnerId,
+      tool: "nmap",
+      target: subnet,
+      args: args.join(" "),
+      queuedBy: session.user.email ?? "",
+    },
+  });
+
+  revalidatePath("/dashboard/network");
+  revalidatePath("/dashboard/runners");
+  redirect(`${back}?queued=1`);
+}
+
 export async function cancelJob(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
