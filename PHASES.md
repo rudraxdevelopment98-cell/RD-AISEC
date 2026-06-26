@@ -208,6 +208,16 @@ build that item, verify, commit, and merge to `main`.
 - ✅ "Automate all programs" one-click: import (HackerOne sync) → Automate all →
       daily recon + auto-exploit + findings + report + Discord notify, hands-off.
 
+## ✅ Research & Exploit Lab
+- ✅ Settings: research workspace — Google Drive folder link + Kali exploit
+      folder path.
+- ✅ Exploit Lab page: build PoCs/exploits from templates (Python PoC, py/bash
+      reverse shell, curl path-traversal, Metasploit resource script), edit, and
+      **Save to the Kali folder** via the runner (savefile job, v19) — or open
+      the research Drive.
+- ✅ Submission draft: one-click copy-ready bug report (HackerOne/Bugcrowd style)
+      on confirmed findings.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

@@ -17,6 +17,7 @@ export const GRANTABLE_ITEMS: { key: string; label: string; group: string }[] = 
   { key: "/dashboard/runners", label: "Machines", group: "Scanning" },
   { key: "/dashboard/jobs", label: "Jobs", group: "Scanning" },
   { key: "/dashboard/exploit", label: "Exploitation", group: "Scanning" },
+  { key: "/dashboard/lab", label: "Exploit Lab", group: "Scanning" },
   { key: "/dashboard/scan", label: "Auto Scan", group: "Scanning" },
   { key: "/dashboard/import", label: "Import (Burp)", group: "Scanning" },
   { key: "/dashboard/assistant", label: "AI Assistant", group: "Knowledge & tools" },

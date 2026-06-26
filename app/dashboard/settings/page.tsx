@@ -2,7 +2,7 @@ import { auth, isOwnerEmail } from "@/auth";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { prisma } from "@/lib/db";
-import { saveNotifySetting, testNotify } from "@/lib/notify-actions";
+import { saveNotifySetting, testNotify, saveWorkspace } from "@/lib/notify-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +84,35 @@ export default async function SettingsPage({
 
       <form action={testNotify} className="mt-3">
         <button className="btn-ghost text-sm">Send test notification</button>
+      </form>
+
+      <h2 className="mt-8 text-lg font-bold">Research &amp; exploit workspace</h2>
+      <HelpBanner>
+        <p>• <b>Google Drive folder</b> — a link to where you keep research/notes (opened from the Exploit Lab).</p>
+        <p>• <b>Kali exploit folder</b> — an absolute path on your runner where generated exploits are saved (e.g. <code>/root/rdaisec-exploits</code>).</p>
+        <p>• Build &amp; save exploits on the Exploit Lab page; they&apos;re written into this folder on the machine.</p>
+      </HelpBanner>
+      <form action={saveWorkspace} className="card mt-4 space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-400">Google Drive folder link</label>
+          <input
+            name="driveUrl"
+            type="url"
+            defaultValue={cfg?.driveUrl ?? ""}
+            placeholder="https://drive.google.com/drive/folders/…"
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-400">Kali exploit folder (absolute path)</label>
+          <input
+            name="exploitDir"
+            defaultValue={cfg?.exploitDir ?? ""}
+            placeholder="/root/rdaisec-exploits"
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <button className="btn-primary text-sm">Save workspace</button>
       </form>
     </div>
   );

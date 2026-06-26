@@ -19,6 +19,7 @@ Usage:
 For authorized security testing and education only.
 """
 
+import base64
 import json
 import ipaddress
 import os
@@ -34,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "18"
+RUNNER_VERSION = "19"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -477,7 +478,35 @@ def post_progress(job_id, output):
         pass
 
 
+def run_savefile(job):
+    """Write a generated exploit/script to a file (from the Exploit Lab). The
+    content is base64 in `args`; the path is `target`. Refuses non-absolute or
+    traversal paths."""
+    path = job.get("target", "")
+    if not path.startswith("/") or ".." in path:
+        return "Refused: path must be absolute and contain no '..'.", 1
+    try:
+        content = base64.b64decode(job.get("args", "")).decode("utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        return f"Could not decode content: {e}", 1
+    try:
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        try:
+            os.chmod(path, 0o755)
+        except Exception:  # noqa: BLE001
+            pass
+        return f"Saved {len(content)} bytes to {path}", 0
+    except Exception as e:  # noqa: BLE001
+        return f"Write failed: {e}", 1
+
+
 def run_job(job):
+    if job.get("tool") == "savefile":
+        return run_savefile(job)
     argv, err = build_argv(job)
     if err:
         return err, 1

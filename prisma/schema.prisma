@@ -203,6 +203,9 @@ model NotifySetting {
   discordWebhook String   @default("")
   minSeverity    String   @default("high") // info|low|medium|high|critical
   enabled        Boolean  @default(true)
+  // Research / exploit workspace.
+  driveUrl       String   @default("") // Google Drive folder link (reference)
+  exploitDir     String   @default("") // Kali folder where generated exploits are saved
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
