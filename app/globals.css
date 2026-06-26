@@ -187,3 +187,61 @@ body {
   .galaxy-stars, .fade-up, .float-slow, .pulse-dot, .pipe-line, .spin-slow { animation: none; }
   .spark-line { animation: none; stroke-dashoffset: 0; }
 }
+
+/* ── Sci-fi scene (global dashboard backdrop) ────────────── */
+@keyframes rayspin { to { transform: translateX(-50%) rotate(360deg); } }
+@keyframes scanSweep {
+  0%   { transform: translateY(-10%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(110%); opacity: 0; }
+}
+@keyframes drift2 { to { background-position: -320px 240px; } }
+@keyframes waveMove { to { transform: translateX(-50%); } }
+
+.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.scene-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(52, 211, 153, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52, 211, 153, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask: radial-gradient(circle at 50% 18%, #000, transparent 80%);
+  mask: radial-gradient(circle at 50% 18%, #000, transparent 80%);
+}
+.scene-rays {
+  position: absolute; left: 50%; top: -40%;
+  width: 170vmax; height: 170vmax;
+  transform: translateX(-50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 8deg, rgba(56, 189, 248, 0.05) 8deg 9deg,
+    transparent 9deg 26deg, rgba(52, 211, 153, 0.045) 26deg 27deg,
+    transparent 27deg 44deg, rgba(56, 189, 248, 0.04) 44deg 45deg, transparent 45deg
+  );
+  animation: rayspin 120s linear infinite;
+}
+.scene-particles {
+  position: absolute; inset: -50%;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(2px 2px at 60px 80px, rgba(56, 189, 248, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 180px 200px, rgba(52, 211, 153, 0.5), transparent),
+    radial-gradient(2px 2px at 300px 120px, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 360px 280px, rgba(56, 189, 248, 0.4), transparent);
+  background-size: 320px 320px;
+  animation: drift2 80s linear infinite;
+}
+
+/* Hero sweep + wave */
+.scanline {
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.7), transparent);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
+  animation: scanSweep 7s ease-in-out infinite;
+}
+.wave-svg { width: 200%; animation: waveMove 14s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-rays, .scene-particles, .scanline, .wave-svg { animation: none; }
+}

@@ -53,7 +53,14 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 lg:flex print:!hidden">
+      {/* Sci-fi backdrop — behind everything, subtle */}
+      <div className="scene print:hidden" aria-hidden>
+        <div className="scene-rays" />
+        <div className="scene-grid" />
+        <div className="scene-particles" />
+      </div>
+
+      <aside className="relative z-10 hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 lg:flex print:!hidden">
         {/* Sidebar header — pinned top */}
         <div className="shrink-0 border-b border-surface-border p-4">
           <Link href="/" className="flex items-center gap-2 px-2">
@@ -94,7 +101,7 @@ export default async function DashboardLayout({
         </div>
       </aside>
 
-      <div className="flex h-screen flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">
+      <div className="relative z-10 flex h-screen flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">
         {/* Top header — pinned on every page */}
         <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-surface-border bg-surface/80 px-4 py-3 backdrop-blur sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">

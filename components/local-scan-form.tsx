@@ -38,7 +38,9 @@ export function LocalScanForm({
       <p className="mt-1 text-sm text-gray-400">
         Scans the local network the selected runner is connected to — no need to
         know the CIDR. Use <strong>Quick scan</strong> to just see the map, or pick
-        an engagement to file the results into a case. Results render as the map below.
+        an engagement to file results into a case. Deeper modes (Full / Aggressive /
+        Vuln) are real scans — slower and noisier; OS &amp; script detection needs the
+        runner running as <strong>root</strong>, and Tor turned <strong>off</strong>.
       </p>
 
       <form action={queueLocalScan} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -88,8 +90,12 @@ export function LocalScanForm({
           defaultValue="discovery"
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
         >
-          <option value="discovery">Discovery (live hosts — fast)</option>
-          <option value="network">Network scan (top ports)</option>
+          <option value="discovery">Discovery — live hosts (fast)</option>
+          <option value="network">Network — top 100 ports</option>
+          <option value="service">Service — top 200 + versions</option>
+          <option value="full">Full — all 65535 TCP ports (slow)</option>
+          <option value="aggressive">Aggressive — OS + scripts (root)</option>
+          <option value="vuln">Vuln — NSE vuln scripts (root)</option>
         </select>
 
         <button
