@@ -10,6 +10,8 @@ export type ParsedFinding = {
   status: string; // open
   description: string;
   recommendation: string;
+  // True when this finding is a proven/validated exploitable issue.
+  confirmed?: boolean;
 };
 
 import { parseNmapNetwork, hostLabel } from "@/lib/network";
@@ -57,10 +59,12 @@ function parseNuclei(target: string, output: string): ParsedFinding[] {
       const info = j.info ?? {};
       const name = info.name ?? j["template-id"] ?? "Nuclei match";
       const matched = j["matched-at"] ?? j.host ?? target;
+      const sev = normSeverity(info.severity);
       out.push({
         title: `${name} — ${matched}`,
-        severity: normSeverity(info.severity),
+        severity: sev,
         status: "open",
+        confirmed: sev === "critical" || sev === "high",
         description:
           `Nuclei template "${j["template-id"] ?? name}" matched at ${matched}.` +
           (info.description ? `\n\n${info.description}` : ""),
@@ -109,6 +113,7 @@ function parseSqlmap(target: string, output: string): ParsedFinding[] {
       title: `SQL injection on ${target}${where}`,
       severity: "critical",
       status: "open",
+      confirmed: true,
       description:
         `sqlmap confirmed a SQL injection point on ${target}${where}.\n\n` +
         "SQL injection can allow reading or modifying the database and, depending on configuration, the underlying host.",
@@ -251,11 +256,40 @@ function parseDnsrecon(target: string, output: string): ParsedFinding[] {
       title: `DNS zone transfer allowed on ${target}`,
       severity: "high",
       status: "open",
+      confirmed: true,
       description:
         `dnsrecon completed a DNS zone transfer (AXFR) against ${target}, exposing the full DNS record set.\n\n` +
         "This leaks internal hostnames and infrastructure that aid an attacker's mapping.",
       recommendation:
         "Restrict zone transfers to authorized secondary name servers only (allow-transfer / TSIG). Do not allow AXFR from arbitrary clients.",
+    },
+  ];
+}
+
+/**
+ * Detect a CONFIRMED-vulnerable signal in any tool output (nmap --script vuln,
+ * Metasploit check/scanner modules, etc.) and emit a critical, confirmed finding.
+ */
+function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
+  const re =
+    /\b(State:\s*VULNERABLE|is likely VULNERABLE|appears? to be vulnerable|target is vulnerable|host is likely vulnerable|\bVULNERABLE\b)/i;
+  if (!re.test(output)) return [];
+  const lines = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => re.test(l) || /CVE-\d|ms\d\d-\d|exploit/i.test(l))
+    .slice(0, 10);
+  return [
+    {
+      title: `✅ Confirmed exploitable: ${target}`,
+      severity: "critical",
+      status: "open",
+      confirmed: true,
+      description:
+        `Automated validation indicates ${target} is exploitable:\n\n${lines.join("\n")}\n\n` +
+        "Validate manually on the authorized target, then report and remediate.",
+      recommendation:
+        "Patch/upgrade the affected component immediately, then re-run the check to confirm the fix.",
     },
   ];
 }
@@ -341,6 +375,7 @@ function parseWifi(output: string): ParsedFinding[] {
       title: `WPA handshake captured (${b})`,
       severity: "high",
       status: "open",
+      confirmed: true,
       description:
         `A WPA handshake was captured for access point ${b}. It can be cracked offline against a wordlist:\n\n` +
         `aircrack-ng -w wordlist.txt capture-01.cap`,
@@ -472,7 +507,8 @@ export function parseJobFindings(
   if (!output?.trim()) return [];
   switch (tool) {
     case "nmap":
-      return parseNmap(target, output);
+      // Open ports + any vuln-script confirmations (--script vuln).
+      return [...parseNmap(target, output), ...parseVulnConfirm(target, output)];
     case "nuclei":
       return parseNuclei(target, output);
     case "httpx":
@@ -498,7 +534,7 @@ export function parseJobFindings(
     case "searchsploit":
       return parseSearchsploit(target, output);
     default:
-      // Custom jobs (e.g. an nmcli/airodump WiFi scan) — parse APs if present.
-      return parseWifi(output);
+      // Custom jobs: WiFi scans, or Metasploit check/scanner confirmations.
+      return [...parseWifi(output), ...parseVulnConfirm(target, output)];
   }
 }

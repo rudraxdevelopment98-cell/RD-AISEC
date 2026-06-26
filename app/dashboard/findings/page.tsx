@@ -206,7 +206,7 @@ export default async function FindingsPage({
           )
         ) : (
           findings.map((f) => (
-            <div key={f.id} className="card">
+            <div key={f.id} className={`card ${f.confirmed ? "glow-danger" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <Link
                   href={`/dashboard/engagements/${f.engagementId}`}
@@ -215,6 +215,9 @@ export default async function FindingsPage({
                   {f.title}
                 </Link>
                 <div className="flex shrink-0 items-center gap-2">
+                  {f.confirmed && (
+                    <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>
+                  )}
                   <SeverityBadge value={f.severity} />
                   <FindingStatusBadge value={f.status} />
                 </div>

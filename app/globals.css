@@ -314,3 +314,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .scene-radar, .blip { animation: none; }
 }
+
+/* ── Confirmed-exploit glow (auto-validated findings) ────── */
+@keyframes dangerGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4), 0 0 12px rgba(239, 68, 68, 0.25); }
+  50%      { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.7), 0 0 22px rgba(239, 68, 68, 0.5); }
+}
+.glow-danger {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  animation: dangerGlow 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-danger { animation: none; box-shadow: 0 0 0 1px rgba(239,68,68,0.6); }
+}

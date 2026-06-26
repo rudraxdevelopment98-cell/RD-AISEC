@@ -198,6 +198,13 @@ build that item, verify, commit, and merge to `main`.
       "Public exploits available" findings; nmap vuln → findings. All notified.
 - ✅ Weaponized exploitation (Metasploit/aireplay) stays one-click on the
       Exploit page (not auto-fired). 
+- ✅ **Auto-confirm + glow + report**: from scan/exploit-search results the engine
+      builds validations (nmap --script vuln, Metasploit MS17-010/BlueKeep
+      scanner `check`, sqlmap) and runs them. When output proves exploitable, a
+      **Confirmed exploitable** finding is created (Finding.confirmed) — it
+      **glows** on Findings/Exploit/engagement pages, gets a "✅ confirmed"
+      badge, is notified, and is marked in the report. Exploit page has a
+      Confirmed-exploitable section → straight to Report.
 - ✅ "Automate all programs" one-click: import (HackerOne sync) → Automate all →
       daily recon + auto-exploit + findings + report + Discord notify, hands-off.
 
