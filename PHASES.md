@@ -123,6 +123,15 @@ build that item, verify, commit, and merge to `main`.
       package name; runner installs correctly without its own map.
 - ✅ **Live install output** (v15) — apt installs stream their output to the
       Machines page (like job live output), so you watch progress, not just pass/fail.
+- ✅ **Tor fixed** (v16) — bootstrap retries + self-heal + real status
+      (connecting/on/no-tor) with one-click tor/torsocks install.
+- ✅ **Workflow "Run this stage"** — pentest/forensics/consulting commands run on
+      a machine (open Jobs pre-filled) instead of "coming soon".
+- ✅ **Bug Bounty progress** — engaged programs on top with scan progress, open
+      findings (crit/high), exploit/validate + Report links.
+- 🔜 **Wireless / environment** — quick WiFi AP / arp-scan / iface launchers on
+      the Network page; monitor-mode capture documented (needs the USB dongle).
+      Full WiFi capture UI = next.
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
