@@ -94,8 +94,16 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P6.4** — **Job chains** (recon → scan → report)
 - ⬜ **P6.5** — **Notifications** (email / Discord on critical finding or job done)
 - ⬜ **P6.6** — Route the cloud recon pipeline **through the runner**
-- ⬜ **P6.7** — **arp-scan** — LAN layer-2 device discovery (IP + MAC + vendor),
-      feeds the Network Map. *Small; works on the runner's own subnet.*
+- ✅ **P6.7** — **arp-scan** — LAN layer-2 device discovery (added as a runner
+      tool; needs the runner to run as root).
+- ✅ **More tools** — masscan, gobuster, WhatWeb, wafw00f, dnsrecon, dnsenum,
+      Amass, theHarvester, enum4linux, searchsploit (all server-driven +
+      installable from the portal; no runner re-pull to *queue* them).
+- ✅ **Custom command** job — run any command on a connected machine (argv via
+      shlex, no shell; authorization-gated). On the Jobs tab + Exploit console.
+- ✅ **Exploitation section** — search Exploit-DB for a finding's product, run
+      Metasploit/exploit commands via the console, and mark findings secured.
+      Metasploit + Exploit-DB installable from the portal.
 - ✅ **P6.8** — **Auto-map findings to frameworks** — every finding is tagged
       with its MITRE ATT&CK tactic + OWASP Top 10 category by deterministic
       keyword rules (no AI), at all creation paths (runner jobs, posture scans,

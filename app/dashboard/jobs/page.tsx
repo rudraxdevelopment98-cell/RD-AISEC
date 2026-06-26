@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
+import { CustomJobForm } from "@/components/custom-job";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { cancelJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
@@ -86,6 +87,11 @@ export default async function JobsPage({
         engagements={engagements}
         runners={runners.map((r) => ({ id: r.id, name: r.name }))}
         defaultEngagementId={searchParams.engagement}
+      />
+
+      <CustomJobForm
+        engagements={engagements}
+        runners={runners.map((r) => ({ id: r.id, name: r.name }))}
       />
 
       {/* ── Active (live) ───────────────────────────────── */}

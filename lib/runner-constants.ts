@@ -122,6 +122,103 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     active: true,
     presets: [{ id: "scan", label: "Scan (host[:port])", args: [] }],
   },
+  {
+    id: "arpscan",
+    label: "arp-scan — LAN device discovery",
+    description:
+      "Find live hosts on a local subnet at layer 2 (IP + MAC + vendor). Give a CIDR. Needs the runner to run as root.",
+    active: true,
+    presets: [{ id: "scan", label: "Scan subnet (give a CIDR)", args: [] }],
+  },
+  {
+    id: "masscan",
+    label: "masscan — fast port scan",
+    description:
+      "Very fast TCP port scanner across a host or CIDR. Needs the runner to run as root.",
+    active: true,
+    presets: [
+      { id: "top", label: "Top 1000 ports", args: ["-p1-1000", "--rate", "1000"] },
+      { id: "web", label: "Web ports", args: ["-p80,443,8080,8443", "--rate", "1000"] },
+    ],
+  },
+  {
+    id: "gobuster",
+    label: "gobuster — content discovery",
+    description: "Brute-force directories and files on a web server using a wordlist.",
+    active: true,
+    presets: [
+      {
+        id: "common",
+        label: "Common paths (dirb common.txt)",
+        args: ["dir", "-q", "-w", "/usr/share/wordlists/dirb/common.txt"],
+      },
+      {
+        id: "big",
+        label: "Bigger list (dirbuster medium)",
+        args: ["dir", "-q", "-w", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"],
+      },
+    ],
+  },
+  {
+    id: "whatweb",
+    label: "WhatWeb — tech fingerprint",
+    description: "Identify the technologies, CMS, server, and frameworks a website runs.",
+    active: true,
+    presets: [
+      { id: "scan", label: "Fingerprint", args: [] },
+      { id: "aggressive", label: "Aggressive (level 3)", args: ["-a", "3"] },
+    ],
+  },
+  {
+    id: "wafw00f",
+    label: "wafw00f — WAF detection",
+    description: "Detect whether a site sits behind a web application firewall, and which one.",
+    active: true,
+    presets: [{ id: "detect", label: "Detect WAF", args: [] }],
+  },
+  {
+    id: "dnsrecon",
+    label: "dnsrecon — DNS enumeration",
+    description: "Enumerate DNS records and attempt a zone transfer for a domain.",
+    active: true,
+    presets: [{ id: "std", label: "Standard records", args: [] }],
+  },
+  {
+    id: "dnsenum",
+    label: "dnsenum — DNS + subdomains",
+    description: "Enumerate DNS info and brute-force subdomains for a domain.",
+    active: true,
+    presets: [{ id: "scan", label: "Enumerate", args: ["--noreverse"] }],
+  },
+  {
+    id: "amass",
+    label: "Amass — subdomain discovery",
+    description: "Discover subdomains for a domain via public OSINT sources (passive).",
+    active: false,
+    presets: [{ id: "passive", label: "Passive enum", args: ["enum", "-passive"] }],
+  },
+  {
+    id: "theharvester",
+    label: "theHarvester — OSINT",
+    description: "Gather emails, hosts, and subdomains for a domain from public sources.",
+    active: false,
+    presets: [{ id: "scan", label: "Search (DuckDuckGo)", args: ["-b", "duckduckgo"] }],
+  },
+  {
+    id: "enum4linux",
+    label: "enum4linux — SMB/Windows enum",
+    description: "Enumerate shares, users, and groups from a Windows/Samba host (give an IP).",
+    active: true,
+    presets: [{ id: "all", label: "Full enumeration", args: ["-a"] }],
+  },
+  {
+    id: "searchsploit",
+    label: "searchsploit — Exploit-DB search",
+    description:
+      "Search the local Exploit-DB for known exploits matching a product/version (offline lookup).",
+    active: false,
+    presets: [{ id: "search", label: "Search term", args: [] }],
+  },
 ];
 
 export function findTool(id: string): RunnerTool | undefined {
@@ -146,6 +243,17 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   nikto: { bin: "nikto", flag: "-h" },
   wpscan: { bin: "wpscan", flag: "--url" },
   sslscan: { bin: "sslscan", flag: null },
+  arpscan: { bin: "arp-scan", flag: null },
+  masscan: { bin: "masscan", flag: null },
+  gobuster: { bin: "gobuster", flag: "-u" },
+  whatweb: { bin: "whatweb", flag: null },
+  wafw00f: { bin: "wafw00f", flag: null },
+  dnsrecon: { bin: "dnsrecon", flag: "-d" },
+  dnsenum: { bin: "dnsenum", flag: null },
+  amass: { bin: "amass", flag: "-d" },
+  theharvester: { bin: "theHarvester", flag: "-d" },
+  enum4linux: { bin: "enum4linux", flag: null },
+  searchsploit: { bin: "searchsploit", flag: null },
 };
 
 // Tools we can install from the portal, mapped to their apt package. Only these
@@ -160,6 +268,18 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   wpscan: "wpscan",
   sslscan: "sslscan",
   nuclei: "nuclei", // Kali packages nuclei in apt
+  arpscan: "arp-scan",
+  masscan: "masscan",
+  gobuster: "gobuster",
+  whatweb: "whatweb",
+  wafw00f: "wafw00f",
+  dnsrecon: "dnsrecon",
+  dnsenum: "dnsenum",
+  amass: "amass",
+  theharvester: "theharvester",
+  enum4linux: "enum4linux",
+  searchsploit: "exploitdb",
+  metasploit: "metasploit-framework", // for the Exploitation section (no auto-find tool)
 };
 
 /** Serialize the tool specs for the runner (incl. apt package for installs). */
@@ -180,7 +300,22 @@ export function runnerToolSpecs(): {
 // Tools that scan a host/IP (not a URL). These can't parse a "https://" scheme
 // or a path, so we strip the target down to its hostname for them. The URL-based
 // tools (httpx/nuclei/sqlmap/nikto/wpscan) keep the full URL.
-const HOST_TARGET_TOOLS = new Set(["nmap", "whois", "dig", "sslscan"]);
+const HOST_TARGET_TOOLS = new Set([
+  "nmap",
+  "whois",
+  "dig",
+  "sslscan",
+  "arpscan",
+  "masscan",
+  "whatweb",
+  "wafw00f",
+  "dnsrecon",
+  "dnsenum",
+  "amass",
+  "theharvester",
+  "enum4linux",
+  "searchsploit",
+]);
 
 /** Normalize a target for a given tool (strip scheme/path for host-based tools). */
 export function normalizeTarget(toolId: string, raw: string): string {
@@ -205,7 +340,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "9";
+export const RUNNER_VERSION = "10";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;
