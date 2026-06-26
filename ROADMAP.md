@@ -177,9 +177,10 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [ ] More output parsers (nuclei, httpx, gobuster, etc.).
 
 ### Phase 4 — Agents (Recon · Vuln · Reporting agents)
-- [ ] **AI report writer** — draft exec summary from an engagement's findings
-      (use the `lib/ai.ts` Claude stub; model `claude-opus-4-8`). *Quick win — can
-      pull forward now.*
+- [x] **AI report writer** — `lib/ai-report.ts` drafts an executive summary
+      (risk rating, narrative, key risks, prioritized recommendations) from an
+      engagement's findings; shown on the report page and in the Markdown
+      download. Deterministic today; Claude pass stubbed for `claude-opus-4-8`.
 - [ ] **Recon Agent** — given a scope, the AI plans + queues runner jobs.
 - [ ] **Vuln Agent** — triages findings, suggests severity + remediation.
 - [ ] **Reporting Agent** — assembles the full report from findings + evidence.
