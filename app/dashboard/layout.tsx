@@ -35,6 +35,7 @@ const NAV: NavGroup[] = [
     section: "Offensive ops",
     items: [
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
+      { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
       { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },

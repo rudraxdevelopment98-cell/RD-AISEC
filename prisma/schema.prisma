@@ -68,6 +68,8 @@ model Runner {
   exitIp     String    @default("")    // Tor exit IP the runner reports when on
   anonStatus String    @default("")    // off | connecting | on | no-tor (reported)
   subnets    String    @default("")    // comma-separated local CIDRs the runner detected
+  wifi       String    @default("")    // comma-separated wireless interface names
+  wifiMonitor Boolean  @default(false) // any adapter supports monitor mode
   installed  String    @default("")    // comma-separated tool ids whose binary is present
   createdAt  DateTime  @default(now())
   jobs       Job[]

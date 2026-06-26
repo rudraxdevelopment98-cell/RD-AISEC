@@ -129,9 +129,11 @@ build that item, verify, commit, and merge to `main`.
       a machine (open Jobs pre-filled) instead of "coming soon".
 - ✅ **Bug Bounty progress** — engaged programs on top with scan progress, open
       findings (crit/high), exploit/validate + Report links.
-- 🔜 **Wireless / environment** — quick WiFi AP / arp-scan / iface launchers on
-      the Network page; monitor-mode capture documented (needs the USB dongle).
-      Full WiFi capture UI = next.
+- ✅ **WiFi (Phase 9)** — runner auto-detects wireless interfaces + monitor-mode
+      capability (v17), reports them; dedicated **WiFi page** notifies to attach a
+      monitor dongle, installs aircrack-ng one-click, and launches monitor/scan/
+      handshake-capture/deauth/crack actions (authorized only) via the runner.
+      Plus WiFi/arp-scan launchers on the Network page.
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
