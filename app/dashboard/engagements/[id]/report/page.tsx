@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getEngagement } from "@/lib/engagements";
 import { sortFindings, severityCounts } from "@/lib/report";
 import { buildExecutiveSummary } from "@/lib/ai-report";
+import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
 import { PrintButton } from "@/components/print-button";
 import { Icon } from "@/components/icons";
@@ -162,6 +163,16 @@ export default async function ReportPage({
                       <FindingStatusBadge value={f.status} />
                     </span>
                   </div>
+                  {(f.attack || f.owasp) && (
+                    <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                      {[
+                        attackLabel(f.attack) && `ATT&CK ${attackLabel(f.attack)}`,
+                        owaspLabel(f.owasp) && `OWASP ${owaspLabel(f.owasp)}`,
+                      ]
+                        .filter(Boolean)
+                        .join("  ·  ")}
+                    </p>
+                  )}
                   {f.description && (
                     <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
                       {f.description}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
 import { SEVERITY_ORDER } from "@/lib/report";
+import { attackLabel, owaspLabel } from "@/lib/finding-map";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,21 @@ export default async function AnalyticsPage() {
     count: findings.filter((f) => f.status === s).length,
   }));
   const maxStatus = Math.max(1, ...byStatus.map((b) => b.count));
+
+  // Framework breakdowns (deterministic tags — see lib/finding-map.ts).
+  function tally(get: (f: (typeof findings)[number]) => string) {
+    const m = new Map<string, number>();
+    for (const f of findings) {
+      const k = get(f);
+      if (k) m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return [...m.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+  }
+  const byAttack = tally((f) => f.attack).map((b) => ({ ...b, label: attackLabel(b.key) ?? b.key }));
+  const byOwasp = tally((f) => f.owasp).map((b) => ({ ...b, label: owaspLabel(b.key) ?? b.key }));
+  const maxAttack = Math.max(1, ...byAttack.map((b) => b.count));
+  const maxOwasp = Math.max(1, ...byOwasp.map((b) => b.count));
+  const mapped = findings.filter((f) => f.attack || f.owasp).length;
 
   const TYPES = ["pentest", "forensics", "consulting"];
   const byType = TYPES.map((t) => ({
@@ -172,6 +188,37 @@ export default async function AnalyticsPage() {
           </div>
           <p className="mt-4 text-xs text-gray-500">
             {fixed} fixed · {open} still open
+          </p>
+        </div>
+      </section>
+
+      {/* Findings by framework (ATT&CK / OWASP) */}
+      <section className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="card">
+          <h2 className="font-semibold text-brand-glow">By MITRE ATT&amp;CK tactic</h2>
+          {byAttack.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500">No findings mapped yet.</p>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {byAttack.map((b) => (
+                <Bar key={b.key} label={b.label} count={b.count} max={maxAttack} color="bg-red-500/70" />
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="card">
+          <h2 className="font-semibold text-brand-glow">By OWASP Top 10</h2>
+          {byOwasp.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500">No findings mapped yet.</p>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {byOwasp.map((b) => (
+                <Bar key={b.key} label={b.label} count={b.count} max={maxOwasp} color="bg-amber-500/70" />
+              ))}
+            </div>
+          )}
+          <p className="mt-4 text-xs text-gray-500">
+            {mapped} of {findings.length} findings mapped to a framework.
           </p>
         </div>
       </section>

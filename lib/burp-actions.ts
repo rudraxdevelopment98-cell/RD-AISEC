@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { parseBurpIssues } from "@/lib/burp";
+import { classifyFinding } from "@/lib/finding-map";
 
 const MAX_XML_BYTES = 20 * 1024 * 1024; // 20 MB cap on the upload
 
@@ -55,6 +56,7 @@ export async function importBurpFindings(formData: FormData) {
       status: f.status,
       description: f.description,
       recommendation: f.recommendation,
+      ...classifyFinding({ tool: "burp", title: f.title, description: f.description, severity: f.severity }),
     })),
   });
   await prisma.engagement.update({

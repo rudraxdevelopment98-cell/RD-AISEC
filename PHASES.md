@@ -88,9 +88,11 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P6.6** — Route the cloud recon pipeline **through the runner**
 - ⬜ **P6.7** — **arp-scan** — LAN layer-2 device discovery (IP + MAC + vendor),
       feeds the Network Map. *Small; works on the runner's own subnet.*
-- ⬜ **P6.8** — **Auto-map findings to frameworks** — tag each finding with its
-      MITRE ATT&CK tactic + OWASP category from the tool/output (deterministic
-      rules, no AI); filter/report by framework. *Builds on the Frameworks page.*
+- ✅ **P6.8** — **Auto-map findings to frameworks** — every finding is tagged
+      with its MITRE ATT&CK tactic + OWASP Top 10 category by deterministic
+      keyword rules (no AI), at all creation paths (runner jobs, posture scans,
+      recon pipeline, Burp import, manual). Shown as badges on findings + in the
+      report, and broken down on Analytics (by ATT&CK tactic / by OWASP).
 
 ## ⬜ Phase 9 — Wireless (WiFi) *(needs a monitor-mode USB WiFi adapter on the runner)*
 > The runner's VM can't scan WiFi via the Mac's built-in radio — it needs a

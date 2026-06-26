@@ -13,6 +13,7 @@ import {
   INSTALLABLE_PKGS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
+import { tagFindings } from "@/lib/finding-map";
 
 /** Hash a runner token for storage/lookup (never store the plaintext). */
 export async function hashToken(token: string): Promise<string> {
@@ -333,7 +334,10 @@ export async function importJobFindings(formData: FormData) {
   }
 
   const engagementId = job.engagementId; // narrowed: not null past the guard above
-  const findings = parseJobFindings(job.tool, job.target, job.output);
+  const findings = tagFindings(
+    parseJobFindings(job.tool, job.target, job.output),
+    job.tool,
+  );
   if (findings.length > 0) {
     await prisma.finding.createMany({
       data: findings.map((f) => ({ ...f, engagementId })),
