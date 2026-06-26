@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { findTool, isSafeValue } from "@/lib/runner-constants";
+import { findTool, isSafeValue, normalizeTarget } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 
 /** Hash a runner token for storage/lookup (never store the plaintext). */
@@ -88,7 +88,11 @@ export async function queueJob(formData: FormData) {
     redirect(`${back}&error=${encodeURIComponent("Unknown tool or preset.")}`);
   }
 
-  if (!isSafeValue(target)) {
+  // Normalize per tool: nmap/whois/dig get a bare host (no scheme/path); httpx/
+  // nuclei keep the full URL.
+  const finalTarget = normalizeTarget(tool!.id, target);
+
+  if (!isSafeValue(finalTarget)) {
     redirect(
       `${back}&error=${encodeURIComponent("Target contains characters that aren't allowed.")}`,
     );
@@ -109,7 +113,7 @@ export async function queueJob(formData: FormData) {
 
   // Soft scope gate: if a scope is recorded, the target host must appear in it.
   const scope = (engagement!.scope ?? "").toLowerCase();
-  const host = targetHost(target);
+  const host = targetHost(finalTarget);
   if (scope.trim() && host && !scope.includes(host)) {
     redirect(
       `${back}&error=${encodeURIComponent(
@@ -128,7 +132,7 @@ export async function queueJob(formData: FormData) {
       engagementId,
       runnerId,
       tool: tool!.id,
-      target,
+      target: finalTarget,
       args: preset!.args.join(" "),
       queuedBy: session.user.email ?? "",
     },

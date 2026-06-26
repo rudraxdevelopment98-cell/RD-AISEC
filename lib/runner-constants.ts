@@ -78,6 +78,21 @@ export function findTool(id: string): RunnerTool | undefined {
   return RUNNER_TOOLS.find((t) => t.id === id);
 }
 
+// Tools that scan a host/IP (not a URL). nmap/whois/dig can't parse a "https://"
+// scheme or a path, so we strip the target down to its hostname for them.
+// httpx/nuclei keep the full URL.
+const HOST_TARGET_TOOLS = new Set(["nmap", "whois", "dig"]);
+
+/** Normalize a target for a given tool (strip scheme/path for host-based tools). */
+export function normalizeTarget(toolId: string, raw: string): string {
+  let t = raw.trim();
+  if (HOST_TARGET_TOOLS.has(toolId)) {
+    t = t.replace(/^[a-z][a-z0-9+.-]*:\/\//i, ""); // strip scheme
+    t = t.split("/")[0]; // strip path
+  }
+  return t;
+}
+
 export const JOB_STATUSES = [
   "queued",
   "running",
