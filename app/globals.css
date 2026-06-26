@@ -245,3 +245,39 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .scene-rays, .scene-particles, .scanline, .wave-svg { animation: none; }
 }
+
+/* ── Radar scope backdrop (replaces the scattered rays) ──── */
+@keyframes blip { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+
+.scene-radar {
+  position: absolute; left: 50%; top: 4%;
+  width: 130vmax; height: 130vmax;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(52, 211, 153, 0.18),
+    rgba(52, 211, 153, 0.04) 24deg,
+    transparent 56deg 360deg
+  );
+  opacity: .6;
+  animation: rayspin 11s linear infinite;
+}
+.scene-radar-rings {
+  position: absolute; left: 50%; top: 4%;
+  width: 130vmax; height: 130vmax;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    transparent 0 88px,
+    rgba(56, 189, 248, 0.045) 88px 89px
+  );
+  -webkit-mask: radial-gradient(circle, #000 0 55%, transparent 78%);
+  mask: radial-gradient(circle, #000 0 55%, transparent 78%);
+}
+.blip { animation: blip 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-radar, .blip { animation: none; }
+}

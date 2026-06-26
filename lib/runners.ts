@@ -297,6 +297,27 @@ export async function deleteJob(formData: FormData) {
   revalidatePath("/dashboard/runners");
 }
 
+/** Re-queue a job (same tool/target/args/runner) — e.g. after installing a tool. */
+export async function retryJob(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  const job = await prisma.job.findUnique({ where: { id } });
+  if (job) {
+    await prisma.job.create({
+      data: {
+        engagementId: job.engagementId,
+        runnerId: job.runnerId,
+        tool: job.tool,
+        target: job.target,
+        args: job.args,
+        queuedBy: session.user.email ?? "",
+      },
+    });
+  }
+  revalidatePath("/dashboard/runners");
+}
+
 /**
  * Turn a completed job's output into findings on its engagement.
  * Parsing is per-tool and best-effort (see lib/job-parser).

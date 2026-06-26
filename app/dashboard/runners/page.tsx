@@ -10,6 +10,7 @@ import {
   importJobFindings,
   setRunnerAnonymity,
   requestInstall,
+  retryJob,
 } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
@@ -469,6 +470,12 @@ python3 rdaisec_runner.py`}
                         <button className="btn-ghost px-2 py-1 text-xs">
                           <Icon name="arrow" className="h-3 w-3" /> Import to findings
                         </button>
+                      </form>
+                    )}
+                    {(j.status === "failed" || j.status === "canceled") && (
+                      <form action={retryJob}>
+                        <input type="hidden" name="id" value={j.id} />
+                        <button className="text-xs text-gray-500 hover:text-brand">Retry</button>
                       </form>
                     )}
                     <form action={deleteJob}>

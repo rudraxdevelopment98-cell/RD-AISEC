@@ -104,29 +104,73 @@ function ActivitySpark({ buckets }: { buckets: { scans: number; jobs: number }[]
   );
 }
 
-/* ── Workflow pipeline (animated flow) ──────────────────── */
-function PipeNode({ cx, count, label }: { cx: number; count: number; label: string }) {
-  return (
-    <g>
-      <circle cx={cx} cy="46" r="26" fill="rgba(52,211,153,0.08)" stroke="#34d399" strokeWidth="1.5" />
-      <text x={cx} y="52" textAnchor="middle" className="fill-white" fontSize="18" fontWeight="bold">
-        {count}
-      </text>
-      <text x={cx} y="92" textAnchor="middle" className="fill-gray-400" fontSize="12">
-        {label}
-      </text>
-    </g>
-  );
-}
-
+/* ── Workflow pipeline (animated data flow) ─────────────── */
 function Pipeline({ scans, findings, reports }: { scans: number; findings: number; reports: number }) {
+  const nodes = [
+    { cx: 80, count: scans, label: "Scans", sub: "recon → ports" },
+    { cx: 240, count: findings, label: "Findings", sub: "triaged issues" },
+    { cx: 400, count: reports, label: "Reports", sub: "engagements" },
+  ];
   return (
-    <svg viewBox="0 0 460 108" className="h-auto w-full">
-      <line x1="98" y1="46" x2="202" y2="46" stroke="#34d399" strokeWidth="2" className="pipe-line" />
-      <line x1="258" y1="46" x2="362" y2="46" stroke="#34d399" strokeWidth="2" className="pipe-line" />
-      <PipeNode cx={70} count={scans} label="Scans" />
-      <PipeNode cx={230} count={findings} label="Findings" />
-      <PipeNode cx={390} count={reports} label="Reports" />
+    <svg viewBox="0 0 480 150" className="h-auto w-full">
+      <defs>
+        <linearGradient id="pipeStroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#34d399" stopOpacity="0.25" />
+          <stop offset="0.5" stopColor="#34d399" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#38bdf8" stopOpacity="0.85" />
+        </linearGradient>
+        <radialGradient id="pipeNode" cx="50%" cy="32%" r="75%">
+          <stop offset="0" stopColor="#0b1426" />
+          <stop offset="1" stopColor="#020617" />
+        </radialGradient>
+        <filter id="pipeGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.6" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <marker id="pipeArrow" markerWidth="9" markerHeight="9" refX="5.5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#38bdf8" />
+        </marker>
+        <path id="pAB" d="M118,62 L200,62" />
+        <path id="pBC" d="M278,62 L360,62" />
+      </defs>
+
+      {/* connectors */}
+      <use href="#pAB" stroke="url(#pipeStroke)" strokeWidth="2.5" fill="none" markerEnd="url(#pipeArrow)" />
+      <use href="#pBC" stroke="url(#pipeStroke)" strokeWidth="2.5" fill="none" markerEnd="url(#pipeArrow)" />
+
+      {/* flowing data packets */}
+      {["#pAB", "#pBC"].flatMap((p, pi) =>
+        [0, 1].map((k) => (
+          <circle key={`${pi}-${k}`} r="3.4" fill="#5eead4" filter="url(#pipeGlow)">
+            <animateMotion dur="2.2s" begin={`${pi * 0.4 + k * 1.1}s`} repeatCount="indefinite">
+              <mpath href={p} />
+            </animateMotion>
+          </circle>
+        )),
+      )}
+
+      {/* nodes */}
+      {nodes.map((n) => (
+        <g key={n.label}>
+          <circle cx={n.cx} cy="62" r="34" fill="none" stroke="#34d399" strokeWidth="1.5" strokeOpacity="0.4">
+            <animate attributeName="r" values="34;37;34" dur="3.4s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" values="0.4;0.7;0.4" dur="3.4s" repeatCount="indefinite" />
+          </circle>
+          <circle cx={n.cx} cy="62" r="27" fill="url(#pipeNode)" stroke="#1f2a3c" />
+          <text x={n.cx} y="69" textAnchor="middle" fontSize="20" fontWeight="bold" className="fill-white">
+            {n.count}
+          </text>
+          <text x={n.cx} y="116" textAnchor="middle" fontSize="13" fontWeight="600" className="fill-gray-200">
+            {n.label}
+          </text>
+          <text x={n.cx} y="132" textAnchor="middle" fontSize="10" className="fill-gray-500">
+            {n.sub}
+          </text>
+        </g>
+      ))}
     </svg>
   );
 }
@@ -240,12 +284,36 @@ export default async function DashboardOverview() {
             </div>
           </div>
 
-          {/* Floating emblem */}
-          <div className="relative hidden h-28 w-28 shrink-0 place-items-center sm:grid">
-            <div className="spin-slow absolute inset-0 rounded-full border border-dashed border-brand/30" />
-            <div className="float-slow grid h-20 w-20 place-items-center rounded-full border border-surface-border bg-surface/60 text-brand shadow-[0_0_40px_rgba(52,211,153,0.25)]">
-              <Icon name="shield" className="h-9 w-9" />
-            </div>
+          {/* Radar scope emblem */}
+          <div className="float-slow relative hidden h-32 w-32 shrink-0 sm:block">
+            <svg viewBox="0 0 120 120" className="h-full w-full drop-shadow-[0_0_20px_rgba(52,211,153,0.25)]">
+              <defs>
+                <linearGradient id="radarBeam" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stopColor="#34d399" stopOpacity="0.55" />
+                  <stop offset="1" stopColor="#34d399" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <circle cx="60" cy="60" r="56" fill="rgba(2,6,23,0.55)" stroke="#1f2a3c" />
+              <circle cx="60" cy="60" r="42" fill="none" stroke="#34d399" strokeOpacity="0.18" />
+              <circle cx="60" cy="60" r="28" fill="none" stroke="#34d399" strokeOpacity="0.18" />
+              <circle cx="60" cy="60" r="14" fill="none" stroke="#34d399" strokeOpacity="0.18" />
+              <line x1="60" y1="6" x2="60" y2="114" stroke="#34d399" strokeOpacity="0.12" />
+              <line x1="6" y1="60" x2="114" y2="60" stroke="#34d399" strokeOpacity="0.12" />
+              <path d="M60,60 L60,6 A54,54 0 0,1 108,38 Z" fill="url(#radarBeam)">
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 60 60"
+                  to="360 60 60"
+                  dur="4s"
+                  repeatCount="indefinite"
+                />
+              </path>
+              <circle className="blip" cx="80" cy="44" r="2.6" fill="#5eead4" style={{ animationDelay: "0s" }} />
+              <circle className="blip" cx="44" cy="76" r="2.2" fill="#38bdf8" style={{ animationDelay: "1.2s" }} />
+              <circle className="blip" cx="82" cy="82" r="2" fill="#5eead4" style={{ animationDelay: "2.1s" }} />
+              <circle cx="60" cy="60" r="3" fill="#34d399" />
+            </svg>
           </div>
         </div>
       </section>
