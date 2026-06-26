@@ -331,8 +331,10 @@ python3 rdaisec_runner.py`}
                       )}
 
                       <p className="mt-2 text-[11px] text-gray-600">
-                        httpx / nuclei aren&apos;t apt packages — install those manually.
-                        Install needs the runner to have root (or passwordless sudo).
+                        httpx isn&apos;t an apt package — install it manually. Installs
+                        need the machine to run the runner as root, set{" "}
+                        <code className="font-mono">RUNNER_SUDO_PASS</code>, or have
+                        passwordless sudo for apt. (Never put a sudo password in the portal.)
                       </p>
                     </details>
                   )}
