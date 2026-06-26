@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons";
@@ -19,7 +20,11 @@ export function MobileNav({
   email: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  // Portals need the DOM — only render the drawer after mount (avoids SSR error).
+  useEffect(() => setMounted(true), []);
 
   // Close when the route changes (i.e. a nav link was tapped).
   useEffect(() => {
@@ -46,13 +51,17 @@ export function MobileNav({
         <Icon name="menu" className="h-5 w-5" />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50">
+      {open &&
+        mounted &&
+        createPortal(
+          // Rendered into <body> so the header's backdrop-blur (a containing
+          // block for fixed elements) can't clip the drawer to the header bar.
+          <div className="fixed inset-0 z-[100] lg:hidden">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[82%] flex-col border-r border-surface-border bg-surface-card">
+          <aside className="glass-panel absolute left-0 top-0 flex h-full w-72 max-w-[82%] flex-col border-r border-surface-border">
             <div className="flex shrink-0 items-center justify-between border-b border-surface-border p-4">
               <Link href="/dashboard" className="flex items-center gap-2">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
@@ -86,8 +95,9 @@ export function MobileNav({
               </div>
             )}
           </aside>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
