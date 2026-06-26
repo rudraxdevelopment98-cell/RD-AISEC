@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
 import { CustomJobForm } from "@/components/custom-job";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { cancelJob } from "@/lib/runners";
+import { cancelJob, cancelQueuedJobs } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
 import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
@@ -44,6 +44,16 @@ export default async function JobsPage({
         "No result received in time — the runner stopped responding, lost connection, or the tool hung. The job was stopped automatically.",
       finishedAt: new Date(),
     },
+  });
+
+  // Self-clean: auto-archive finished jobs older than 30 days (kept in Archived).
+  await prisma.job.updateMany({
+    where: {
+      archived: false,
+      status: { in: ["done", "failed", "canceled"] },
+      finishedAt: { lt: new Date(Date.now() - 30 * 86_400_000) },
+    },
+    data: { archived: true },
   });
 
   const [runners, engagements, jobs] = await Promise.all([
@@ -105,12 +115,21 @@ export default async function JobsPage({
       />
 
       {/* ── Active (live) ───────────────────────────────── */}
-      <h2 className="mt-10 flex items-center gap-2 text-lg font-bold">
-        Active
-        {active.length > 0 && (
-          <span className="tag ring-sky accent-sky">{active.length} running/queued</span>
+      <div className="mt-10 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          Active
+          {active.length > 0 && (
+            <span className="tag ring-sky accent-sky">{active.length} running/queued</span>
+          )}
+        </h2>
+        {active.some((j) => j.status === "queued") && (
+          <form action={cancelQueuedJobs}>
+            <button className="text-xs text-gray-500 hover:text-amber-400">
+              Cancel all queued
+            </button>
+          </form>
         )}
-      </h2>
+      </div>
       {active.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500">Nothing running. Queue a job above.</p>
       ) : (
