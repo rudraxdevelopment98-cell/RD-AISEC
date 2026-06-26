@@ -250,8 +250,19 @@ python3 rdaisec_runner.py`}
                         </span>
                       )}
                       {r.anonymity && (
-                        <span className="tag border-violet-500/40 text-violet-300">
-                          🧅 Tor{r.exitIp ? ` · ${r.exitIp}` : " · connecting…"}
+                        <span
+                          className={`tag ${
+                            r.anonStatus === "no-tor"
+                              ? "border-red-500/40 text-red-300"
+                              : "border-violet-500/40 text-violet-300"
+                          }`}
+                        >
+                          🧅 Tor
+                          {r.exitIp
+                            ? ` · ${r.exitIp}`
+                            : r.anonStatus === "no-tor"
+                              ? " · not installed"
+                              : " · connecting…"}
                         </span>
                       )}
                     </div>
@@ -271,6 +282,24 @@ python3 rdaisec_runner.py`}
                       {r.anonymity ? "Turn off Tor" : "🧅 Turn on Tor (anonymize)"}
                     </button>
                   </form>
+
+                  {/* Tor not installed → one-click install */}
+                  {r.anonymity && r.anonStatus === "no-tor" && r.lastSeenAt && (
+                    <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-200">
+                      Tor isn&apos;t installed on this machine, so traffic can&apos;t be
+                      anonymized. Install it:
+                      <div className="mt-1.5 flex gap-2">
+                        {(["tor", "torsocks"] as const).map((pkg) => (
+                          <form key={pkg} action={requestInstall}>
+                            <input type="hidden" name="runnerId" value={r.id} />
+                            <input type="hidden" name="tool" value={pkg} />
+                            <input type="hidden" name="confirm" value="true" />
+                            <button className="btn-ghost px-2 py-1 text-xs">Install {pkg}</button>
+                          </form>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Install missing tools (authorized) */}
                   {r.lastSeenAt && (missing.length > 0 || r.installs.length > 0) && (

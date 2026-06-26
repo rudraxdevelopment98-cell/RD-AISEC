@@ -32,6 +32,8 @@ export async function authenticateRunner(req: Request) {
   // Tor exit IP it reports while anonymity is on (only persist when anonymity is on).
   const exitHeader = (req.headers.get("x-runner-exit-ip") ?? "").slice(0, 64);
   const exitIp = runner.anonymity ? exitHeader : "";
+  // Reported Tor state: off | connecting | on | no-tor.
+  const anonStatus = (req.headers.get("x-runner-anon-status") ?? "").slice(0, 20);
   // Local subnets the runner detected (for one-click "scan this network").
   const subnets = (req.headers.get("x-runner-subnets") ?? "").slice(0, 512);
   // Which allowlisted tools actually have a binary present on the runner.
@@ -45,6 +47,7 @@ export async function authenticateRunner(req: Request) {
         ...(version ? { version } : {}),
         toolCount,
         ...(runner.anonymity ? { exitIp } : {}),
+        ...(anonStatus ? { anonStatus } : {}),
         ...(subnets ? { subnets } : {}),
         installed,
       },
