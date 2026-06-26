@@ -43,10 +43,26 @@ export default async function BugBountyPage({
     prisma.bugAccount.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.bugProgram.findMany({
       orderBy: { updatedAt: "desc" },
-      include: { engagement: { select: { id: true, name: true } } },
+      include: {
+        engagement: {
+          select: {
+            id: true,
+            name: true,
+            findings: { select: { severity: true, status: true } },
+            jobs: { select: { status: true } },
+          },
+        },
+      },
     }),
     prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
   ]);
+
+  // Engaged / automated programs float to the top.
+  const sortedPrograms = [...programs].sort((a, b) => {
+    const rank = (p: (typeof programs)[number]) =>
+      (p.engagement ? 0 : 2) - (p.auto ? 1 : 0);
+    return rank(a) - rank(b);
+  });
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -210,8 +226,19 @@ export default async function BugBountyPage({
         <p className="mt-3 card text-sm text-gray-500">No programs yet. Add one above.</p>
       ) : (
         <div className="mt-3 space-y-3">
-          {programs.map((p) => {
+          {sortedPrograms.map((p) => {
             const targets = parseScopeTargets(p.scope);
+            const findings = p.engagement?.findings ?? [];
+            const jobs = p.engagement?.jobs ?? [];
+            const jobsDone = jobs.filter((j) => ["done", "failed", "canceled"].includes(j.status)).length;
+            const jobsActive = jobs.filter((j) => ["queued", "running"].includes(j.status)).length;
+            const pct = jobs.length ? Math.round((jobsDone / jobs.length) * 100) : 0;
+            const open = findings.filter((f) => f.status === "open");
+            const crit = open.filter((f) => f.severity === "critical").length;
+            const high = open.filter((f) => f.severity === "high").length;
+            const exploitable = open.filter((f) =>
+              ["low", "medium", "high", "critical"].includes(f.severity),
+            ).length;
             return (
               <div key={p.id} className="card">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -219,6 +246,8 @@ export default async function BugBountyPage({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="tag text-brand">{platformLabel(p.platform)}</span>
                       <span className="font-semibold text-white">{p.name}</span>
+                      {p.engagement && <span className="tag ring-emerald accent-emerald">engaged</span>}
+                      {p.auto && <span className="tag">🤖 auto</span>}
                       <span className="tag capitalize">{p.status}</span>
                     </div>
                     <p className="mt-1 text-xs text-gray-500">
@@ -235,6 +264,47 @@ export default async function BugBountyPage({
                     </p>
                   </div>
                 </div>
+
+                {/* Progress + findings summary (for engaged programs) */}
+                {p.engagement && (jobs.length > 0 || findings.length > 0) && (
+                  <div className="mt-3 rounded-lg border border-surface-border bg-black/20 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
+                      <span>
+                        Scans: {jobsDone}/{jobs.length} done
+                        {jobsActive > 0 && <span className="text-sky-300"> · {jobsActive} running</span>}
+                      </span>
+                      <span>
+                        {open.length} open findings
+                        {crit > 0 && <span className="text-red-300"> · {crit} crit</span>}
+                        {high > 0 && <span className="text-orange-300"> · {high} high</span>}
+                      </span>
+                    </div>
+                    {jobs.length > 0 && (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-border">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                      {exploitable > 0 && (
+                        <Link href="/dashboard/exploit" className="text-red-300 hover:underline">
+                          ⚔ {exploitable} to exploit / validate →
+                        </Link>
+                      )}
+                      <Link
+                        href={`/dashboard/engagements/${p.engagement.id}/report`}
+                        className="text-brand hover:underline"
+                      >
+                        📄 Report →
+                      </Link>
+                      <Link
+                        href={`/dashboard/engagements/${p.engagement.id}`}
+                        className="text-gray-400 hover:underline"
+                      >
+                        Open engagement →
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {targets.length > 0 && (
                   <p className="mt-2 break-all font-mono text-[11px] text-gray-400">
