@@ -29,6 +29,9 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Server-driven tool list + runner health badge (version / tool count)
 - ✅ Burp Suite XML import
 - ✅ Tor anonymity toggle per runner (routes tool traffic via torsocks; shows exit IP)
+- ✅ Quick scans (no engagement) vs engagement/scope scans
+- ✅ Job error handling: auto-fail stalled jobs, "runner offline" flag on queued
+  jobs, failure reason surfaced + Stop button
 
 ## ✅ Phase 3 — Network & visualization *(done)*
 - ✅ Network scanning (nmap CIDR presets)

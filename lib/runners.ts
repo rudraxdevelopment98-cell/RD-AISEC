@@ -179,14 +179,15 @@ export async function queueLocalScan(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  // engagementId is OPTIONAL — empty means a "quick scan" (no engagement).
   const engagementId = String(formData.get("engagementId") ?? "");
   const runnerId = String(formData.get("runnerId") ?? "");
   const subnet = String(formData.get("subnet") ?? "").trim();
   const mode = String(formData.get("mode") ?? "discovery");
   const back = "/dashboard/network";
 
-  if (!engagementId || !runnerId || !subnet) {
-    redirect(`${back}?error=${encodeURIComponent("Pick a runner, network, and engagement.")}`);
+  if (!runnerId || !subnet) {
+    redirect(`${back}?error=${encodeURIComponent("Pick a runner and a network.")}`);
   }
 
   const runner = await prisma.runner.findUnique({ where: { id: runnerId } });
@@ -195,21 +196,22 @@ export async function queueLocalScan(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent("That network isn't one this runner detected.")}`);
   }
 
-  const engagement = await prisma.engagement.findUnique({
-    where: { id: engagementId },
-    select: { authorized: true },
-  });
-  if (!engagement) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
-  if (!engagement!.authorized) {
-    redirect(
-      `${back}?error=${encodeURIComponent("Authorize the engagement before scanning.")}`,
-    );
+  // If filing under an engagement, it must be authorized. Quick scans skip this.
+  if (engagementId) {
+    const engagement = await prisma.engagement.findUnique({
+      where: { id: engagementId },
+      select: { authorized: true },
+    });
+    if (!engagement) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+    if (!engagement!.authorized) {
+      redirect(`${back}?error=${encodeURIComponent("Authorize the engagement before scanning.")}`);
+    }
   }
 
   const args = LOCAL_SCAN_PRESETS[mode] ?? LOCAL_SCAN_PRESETS.discovery;
   await prisma.job.create({
     data: {
-      engagementId,
+      engagementId: engagementId || null,
       runnerId,
       tool: "nmap",
       target: subnet,
@@ -256,22 +258,24 @@ export async function importJobFindings(formData: FormData) {
 
   const id = String(formData.get("id") ?? "");
   const job = await prisma.job.findUnique({ where: { id } });
-  if (!job || job.status !== "done") {
+  if (!job || job.status !== "done" || !job.engagementId) {
+    // Quick scans (no engagement) have nowhere to import findings to.
     revalidatePath("/dashboard/runners");
     return;
   }
 
+  const engagementId = job.engagementId; // narrowed: not null past the guard above
   const findings = parseJobFindings(job.tool, job.target, job.output);
   if (findings.length > 0) {
     await prisma.finding.createMany({
-      data: findings.map((f) => ({ ...f, engagementId: job.engagementId })),
+      data: findings.map((f) => ({ ...f, engagementId })),
     });
     await prisma.engagement.update({
-      where: { id: job.engagementId },
+      where: { id: engagementId },
       data: { updatedAt: new Date() },
     });
   }
 
   revalidatePath("/dashboard/runners");
-  redirect(`/dashboard/engagements/${job.engagementId}`);
+  redirect(`/dashboard/engagements/${engagementId}`);
 }
