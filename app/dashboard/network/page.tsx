@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { parseNmapNetwork } from "@/lib/network";
 import { NetworkGraph } from "@/components/network-graph";
 import { LocalScanForm } from "@/components/local-scan-form";
+import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,12 @@ export default async function NetworkPage({
         against a CIDR (e.g. <code className="font-mono">10.0.0.0/24</code>), then
         view live hosts, open ports, and services here.
       </p>
+
+      <HelpBanner>
+        <p>• Use the scan form to scan a network your machine is on (it auto-detects subnets).</p>
+        <p>• Or queue an nmap discovery/network scan against a CIDR on the Jobs page.</p>
+        <p>• Hosts, ports and services from the latest scan render as a map below.</p>
+      </HelpBanner>
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

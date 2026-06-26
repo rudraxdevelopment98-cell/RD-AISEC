@@ -5,6 +5,7 @@ import { CustomJobForm } from "@/components/custom-job";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { cancelJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
+import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export default async function JobsPage({
     prisma.engagement.findMany({
       where: { authorized: true },
       orderBy: { updatedAt: "desc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, scope: true },
     }),
     prisma.job.findMany({
       orderBy: { createdAt: "desc" },
@@ -75,6 +76,12 @@ export default async function JobsPage({
         Queue tools to run on a connected machine, watch them live, and review
         completed runs with their results.
       </p>
+
+      <HelpBanner>
+        <p>• Pick an engagement, machine, tool and preset, then a target (or pick one from the engagement&apos;s scope).</p>
+        <p>• Use <b>Run a custom command</b> for anything not in the tool list.</p>
+        <p>• Active jobs show live; completed ones go to History — expand a row to import findings, retry, or see output.</p>
+      </HelpBanner>
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

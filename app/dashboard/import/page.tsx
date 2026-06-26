@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { importBurpFindings } from "@/lib/burp-actions";
+import { HelpBanner } from "@/components/hint";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,11 @@ export default async function ImportPage({
         manual testing → export the issues as XML and import them here; they join
         the same findings list and report as your automated scans. No AI involved.
       </p>
+
+      <HelpBanner>
+        <p>• In Burp: Target → Site map → right-click → Report issues (XML).</p>
+        <p>• Pick the engagement, upload the XML, and the issues become findings (tagged to ATT&amp;CK/OWASP).</p>
+      </HelpBanner>
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

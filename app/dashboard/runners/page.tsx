@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { CreateRunnerForm } from "@/components/runner-create";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { HelpBanner } from "@/components/hint";
 import { deleteRunner, setRunnerAnonymity, requestInstall } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
@@ -79,6 +80,12 @@ export default async function RunnersPage({
         machine you select. See{" "}
         <code className="font-mono text-xs text-brand">runner/README.md</code>.
       </p>
+
+      <HelpBanner>
+        <p>• Create a runner to get a token, then run the Python runner on your machine with it.</p>
+        <p>• A green dot = online (polled recently). Install missing tools right from a runner&apos;s card.</p>
+        <p>• Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</p>
+      </HelpBanner>
 
       {/* Installations — tools that jobs need but the machine is missing */}
       {suggestions.length > 0 && (
