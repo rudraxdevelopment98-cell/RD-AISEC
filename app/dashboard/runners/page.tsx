@@ -3,7 +3,13 @@ import { Icon } from "@/components/icons";
 import { CreateRunnerForm } from "@/components/runner-create";
 import { QueueJobForm } from "@/components/runner-queue";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { deleteRunner, cancelJob, deleteJob, importJobFindings } from "@/lib/runners";
+import {
+  deleteRunner,
+  cancelJob,
+  deleteJob,
+  importJobFindings,
+  setRunnerAnonymity,
+} from "@/lib/runners";
 import { RUNNER_ONLINE_WINDOW_MS, RUNNER_VERSION } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -169,16 +175,34 @@ python3 rdaisec_runner.py`}
                       {r.toolCount > 0 && (
                         <span className="tag">{r.toolCount} tools</span>
                       )}
-                      {r.version && (
-                        <span className="tag">v{r.version}</span>
-                      )}
+                      {r.version && <span className="tag">v{r.version}</span>}
                       {r.version && r.version !== RUNNER_VERSION && (
                         <span className="tag border-amber-500/40 text-amber-300">
                           update available — git pull
                         </span>
                       )}
+                      {r.anonymity && (
+                        <span className="tag border-violet-500/40 text-violet-300">
+                          🧅 Tor{r.exitIp ? ` · ${r.exitIp}` : " · connecting…"}
+                        </span>
+                      )}
                     </div>
                   )}
+
+                  {/* Anonymity toggle */}
+                  <form action={setRunnerAnonymity} className="mt-2">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input type="hidden" name="on" value={(!r.anonymity).toString()} />
+                    <button
+                      className={`text-xs ${
+                        r.anonymity
+                          ? "text-violet-300 hover:text-violet-200"
+                          : "text-gray-500 hover:text-violet-300"
+                      }`}
+                    >
+                      {r.anonymity ? "Turn off Tor" : "🧅 Turn on Tor (anonymize)"}
+                    </button>
+                  </form>
                 </div>
                 <form action={deleteRunner}>
                   <input type="hidden" name="id" value={r.id} />

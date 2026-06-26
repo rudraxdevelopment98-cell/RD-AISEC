@@ -22,6 +22,8 @@ For authorized security testing and education only.
 import json
 import os
 import re
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -29,7 +31,14 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "2"
+RUNNER_VERSION = "3"
+
+# Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
+# torsocks so it exits through the Tor network.
+TOR_SOCKS = ("127.0.0.1", 9050)
+ANON_ON = False
+EXIT_IP = ""
+_tor_proc = None
 
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
@@ -86,9 +95,80 @@ def request(method: str, path: str, body=None):
     req.add_header("Authorization", f"Bearer {RUNNER_TOKEN}")
     req.add_header("X-Runner-Version", RUNNER_VERSION)
     req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
+    req.add_header("X-Runner-Exit-Ip", EXIT_IP)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=30)
+
+
+# ---- Tor anonymity ---------------------------------------------------------
+
+def _port_open(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except OSError:
+        return False
+
+
+def ensure_tor() -> bool:
+    """Make sure a Tor SOCKS proxy is reachable on 127.0.0.1:9050."""
+    global _tor_proc
+    if _port_open(*TOR_SOCKS):
+        return True
+    if not shutil.which("tor"):
+        print("  tor is not installed — run: sudo apt install -y tor torsocks")
+        return False
+    try:
+        _tor_proc = subprocess.Popen(
+            ["tor", "--SocksPort", "9050", "--DataDirectory", "/tmp/rdaisec-tor"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"  failed to start tor: {e}")
+        return False
+    for _ in range(30):
+        if _port_open(*TOR_SOCKS):
+            return True
+        time.sleep(1)
+    return False
+
+
+def tor_exit_ip() -> str:
+    if not (shutil.which("torsocks") and shutil.which("curl")):
+        return ""
+    try:
+        r = subprocess.run(
+            ["torsocks", "curl", "-s", "--max-time", "20", "https://api.ipify.org"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        ip = (r.stdout or "").strip()
+        return ip if re.match(r"^[0-9a-fA-F:.]+$", ip) else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def apply_anonymity(on: bool) -> None:
+    """Reconcile local Tor state with the portal's desired setting."""
+    global ANON_ON, EXIT_IP
+    if on and not ANON_ON:
+        print("🧅 Enabling Tor anonymity…")
+        if not shutil.which("torsocks"):
+            print("  torsocks not installed (sudo apt install -y tor torsocks) — cannot anonymize")
+            return
+        if ensure_tor():
+            ANON_ON = True
+            EXIT_IP = tor_exit_ip()
+            print(f"  Tor on — exit IP {EXIT_IP or 'unknown'}")
+        else:
+            print("  could not reach/start Tor; staying non-anonymous")
+    elif not on and ANON_ON:
+        print("Disabling Tor anonymity.")
+        ANON_ON = False
+        EXIT_IP = ""
 
 
 def fetch_tools():
@@ -110,20 +190,25 @@ def fetch_tools():
         return None
 
 
-def claim_job():
+def poll():
+    """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
     try:
         resp = request("GET", "/api/runner/job")
+        anon = resp.headers.get("X-Runner-Anonymity") == "on"
         if resp.status == 204:
-            return None
-        return json.loads(resp.read().decode())
+            return None, anon
+        return json.loads(resp.read().decode()), anon
     except urllib.error.HTTPError as e:
         if e.code == 401:
             sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
         print(f"  poll error: HTTP {e.code}")
-        return None
+        try:
+            return None, (e.headers.get("X-Runner-Anonymity") == "on")
+        except Exception:  # noqa: BLE001
+            return None, None
     except Exception as e:  # noqa: BLE001
         print(f"  poll error: {e}")
-        return None
+        return None, None
 
 
 def build_argv(job):
@@ -157,6 +242,9 @@ def run_job(job):
     argv, err = build_argv(job)
     if err:
         return err, 1
+    # Anonymize TCP-connect traffic through Tor when enabled.
+    if ANON_ON and shutil.which("torsocks"):
+        argv = ["torsocks", *argv]
     print(f"  $ {' '.join(argv)}")
     try:
         proc = subprocess.run(
@@ -200,6 +288,8 @@ def main():
         print(f"Tools available (built-in defaults): {', '.join(sorted(TOOLS))}")
     print("Polling for jobs… (Ctrl-C to stop)\n")
 
+    print("Anonymity (Tor) is controlled from the portal → Runners.\n")
+
     last_refresh = time.monotonic()
     while True:
         # Refresh the allowlist periodically so new portal tools appear here.
@@ -209,7 +299,10 @@ def main():
                 TOOLS = f
             last_refresh = time.monotonic()
 
-        job = claim_job()
+        job, anon = poll()
+        if anon is not None:
+            apply_anonymity(anon)
+
         if job:
             # Unknown tool? Refresh once immediately before giving up on it.
             if job["tool"] not in TOOLS:
@@ -230,3 +323,6 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\nStopped.")
+    finally:
+        if _tor_proc is not None:
+            _tor_proc.terminate()

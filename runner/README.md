@@ -29,7 +29,7 @@ Runner (Kali)    ──polls GET /api/runner/job──►  runs tool  ──POST
 2. Make sure the tools you want are installed. On Kali:
    ```bash
    sudo apt update
-   sudo apt install -y nmap whois dnsutils sqlmap nikto wpscan sslscan
+   sudo apt install -y nmap whois dnsutils sqlmap nikto wpscan sslscan tor torsocks curl
    # ProjectDiscovery tools (optional): httpx, nuclei
    # e.g. via their installers / go install; ensure they're on PATH
    # (On Kali, most of these are preinstalled.)
@@ -99,6 +99,20 @@ built-in fallback used when the portal can't be reached.
 To add a tool: add it to `RUNNER_TOOLS` in `lib/runner-constants.ts` (portal) and
 to `TOOLS` in `rdaisec_runner.py` (runner). Add a parser in `lib/job-parser.ts`
 if you want its output auto-converted to findings.
+
+## Anonymity (Tor)
+
+Toggle **🧅 Turn on Tor** for a runner in the portal (Dashboard → Runners). On the
+next poll the runner ensures a Tor SOCKS proxy is up (reuses a running one on
+`127.0.0.1:9050`, or starts `tor` itself) and wraps every tool with `torsocks`
+so its traffic exits through the Tor network. The portal shows the reported
+**exit IP**. Requires `tor`, `torsocks`, and `curl` installed.
+
+> ⚠️ **Tor only carries TCP-connect traffic.** Web tools (httpx, nuclei, sqlmap,
+> nikto, wpscan) and `whois` work well. **nmap** must use a connect scan
+> (`-sT`) with `-Pn` — SYN scans, ping sweeps (`-sn`), and UDP/`dig` won't route
+> through Tor. Use anonymity for web/app testing, not raw port/network sweeps.
+> Tor is also much slower; scans will take longer.
 
 ## Safety model
 
