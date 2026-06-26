@@ -176,7 +176,9 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [ ] **Notifications** — email/Slack/Discord on job done, new critical finding.
 - [ ] **Evidence Engine** — attach evidence to findings with chain-of-custody
       (hash, timestamp, who). Files stay off the DB (Vercel Blob or drive-linked).
-- [ ] More output parsers (nuclei, httpx, gobuster, etc.).
+- [ ] More output parsers (gobuster, wpscan, sslscan, etc.).
+- [x] **Import Burp Suite issues XML** — `/dashboard/import`: parse a Burp issues
+      export (upload or paste) into findings on an engagement (no AI).
 
 ### Phase 4 — Agents (Recon · Vuln · Reporting agents)
 - [x] **AI report writer** — `lib/ai-report.ts` drafts an executive summary
