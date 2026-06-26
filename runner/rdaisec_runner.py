@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "15"
+RUNNER_VERSION = "16"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -51,6 +51,9 @@ WORKERS_LOCK = threading.Lock()
 TOR_SOCKS = ("127.0.0.1", 9050)
 ANON_ON = False
 EXIT_IP = ""
+# Reported to the portal so it shows a real state instead of a stuck "connecting":
+#   off | connecting | on | no-tor (tor/torsocks not installed)
+ANON_STATUS = "off"
 _tor_proc = None
 
 # Local subnets this machine is on (detected at startup), reported to the portal
@@ -210,6 +213,7 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Version", RUNNER_VERSION)
     req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
     req.add_header("X-Runner-Exit-Ip", EXIT_IP)
+    req.add_header("X-Runner-Anon-Status", ANON_STATUS)
     req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     if data is not None:
@@ -266,40 +270,54 @@ def ensure_tor() -> bool:
     return False
 
 
-def tor_exit_ip() -> str:
+def tor_exit_ip(retries: int = 3, delay: int = 5) -> str:
+    """Fetch the Tor exit IP, retrying while Tor finishes bootstrapping."""
     if not (shutil.which("torsocks") and shutil.which("curl")):
         return ""
-    try:
-        r = subprocess.run(
-            ["torsocks", "curl", "-s", "--max-time", "20", "https://api.ipify.org"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        ip = (r.stdout or "").strip()
-        return ip if re.match(r"^[0-9a-fA-F:.]+$", ip) else ""
-    except Exception:  # noqa: BLE001
-        return ""
+    for attempt in range(retries):
+        try:
+            r = subprocess.run(
+                ["torsocks", "curl", "-s", "--max-time", "20", "https://api.ipify.org"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            ip = (r.stdout or "").strip()
+            if ip and re.match(r"^[0-9a-fA-F:.]+$", ip):
+                return ip
+        except Exception:  # noqa: BLE001
+            pass
+        if attempt < retries - 1:
+            time.sleep(delay)
+    return ""
 
 
 def apply_anonymity(on: bool) -> None:
-    """Reconcile local Tor state with the portal's desired setting."""
-    global ANON_ON, EXIT_IP
+    """Reconcile local Tor state with the portal's desired setting. Retried on
+    every poll while ON, so a slow Tor bootstrap eventually succeeds."""
+    global ANON_ON, EXIT_IP, ANON_STATUS
     if on and not ANON_ON:
-        print("🧅 Enabling Tor anonymity…")
-        if not shutil.which("torsocks"):
-            print("  torsocks not installed (sudo apt install -y tor torsocks) — cannot anonymize")
+        if not (shutil.which("torsocks") and shutil.which("tor")):
+            if ANON_STATUS != "no-tor":
+                print("  tor/torsocks not installed — run: sudo apt install -y tor torsocks")
+            ANON_STATUS = "no-tor"
             return
+        if ANON_STATUS != "connecting":
+            print("🧅 Enabling Tor anonymity…")
         if ensure_tor():
             ANON_ON = True
             EXIT_IP = tor_exit_ip()
-            print(f"  Tor on — exit IP {EXIT_IP or 'unknown'}")
+            ANON_STATUS = "on" if EXIT_IP else "connecting"
+            print(f"  Tor on — exit IP {EXIT_IP or '(bootstrapping…)'}")
         else:
-            print("  could not reach/start Tor; staying non-anonymous")
+            ANON_STATUS = "connecting"  # keep retrying on the next poll
     elif not on and ANON_ON:
         print("Disabling Tor anonymity.")
         ANON_ON = False
         EXIT_IP = ""
+        ANON_STATUS = "off"
+    elif not on:
+        ANON_STATUS = "off"
 
 
 def fetch_tools():
@@ -322,9 +340,17 @@ def fetch_tools():
 
 
 def heartbeat_loop():
-    """Background: keep the machine 'online' regardless of what the loop is doing."""
+    """Background: keep the machine 'online' regardless of what the loop is doing.
+    Also self-heals the Tor exit IP once bootstrapping completes."""
+    global EXIT_IP, ANON_STATUS
     while True:
         try:
+            if ANON_ON and not EXIT_IP:
+                ip = tor_exit_ip(retries=1)
+                if ip:
+                    EXIT_IP = ip
+                    ANON_STATUS = "on"
+                    print(f"  Tor exit IP {ip}")
             request("GET", "/api/runner/ping")
         except Exception:  # noqa: BLE001
             pass
