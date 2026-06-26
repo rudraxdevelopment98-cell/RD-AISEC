@@ -82,7 +82,14 @@ build that item, verify, commit, and merge to `main`.
 ## ⬜ Phase 5 — Workspace *(no AI)*
 - ⬜ **P5.1** — **Assets** model (hosts/domains/apps per engagement)
 - ⬜ **P5.2** — Queue scans from an asset (target picker)
-- ⬜ **P5.3** — **Roles / RBAC** (owner / analyst / viewer)
+- ✅ **P5.3** — **Members / RBAC** — owners invite members by email, scope
+      access to specific sections, edit/suspend/remove; members sign in (Google)
+      only if approved. Nav filtered per-user; middleware enforces per-section
+      access (role/access baked into the JWT; edge-safe auth.config split).
+- ✅ **Bug Bounty** — track programs (HackerOne/Bugcrowd/…); paste scope →
+      authorized engagement → one-click httpx recon over in-scope targets.
+- ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
+- ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
 - ⬜ **P5.5** — Scan **history per asset** (posture trend over time)
 

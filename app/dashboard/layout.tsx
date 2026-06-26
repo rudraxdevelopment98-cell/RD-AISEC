@@ -3,7 +3,10 @@ import { auth, signOut } from "@/auth";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NeuralBg } from "@/components/neural-bg";
+import { canAccess } from "@/lib/access";
 
+// Full navigation, reorganized by what you're doing: plan work → run offensive
+// ops → reference knowledge → admin. Items are filtered per-user by access.
 const NAV: NavGroup[] = [
   {
     section: "Overview",
@@ -18,13 +21,14 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
+      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
       { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
       { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
       { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
     ],
   },
   {
-    section: "Scanning",
+    section: "Offensive ops",
     items: [
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
@@ -45,6 +49,10 @@ const NAV: NavGroup[] = [
       { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
     ],
   },
+  {
+    section: "Admin",
+    items: [{ href: "/dashboard/members", label: "Members", icon: "server" }],
+  },
 ];
 
 export default async function DashboardLayout({
@@ -55,6 +63,16 @@ export default async function DashboardLayout({
   const session = await auth();
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? "U").charAt(0).toUpperCase();
+
+  // Filter nav to what this user may reach (owners see everything).
+  const info = {
+    role: (user as { role?: string } | undefined)?.role,
+    access: (user as { access?: string[] } | undefined)?.access,
+  };
+  const nav = NAV.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => canAccess(i.href, info)),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
@@ -84,7 +102,7 @@ export default async function DashboardLayout({
 
         {/* Nav — scrolls if it overflows */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
-          <SidebarNav groups={NAV} />
+          <SidebarNav groups={nav} />
         </div>
 
         {/* Sidebar footer — pinned bottom */}
@@ -114,7 +132,7 @@ export default async function DashboardLayout({
         {/* Top header — pinned on every page */}
         <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-surface-border bg-surface/80 px-4 py-3 backdrop-blur sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
-            <MobileNav groups={NAV} email={user?.email ?? null} />
+            <MobileNav groups={nav} email={user?.email ?? null} />
             {/* Brand on mobile (sidebar shows it on sm+) */}
             <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-xs font-black text-black">
