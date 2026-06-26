@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Icon } from "@/components/icons";
-import { importJobFindings, retryJob, deleteJob } from "@/lib/runners";
+import {
+  importJobFindings,
+  retryJob,
+  deleteJob,
+  archiveJobs,
+  unarchiveJobs,
+  deleteJobs,
+} from "@/lib/runners";
 
 export type JobRow = {
   id: string;
@@ -27,10 +34,34 @@ const STATUS_STYLE: Record<string, string> = {
 
 const STATUSES = ["all", "done", "failed", "canceled"];
 
-export function JobsTable({ jobs }: { jobs: JobRow[] }) {
+export function JobsTable({
+  jobs,
+  archived = false,
+}: {
+  jobs: JobRow[];
+  archived?: boolean;
+}) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("recent");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  function runBulk(action: (fd: FormData) => Promise<void>) {
+    const fd = new FormData();
+    selected.forEach((id) => fd.append("ids", id));
+    startTransition(async () => {
+      await action(fd);
+      setSelected(new Set());
+    });
+  }
 
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -88,17 +119,67 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         </select>
       </div>
 
-      <p className="mt-2 text-xs text-gray-500">
-        {rows.length} of {jobs.length} jobs
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          {rows.length} of {jobs.length} jobs
+          {selected.size > 0 && ` · ${selected.size} selected`}
+        </p>
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            {archived ? (
+              <button
+                disabled={pending}
+                onClick={() => runBulk(unarchiveJobs)}
+                className="btn-ghost px-2 py-1"
+              >
+                Restore
+              </button>
+            ) : (
+              <button
+                disabled={pending}
+                onClick={() => runBulk(archiveJobs)}
+                className="btn-ghost px-2 py-1"
+              >
+                <Icon name="copy" className="h-3 w-3" /> Archive
+              </button>
+            )}
+            <button
+              disabled={pending}
+              onClick={() => {
+                if (confirm(`Delete ${selected.size} job(s)? This can't be undone.`)) {
+                  runBulk(deleteJobs);
+                }
+              }}
+              className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+            >
+              Delete
+            </button>
+            <button onClick={() => setSelected(new Set())} className="text-gray-500 hover:text-gray-300">
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="mt-2 overflow-hidden rounded-lg border border-surface-border">
-        <div className="hidden grid-cols-12 gap-2 border-b border-surface-border bg-surface-card/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:grid">
-          <div className="col-span-4">Tool · target</div>
-          <div className="col-span-2">Machine</div>
-          <div className="col-span-2">Engagement</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2 text-right">Finished</div>
+        <div className="flex items-center gap-2 border-b border-surface-border bg-surface-card/40 px-3 py-2">
+          <input
+            type="checkbox"
+            aria-label="Select all"
+            className="shrink-0"
+            checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+            onChange={(e) =>
+              setSelected(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())
+            }
+          />
+          <div className="hidden flex-1 grid-cols-12 gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:grid">
+            <div className="col-span-4">Tool · target</div>
+            <div className="col-span-2">Machine</div>
+            <div className="col-span-2">Engagement</div>
+            <div className="col-span-1">Status</div>
+            <div className="col-span-3 text-right">Finished</div>
+          </div>
+          <span className="text-xs text-gray-500 sm:hidden">Select all</span>
         </div>
 
         {rows.length === 0 ? (
@@ -106,22 +187,32 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         ) : (
           rows.map((j) => (
             <details key={j.id} className="border-b border-surface-border last:border-0">
-              <summary className="grid cursor-pointer grid-cols-1 gap-1 px-3 py-2.5 text-sm hover:bg-surface-card/30 sm:grid-cols-12 sm:items-center sm:gap-2">
-                <div className="col-span-4 min-w-0">
-                  <p className="truncate font-mono text-gray-200">
-                    {j.tool} {j.args}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">{j.target}</p>
-                </div>
-                <div className="col-span-2 truncate text-xs text-gray-400">{j.machine ?? "—"}</div>
-                <div className="col-span-2 truncate text-xs text-gray-400">
-                  {j.engagement ?? "Quick scan"}
-                </div>
-                <div className="col-span-2">
-                  <span className={`tag capitalize ${STATUS_STYLE[j.status] ?? ""}`}>{j.status}</span>
-                </div>
-                <div className="col-span-2 text-xs text-gray-500 sm:text-right">
-                  {j.finished ? new Date(j.finished).toLocaleString() : "—"}
+              <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm hover:bg-surface-card/30">
+                <input
+                  type="checkbox"
+                  className="shrink-0"
+                  checked={selected.has(j.id)}
+                  onChange={() => toggle(j.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Select job"
+                />
+                <div className="grid flex-1 grid-cols-1 gap-1 sm:grid-cols-12 sm:items-center sm:gap-2">
+                  <div className="col-span-4 min-w-0">
+                    <p className="truncate font-mono text-gray-200">
+                      {j.tool} {j.args}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">{j.target}</p>
+                  </div>
+                  <div className="col-span-2 truncate text-xs text-gray-400">{j.machine ?? "—"}</div>
+                  <div className="col-span-2 truncate text-xs text-gray-400">
+                    {j.engagement ?? "Quick scan"}
+                  </div>
+                  <div className="col-span-1">
+                    <span className={`tag capitalize ${STATUS_STYLE[j.status] ?? ""}`}>{j.status}</span>
+                  </div>
+                  <div className="col-span-3 text-xs text-gray-500 sm:text-right">
+                    {j.finished ? new Date(j.finished).toLocaleString() : "—"}
+                  </div>
                 </div>
               </summary>
 

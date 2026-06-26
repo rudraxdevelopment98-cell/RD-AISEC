@@ -111,6 +111,8 @@ model Job {
   // When true, results are parsed into findings automatically on completion
   // (used by bug-bounty automation, which has no human in the loop).
   autoImport   Boolean    @default(false)
+  // Archived jobs are hidden from the default History view but kept on record.
+  archived     Boolean    @default(false)
   createdAt    DateTime   @default(now())
   startedAt    DateTime?
   finishedAt   DateTime?
