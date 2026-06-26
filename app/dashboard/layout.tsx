@@ -29,6 +29,7 @@ const NAV: NavGroup[] = [
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
+      { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
       { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],

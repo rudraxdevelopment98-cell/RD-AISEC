@@ -205,6 +205,73 @@ export async function queueJob(formData: FormData) {
   redirect(back);
 }
 
+/**
+ * Queue a CUSTOM command on a runner — runs an arbitrary command line on YOUR
+ * own authorized machine. The portal never executes it; only the runner does,
+ * via argv (shlex-split, no shell), so there's no shell-injection surface.
+ * Gated on an explicit authorization confirmation. Engagement is optional.
+ */
+export async function queueCustomJob(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const engagementId = String(formData.get("engagementId") ?? "");
+  const command = String(formData.get("command") ?? "").trim();
+  const confirmed = String(formData.get("confirm") ?? "") === "true";
+  const back = String(formData.get("back") ?? "/dashboard/jobs");
+
+  if (!runnerId || !command) {
+    redirect(`${back}?error=${encodeURIComponent("Pick a machine and enter a command.")}`);
+  }
+  if (!confirmed) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        "Confirm you're authorized to run this command on this machine.",
+      )}`,
+    );
+  }
+  if (command.length > 1024) {
+    redirect(`${back}?error=${encodeURIComponent("Command is too long (max 1024 chars).")}`);
+  }
+  // Printable single-line ASCII only — no newlines or control characters. Shell
+  // metacharacters ARE allowed (the runner uses argv via shlex, never a shell).
+  if (!/^[\x20-\x7e]+$/.test(command)) {
+    redirect(
+      `${back}?error=${encodeURIComponent("Command has newlines or non-printable characters.")}`,
+    );
+  }
+
+  // If filing under an engagement, it must be authorized.
+  if (engagementId) {
+    const engagement = await prisma.engagement.findUnique({
+      where: { id: engagementId },
+      select: { authorized: true },
+    });
+    if (!engagement) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+    if (!engagement!.authorized) {
+      redirect(
+        `${back}?error=${encodeURIComponent("Authorize the engagement before running commands.")}`,
+      );
+    }
+  }
+
+  const program = command.split(/\s+/)[0].slice(0, 80);
+  await prisma.job.create({
+    data: {
+      engagementId: engagementId || null,
+      runnerId,
+      tool: "custom",
+      target: program, // shown as a label; the runner reads `args`
+      args: command,
+      queuedBy: session.user.email ?? "",
+    },
+  });
+
+  revalidatePath("/dashboard/jobs");
+  redirect(`${back}?queued=1`);
+}
+
 // nmap presets for the runner's own LAN (no free-form target — the CIDR comes
 // from what the runner detected, so the scope substring check is skipped).
 // Deeper modes (service/aggressive/vuln) are real scans — slower, and OS/script

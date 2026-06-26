@@ -23,6 +23,7 @@ import json
 import ipaddress
 import os
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -33,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "9"
+RUNNER_VERSION = "10"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -117,6 +118,18 @@ INSTALL_PKGS = {
     "wpscan": "wpscan",
     "sslscan": "sslscan",
     "nuclei": "nuclei",
+    "arpscan": "arp-scan",
+    "masscan": "masscan",
+    "gobuster": "gobuster",
+    "whatweb": "whatweb",
+    "wafw00f": "wafw00f",
+    "dnsrecon": "dnsrecon",
+    "dnsenum": "dnsenum",
+    "amass": "amass",
+    "theharvester": "theharvester",
+    "enum4linux": "enum4linux",
+    "searchsploit": "exploitdb",
+    "metasploit": "metasploit-framework",
 }
 
 
@@ -293,6 +306,23 @@ def poll():
 
 
 def build_argv(job):
+    # Custom command: the portal sends a full command line in `args`. We parse it
+    # with shlex (POSIX argv splitting) and run it WITHOUT a shell — so shell
+    # metacharacters (; | & > etc.) become literal arguments, not operators, and
+    # there is still no shell-injection surface. This runs only on YOUR machine,
+    # queued only by your authenticated portal session.
+    if job["tool"] == "custom":
+        cmd = (job.get("args") or "").strip()
+        if not cmd:
+            return None, "Custom command was empty."
+        try:
+            argv = shlex.split(cmd)
+        except ValueError as e:
+            return None, f"Could not parse command: {e}"
+        if not argv:
+            return None, "Custom command was empty."
+        return argv, None
+
     spec = TOOLS.get(job["tool"])
     if not spec:
         return None, f"Tool '{job['tool']}' is not allowed on this runner."
