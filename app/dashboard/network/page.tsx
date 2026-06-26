@@ -79,6 +79,42 @@ export default async function NetworkPage({
         <LocalScanForm runners={runners} engagements={engagementRows} />
       </div>
 
+      {/* Wireless / environment recon (runs on a machine; pick the runner on Jobs) */}
+      <div className="card mt-4">
+        <h2 className="flex items-center gap-2 font-semibold text-brand">
+          <Icon name="globe" className="h-4 w-4" /> Wireless &amp; environment
+        </h2>
+        <p className="mt-1 text-xs text-gray-500">
+          Scan the air and the local LAN. These open the Jobs page with the command
+          pre-filled — pick your machine and run. Only scan networks you own or are
+          authorized to test.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          {[
+            { label: "WiFi access points", cmd: "nmcli -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list" },
+            { label: "Rescan WiFi", cmd: "nmcli dev wifi rescan" },
+            { label: "LAN devices (arp-scan)", cmd: "arp-scan --localnet" },
+            { label: "WiFi interfaces", cmd: "iw dev" },
+          ].map((q) => (
+            <Link
+              key={q.label}
+              href={`/dashboard/jobs?cmd=${encodeURIComponent(q.cmd)}`}
+              className="btn-ghost px-2 py-1"
+            >
+              <Icon name="bolt" className="h-3 w-3" /> {q.label}
+            </Link>
+          ))}
+        </div>
+        <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">
+          📡 <b>Monitor-mode capture</b> (deauth, handshake capture with
+          airodump-ng) needs a USB adapter that supports monitor mode plugged into
+          the runner machine and put into monitor mode
+          (<code className="font-mono">airmon-ng start wlan1</code>). Then run{" "}
+          <code className="font-mono">airodump-ng wlan1mon</code> via a custom job.
+          The built-in/VM WiFi usually can&apos;t do this — attach your dongle first.
+        </p>
+      </div>
+
       {jobs.length === 0 ? (
         <div className="card mt-6 text-center">
           <p className="text-gray-400">
