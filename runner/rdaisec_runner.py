@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "11"
+RUNNER_VERSION = "12"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -87,6 +87,9 @@ RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
 JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # 15 min per job
 MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
+# How often to stream partial output of a running job back to the portal (live
+# verbose). Set PROGRESS_SECONDS=0 to disable streaming.
+PROGRESS_SECONDS = int(os.environ.get("PROGRESS_SECONDS", "3"))
 
 # Default allowlist (fallback). The runner fetches the live allowlist from the
 # portal at startup and periodically, so new tools added to the portal work
@@ -355,6 +358,14 @@ def build_argv(job):
     return argv, None
 
 
+def post_progress(job_id, output):
+    """Best-effort push of partial output for a still-running job (live verbose)."""
+    try:
+        request("POST", f"/api/runner/job/{job_id}/progress", {"output": output}, timeout=10)
+    except Exception:  # noqa: BLE001 — progress is best-effort
+        pass
+
+
 def run_job(job):
     argv, err = build_argv(job)
     if err:
@@ -363,20 +374,57 @@ def run_job(job):
     if ANON_ON and shutil.which("torsocks"):
         argv = ["torsocks", *argv]
     print(f"  $ {' '.join(argv)}")
+    job_id = job["id"]
+
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             argv,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # merge so the live view shows everything
             text=True,
-            timeout=JOB_TIMEOUT,
-            check=False,
+            bufsize=1,  # line-buffered
         )
-        out = (proc.stdout or "") + (proc.stderr or "")
-        return out[:MAX_OUTPUT], proc.returncode
     except FileNotFoundError:
         return f"'{argv[0]}' is not installed on this runner.", 127
-    except subprocess.TimeoutExpired:
-        return f"Job timed out after {JOB_TIMEOUT}s.", 124
+
+    # Watchdog kills the process if it runs past the timeout.
+    killed = {"v": False}
+
+    def _kill():
+        killed["v"] = True
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+
+    timer = threading.Timer(JOB_TIMEOUT, _kill)
+    timer.start()
+
+    buf: list[str] = []
+    size = 0
+    truncated = False
+    last_post = 0.0
+    try:
+        for line in proc.stdout:  # type: ignore[union-attr]
+            if size < MAX_OUTPUT:
+                buf.append(line)
+                size += len(line)
+            elif not truncated:
+                buf.append("\n…(output truncated)…\n")
+                truncated = True
+            if PROGRESS_SECONDS > 0:
+                now = time.monotonic()
+                if now - last_post >= PROGRESS_SECONDS:
+                    post_progress(job_id, "".join(buf)[:MAX_OUTPUT])
+                    last_post = now
+        proc.wait()
+    finally:
+        timer.cancel()
+
+    out = "".join(buf)[:MAX_OUTPUT]
+    if killed["v"]:
+        return out + f"\n\nJob timed out after {JOB_TIMEOUT}s and was stopped.", 124
+    return out, proc.returncode if proc.returncode is not None else 0
 
 
 def post_result(job_id, output, exit_code):
