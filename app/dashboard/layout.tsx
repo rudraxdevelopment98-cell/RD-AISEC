@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
+import { MobileNav } from "@/components/mobile-nav";
 
 const NAV: NavGroup[] = [
   {
@@ -94,10 +95,26 @@ export default async function DashboardLayout({
 
       <div className="flex h-screen flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">
         {/* Top header — pinned on every page */}
-        <header className="z-10 flex shrink-0 items-center justify-between border-b border-surface-border bg-surface/80 px-6 py-3 backdrop-blur print:hidden">
-          <p className="text-sm text-gray-500">Security operations portal</p>
+        <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-surface-border bg-surface/80 px-4 py-3 backdrop-blur sm:px-6 print:hidden">
+          <div className="flex min-w-0 items-center gap-3">
+            <MobileNav groups={NAV} email={user?.email ?? null} />
+            {/* Brand on mobile (sidebar shows it on sm+) */}
+            <Link href="/dashboard" className="flex items-center gap-2 sm:hidden">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-xs font-black text-black">
+                R
+              </span>
+              <span className="font-mono text-sm font-bold">
+                RD<span className="text-brand">-AISEC</span>
+              </span>
+            </Link>
+            <p className="hidden text-sm text-gray-500 sm:block">
+              Security operations portal
+            </p>
+          </div>
           <div className="flex items-center gap-3">
-            <span className="tag ring-emerald accent-emerald">● Authorized session</span>
+            <span className="tag ring-emerald accent-emerald hidden sm:inline-flex">
+              ● Authorized session
+            </span>
             <form
               action={async () => {
                 "use server";
@@ -112,7 +129,7 @@ export default async function DashboardLayout({
           </div>
         </header>
         {/* Scrollable content area */}
-        <main className="flex-1 overflow-y-auto px-6 py-8 print:overflow-visible">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 print:overflow-visible">
           {children}
         </main>
       </div>
