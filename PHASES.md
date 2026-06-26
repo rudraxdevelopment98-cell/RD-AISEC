@@ -217,6 +217,11 @@ build that item, verify, commit, and merge to `main`.
       the research Drive.
 - ✅ Submission draft: one-click copy-ready bug report (HackerOne/Bugcrowd style)
       on confirmed findings.
+- ✅ Build exploit from a finding: "⚒ Build" on confirmed/ready findings opens
+      the Lab pre-filled (template + target) from that finding.
+- ✅ Optional AI exploit drafting: "Draft with AI" in the Lab uses the Anthropic
+      API when ANTHROPIC_API_KEY is set (your key) to draft a PoC; gated/safe
+      message otherwise.
 
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)

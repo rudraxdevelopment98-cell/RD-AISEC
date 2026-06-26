@@ -3,16 +3,32 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { ExploitLab } from "@/components/exploit-lab";
+import { templateForFinding } from "@/data/exploit-templates";
 
 export const dynamic = "force-dynamic";
 
-export default async function LabPage() {
+export default async function LabPage({
+  searchParams,
+}: {
+  searchParams: { finding?: string };
+}) {
   const [runners, cfg] = await Promise.all([
     prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
     prisma.notifySetting.findFirst(),
   ]);
   const exploitDir = cfg?.exploitDir ?? "";
   const driveUrl = cfg?.driveUrl ?? "";
+
+  // Pre-fill from a finding when arriving via "Build exploit".
+  let initial: { id: string; vals: Record<string, string>; filename: string } | null = null;
+  let findingTitle = "";
+  if (searchParams.finding) {
+    const f = await prisma.finding.findUnique({ where: { id: searchParams.finding } });
+    if (f) {
+      initial = templateForFinding(f);
+      findingTitle = f.title;
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -52,7 +68,20 @@ export default async function LabPage() {
         )}
       </div>
 
-      <ExploitLab runners={runners} exploitDir={exploitDir} />
+      {findingTitle && (
+        <p className="mt-4 text-sm text-gray-400">
+          Pre-filled from finding: <span className="text-white">{findingTitle}</span>
+        </p>
+      )}
+
+      <ExploitLab
+        runners={runners}
+        exploitDir={exploitDir}
+        initialTemplate={initial?.id}
+        initialVals={initial?.vals}
+        initialFilename={initial?.filename}
+        findingTitle={findingTitle || undefined}
+      />
     </div>
   );
 }
