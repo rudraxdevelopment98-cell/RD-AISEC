@@ -208,9 +208,15 @@ export async function queueJob(formData: FormData) {
 
 // nmap presets for the runner's own LAN (no free-form target — the CIDR comes
 // from what the runner detected, so the scope substring check is skipped).
+// Deeper modes (service/aggressive/vuln) are real scans — slower, and OS/script
+// detection needs the runner to run as root.
 const LOCAL_SCAN_PRESETS: Record<string, string[]> = {
-  discovery: ["-sn", "-T4"],
-  network: ["-Pn", "-T4", "--top-ports", "100"],
+  discovery: ["-sn", "-T4"], // live hosts only (ping sweep)
+  network: ["-Pn", "-T4", "--top-ports", "100"], // top 100 ports
+  full: ["-Pn", "-T4", "-p-"], // all 65535 TCP ports
+  service: ["-Pn", "-T4", "-sV", "--top-ports", "200"], // service + version
+  aggressive: ["-Pn", "-T4", "-A"], // OS + version + scripts + traceroute (root)
+  vuln: ["-Pn", "-T4", "-sV", "--script", "vuln"], // vuln NSE scripts (root)
 };
 
 /**

@@ -207,6 +207,18 @@ export default async function DashboardOverview() {
       {/* Galaxy hero */}
       <section className="galaxy relative overflow-hidden rounded-2xl border border-surface-border p-6 sm:p-8">
         <div className="galaxy-stars" aria-hidden />
+        <div className="scanline" aria-hidden />
+        <svg
+          className="wave-svg pointer-events-none absolute inset-x-0 bottom-0 h-16"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <path
+            d="M0,55 C200,95 400,15 600,55 C800,95 1000,20 1200,55 L1200,120 L0,120 Z"
+            fill="rgba(52,211,153,0.06)"
+          />
+        </svg>
         <div className="relative flex flex-wrap items-center justify-between gap-6">
           <div>
             <span className="tag ring-emerald accent-emerald">
