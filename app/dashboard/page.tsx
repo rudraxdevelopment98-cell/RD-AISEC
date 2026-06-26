@@ -105,7 +105,7 @@ export default async function DashboardOverview() {
           <p className="mt-2 text-sm text-gray-400">
             Test like an attacker would — within authorized scope.
           </p>
-          <div className="mt-4 grid grid-cols-4 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {OFFENSE_TILES.map((t) => (
               <div key={t.label} className="tile">
                 <span className="tile-icon border-red-500/40 text-red-300">
@@ -127,7 +127,7 @@ export default async function DashboardOverview() {
           <p className="mt-2 text-sm text-gray-400">
             Preserve evidence, analyze, and harden against the next attack.
           </p>
-          <div className="mt-4 grid grid-cols-4 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {DEFENSE_TILES.map((t) => (
               <div key={t.label} className="tile">
                 <span className="tile-icon border-sky-500/40 text-sky-300">
