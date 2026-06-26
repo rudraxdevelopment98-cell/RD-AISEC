@@ -33,7 +33,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "8"
+RUNNER_VERSION = "9"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -142,7 +142,7 @@ def safe_url(value: str) -> bool:
     )
 
 
-def request(method: str, path: str, body=None):
+def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -154,7 +154,22 @@ def request(method: str, path: str, body=None):
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     if data is not None:
         req.add_header("Content-Type", "application/json")
-    return urllib.request.urlopen(req, timeout=30)
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def post_with_retry(path: str, body, what: str) -> bool:
+    """POST a result with retries — the DB may be cold (Vercel/Neon) and slow to
+    wake, so the first attempt can time out. Returns True on success."""
+    for attempt in range(4):
+        try:
+            request("POST", path, body, timeout=60)
+            return True
+        except Exception as e:  # noqa: BLE001
+            wait = 2 ** attempt
+            print(f"  posting {what} failed (try {attempt + 1}/4): {e} — retrying in {wait}s")
+            time.sleep(wait)
+    print(f"  ✗ could not post {what}. The job will time out on the portal; use Retry there.")
+    return False
 
 
 # ---- Tor anonymity ---------------------------------------------------------
@@ -330,14 +345,11 @@ def run_job(job):
 
 def post_result(job_id, output, exit_code):
     status = "done" if exit_code == 0 else "failed"
-    try:
-        request(
-            "POST",
-            f"/api/runner/job/{job_id}/result",
-            {"output": output, "exitCode": exit_code, "status": status},
-        )
-    except Exception as e:  # noqa: BLE001
-        print(f"  failed to post result: {e}")
+    post_with_retry(
+        f"/api/runner/job/{job_id}/result",
+        {"output": output, "exitCode": exit_code, "status": status},
+        "job result",
+    )
 
 
 # ---- Tool installs (authorized from the portal) ----------------------------
@@ -408,14 +420,11 @@ def run_install(inst):
 
 
 def post_install_result(inst_id, output, code):
-    try:
-        request(
-            "POST",
-            f"/api/runner/install/{inst_id}/result",
-            {"output": output, "exitCode": code},
-        )
-    except Exception as e:  # noqa: BLE001
-        print(f"  failed to post install result: {e}")
+    post_with_retry(
+        f"/api/runner/install/{inst_id}/result",
+        {"output": output, "exitCode": code},
+        "install result",
+    )
 
 
 def main():
