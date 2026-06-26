@@ -20,10 +20,26 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-xl border border-surface-border bg-surface-card/70 p-5 backdrop-blur;
+    @apply relative rounded-xl border border-white/10 p-5;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+      rgba(15, 22, 26, 0.5);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 8px 30px rgba(0, 0, 0, 0.25);
   }
   .card-hover {
-    @apply card transition duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-lg hover:shadow-brand/5;
+    @apply card transition duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10;
+  }
+  /* Frosted "liquid glass" panel — used for the mobile drawer and any solid overlay. */
+  .glass-panel {
+    background:
+      linear-gradient(180deg, rgba(22, 30, 34, 0.86), rgba(12, 16, 20, 0.92));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
@@ -200,6 +216,23 @@ body {
 @keyframes waveMove { to { transform: translateX(-50%); } }
 
 .scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+
+/* ── Liquid glass backdrop — slow morphing colour blobs behind the frost ── */
+.liquid-bg { position: absolute; inset: 0; overflow: hidden; filter: blur(70px); opacity: 0.55; }
+.liquid-bg span { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: liquid 22s ease-in-out infinite; }
+.liquid-bg .b1 { width: 42vmax; height: 42vmax; left: -8%; top: -12%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.55), transparent 70%); }
+.liquid-bg .b2 { width: 38vmax; height: 38vmax; right: -10%; top: 6%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.5), transparent 70%); animation-delay: -7s; }
+.liquid-bg .b3 { width: 34vmax; height: 34vmax; left: 28%; bottom: -16%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.45), transparent 70%); animation-delay: -14s; }
+@keyframes liquid {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(9vw, 7vh) scale(1.18); }
+  66%      { transform: translate(-7vw, 11vh) scale(0.88); }
+}
+@media (prefers-reduced-motion: reduce) { .liquid-bg span { animation: none; } }
+
 .scene-grid {
   position: absolute; inset: 0;
   background-image:

@@ -58,8 +58,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      {/* Neural-network backdrop — behind everything, subtle */}
+      {/* Liquid-glass backdrop — morphing colour blobs + grid + neural net */}
       <div className="scene print:hidden" aria-hidden>
+        <div className="liquid-bg">
+          <span className="b1" />
+          <span className="b2" />
+          <span className="b3" />
+        </div>
         <div className="scene-grid" />
         <NeuralBg />
       </div>

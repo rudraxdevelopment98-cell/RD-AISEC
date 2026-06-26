@@ -14,7 +14,9 @@ build that item, verify, commit, and merge to `main`.
 ## ✅ Phase 0 — Foundation *(done)*
 - ✅ Next.js 14 + TS + Tailwind, Vercel + Neon Postgres
 - ✅ Auth (Google + email allowlist), protected dashboard, cinematic UI
-- ✅ Responsive / mobile nav drawer
+- ✅ Responsive / mobile nav drawer (drawer portaled to <body> so the header's
+  backdrop-blur can't clip it on tablet/mobile)
+- ✅ Liquid-glass theme: frosted translucent cards + morphing colour blobs
 
 ## ✅ Phase 1 — MVP: engagements → findings → reports *(done)*
 - ✅ Engagements (type/status/scope/authorization)
