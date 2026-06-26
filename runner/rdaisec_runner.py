@@ -96,9 +96,11 @@ def build_argv(job):
 
     argv = [spec["bin"], *args]
     if spec["target"] == "u":
-        argv += ["-u", target]
+        argv += ["-u", target]  # httpx/nuclei accept a full URL
     else:
-        argv.append(target)
+        # nmap/whois/dig need a bare host — strip any scheme/path.
+        host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", target, flags=re.I).split("/")[0]
+        argv.append(host)
     return argv, None
 
 
