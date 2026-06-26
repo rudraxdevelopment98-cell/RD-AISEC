@@ -290,9 +290,79 @@ function parseWafw00f(target: string, output: string): ParsedFinding[] {
 }
 
 /**
+ * WiFi access points from `nmcli ... dev wifi list` (terse or tabular) or
+ * airodump output. Flags open (no encryption) and WEP networks. Best-effort:
+ * returns [] when the text doesn't look like WiFi output.
+ */
+function parseWifi(output: string): ParsedFinding[] {
+  // nmcli terse mode escapes the colons in a BSSID (AA\:BB\:...). Unescape first.
+  const text = (output || "").replace(/\\:/g, ":");
+  const macRe = /\b([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b/;
+  type AP = { ssid: string; bssid: string; sec: string; line: string };
+  const aps: AP[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const m = line.match(macRe);
+    if (!m) continue;
+    if (/station|associated|handshake|BSSID/i.test(line) && !/:/.test(line.replace(macRe, "")))
+      continue;
+    const bssid = m[1].toUpperCase();
+    const sec = /\bWPA3\b/i.test(line)
+      ? "WPA3"
+      : /\bWPA2\b/i.test(line)
+        ? "WPA2"
+        : /\bWPA\b/i.test(line)
+          ? "WPA"
+          : /\bWEP\b/i.test(line)
+            ? "WEP"
+            : /\b(OPN|open)\b/i.test(line) || /:\s*(--)?\s*$/.test(line)
+              ? "OPEN"
+              : "?";
+    // SSID = the part before the BSSID (nmcli terse) or first column.
+    const before = line.split(bssid)[0].replace(/[:|]+$/, "").trim();
+    const ssid = before || "(hidden)";
+    aps.push({ ssid, bssid, sec, line });
+  }
+  if (aps.length === 0) return [];
+
+  const out: ParsedFinding[] = [];
+  out.push({
+    title: `WiFi networks discovered (${aps.length})`,
+    severity: "info",
+    status: "open",
+    description:
+      `Wireless scan found ${aps.length} access point(s):\n\n` +
+      aps.map((a) => `${a.ssid}  ${a.bssid}  ${a.sec}`).join("\n"),
+    recommendation:
+      "Confirm every access point is expected. Investigate unknown/rogue APs near your environment.",
+  });
+  for (const a of aps) {
+    if (a.sec === "OPEN") {
+      out.push({
+        title: `Open WiFi network "${a.ssid}" (${a.bssid})`,
+        severity: "medium",
+        status: "open",
+        description: `The access point "${a.ssid}" (${a.bssid}) uses no encryption — traffic is sent in the clear.`,
+        recommendation: "Enable WPA2/WPA3 encryption on this access point; never run open WiFi for sensitive use.",
+      });
+    } else if (a.sec === "WEP" || a.sec === "WPA") {
+      out.push({
+        title: `Weak WiFi encryption (${a.sec}) on "${a.ssid}" (${a.bssid})`,
+        severity: a.sec === "WEP" ? "high" : "medium",
+        status: "open",
+        description: `The access point "${a.ssid}" (${a.bssid}) uses ${a.sec}, which is broken/outdated.`,
+        recommendation: "Upgrade the access point to WPA2 (AES) or WPA3.",
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Dispatch to the right parser. Lookup-only tools (whois/dig) and config scans
  * (sslscan/wpscan) intentionally produce no auto-findings — their output stays
- * on the job for manual review.
+ * on the job for manual review. Custom jobs are checked for WiFi output so a
+ * wireless scan can be imported.
  */
 export function parseJobFindings(
   tool: string,
@@ -326,6 +396,7 @@ export function parseJobFindings(
     case "wafw00f":
       return parseWafw00f(target, output);
     default:
-      return [];
+      // Custom jobs (e.g. an nmcli/airodump WiFi scan) — parse APs if present.
+      return parseWifi(output);
   }
 }

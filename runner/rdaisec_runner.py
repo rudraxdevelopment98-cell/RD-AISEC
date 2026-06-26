@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "17"
+RUNNER_VERSION = "18"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -159,6 +159,8 @@ MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
 # How often to stream partial output of a running job back to the portal (live
 # verbose). Set PROGRESS_SECONDS=0 to disable streaming.
 PROGRESS_SECONDS = int(os.environ.get("PROGRESS_SECONDS", "3"))
+# apt install can be huge (metasploit-framework is ~2 GB) — give it plenty of time.
+INSTALL_TIMEOUT = int(os.environ.get("INSTALL_TIMEOUT", "1800"))  # 30 min
 
 # Default allowlist (fallback). The runner fetches the live allowlist from the
 # portal at startup and periodically, so new tools added to the portal work
@@ -211,9 +213,22 @@ INSTALL_PKGS = {
 }
 
 
+# Installable packages that aren't queueable tools — map their install id to the
+# binary so we can still report them as installed (else they'd show "missing"
+# forever after a successful install).
+EXTRA_INSTALL_BINS = {
+    "metasploit": "msfconsole",
+    "tor": "tor",
+    "torsocks": "torsocks",
+    "aircrack": "aircrack-ng",
+}
+
+
 def installed_tools() -> list[str]:
-    """Tool ids in the current allowlist whose binary is present on PATH."""
-    return sorted(t for t, spec in TOOLS.items() if shutil.which(spec["bin"]))
+    """Install ids whose binary is present on PATH (allowlisted tools + extras)."""
+    present = [t for t, spec in TOOLS.items() if shutil.which(spec["bin"])]
+    present += [tid for tid, b in EXTRA_INSTALL_BINS.items() if shutil.which(b)]
+    return sorted(set(present))
 
 # Whitelists mirrored from the portal — no shell metacharacters in either case.
 SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")          # host targets + flags
@@ -637,7 +652,7 @@ def run_install(inst):
     try:
         _stream_install_cmd(sudo + ["apt-get", "update"], stdin_in, env, 300, inst_id, buf, state)
         code = _stream_install_cmd(
-            sudo + ["apt-get", "install", "-y", pkg], stdin_in, env, 600, inst_id, buf, state
+            sudo + ["apt-get", "install", "-y", pkg], stdin_in, env, INSTALL_TIMEOUT, inst_id, buf, state
         )
     except FileNotFoundError:
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127

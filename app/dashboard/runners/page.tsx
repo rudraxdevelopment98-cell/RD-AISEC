@@ -18,6 +18,16 @@ export default async function RunnersPage({
 }: {
   searchParams: { error?: string };
 }) {
+  // Auto-fail installs stuck "installing" too long (runner restarted mid-install).
+  await prisma.install.updateMany({
+    where: { status: "installing", createdAt: { lt: new Date(Date.now() - 45 * 60_000) } },
+    data: {
+      status: "failed",
+      output: "Install did not finish in time (the runner may have restarted). Try again.",
+      finishedAt: new Date(),
+    },
+  });
+
   const [runners, missingFromJobs] = await Promise.all([
     prisma.runner.findMany({
       orderBy: { createdAt: "desc" },
