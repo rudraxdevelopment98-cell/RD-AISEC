@@ -138,18 +138,16 @@ export async function queueJob(formData: FormData) {
   const presetId = String(formData.get("preset") ?? "");
   const target = String(formData.get("target") ?? "").trim().slice(0, 512);
 
-  const back = engagementId
-    ? `/dashboard/runners?engagement=${engagementId}`
-    : "/dashboard/runners";
+  const back = "/dashboard/jobs";
 
   if (!engagementId || !runnerId || !toolId || !target) {
-    redirect(`${back}&error=${encodeURIComponent("All fields are required.")}`);
+    redirect(`${back}?error=${encodeURIComponent("All fields are required.")}`);
   }
 
   const tool = findTool(toolId);
   const preset = tool?.presets.find((p) => p.id === presetId) ?? tool?.presets[0];
   if (!tool || !preset) {
-    redirect(`${back}&error=${encodeURIComponent("Unknown tool or preset.")}`);
+    redirect(`${back}?error=${encodeURIComponent("Unknown tool or preset.")}`);
   }
 
   // Normalize per tool: nmap/whois/dig get a bare host (no scheme/path); httpx/
@@ -158,7 +156,7 @@ export async function queueJob(formData: FormData) {
 
   if (!validateTarget(tool!.id, finalTarget)) {
     redirect(
-      `${back}&error=${encodeURIComponent("Target contains characters that aren't allowed.")}`,
+      `${back}?error=${encodeURIComponent("Target contains characters that aren't allowed.")}`,
     );
   }
 
@@ -166,10 +164,10 @@ export async function queueJob(formData: FormData) {
     where: { id: engagementId },
     select: { authorized: true, scope: true },
   });
-  if (!engagement) redirect(`${back}&error=${encodeURIComponent("Engagement not found.")}`);
+  if (!engagement) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
   if (!engagement!.authorized) {
     redirect(
-      `${back}&error=${encodeURIComponent(
+      `${back}?error=${encodeURIComponent(
         "This engagement is not marked authorized. Authorize it before running tools.",
       )}`,
     );
@@ -180,7 +178,7 @@ export async function queueJob(formData: FormData) {
   const host = targetHost(finalTarget);
   if (scope.trim() && host && !scope.includes(host)) {
     redirect(
-      `${back}&error=${encodeURIComponent(
+      `${back}?error=${encodeURIComponent(
         `"${host}" is not in this engagement's scope. Add it to the scope first.`,
       )}`,
     );
@@ -188,7 +186,7 @@ export async function queueJob(formData: FormData) {
 
   // Re-validate every preset arg token too (defense in depth).
   if (!preset!.args.every((a) => isSafeValue(a))) {
-    redirect(`${back}&error=${encodeURIComponent("Preset arguments failed validation.")}`);
+    redirect(`${back}?error=${encodeURIComponent("Preset arguments failed validation.")}`);
   }
 
   await prisma.job.create({
@@ -202,7 +200,7 @@ export async function queueJob(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard/runners");
+  revalidatePath("/dashboard/jobs");
   redirect(back);
 }
 
