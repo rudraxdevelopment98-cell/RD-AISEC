@@ -46,7 +46,7 @@ export default async function RunnersPage({
     },
   });
 
-  const [runners, engagements, jobs] = await Promise.all([
+  const [runners, engagements, jobs, missingFromJobs] = await Promise.all([
     prisma.runner.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -69,7 +69,42 @@ export default async function RunnersPage({
         runner: { select: { name: true, lastSeenAt: true } },
       },
     }),
+    // Jobs that failed because the tool wasn't installed → install suggestions.
+    prisma.job.findMany({
+      where: {
+        status: "failed",
+        output: { contains: "is not installed" },
+        runnerId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      include: { runner: { select: { id: true, name: true } } },
+    }),
   ]);
+
+  // Build a deduped list of (runner, tool) install suggestions from failures,
+  // limited to tools we can install via apt and not already queued/installed.
+  const installablePending = new Set(
+    runners.flatMap((r) =>
+      r.installs
+        .filter((i) => i.status === "pending" || i.status === "installing")
+        .map((i) => `${r.id}:${i.tool}`),
+    ),
+  );
+  const installedByRunner = new Map(
+    runners.map((r) => [r.id, new Set((r.installed ?? "").split(",").map((s) => s.trim()))]),
+  );
+  const seenSug = new Set<string>();
+  const suggestions = missingFromJobs
+    .filter((j) => j.runner && INSTALLABLE_PKGS[j.tool])
+    .map((j) => ({ runnerId: j.runner!.id, runnerName: j.runner!.name, tool: j.tool }))
+    .filter((s) => {
+      const key = `${s.runnerId}:${s.tool}`;
+      if (seenSug.has(key) || installablePending.has(key)) return false;
+      if (installedByRunner.get(s.runnerId)?.has(s.tool)) return false;
+      seenSug.add(key);
+      return true;
+    });
 
   const now = Date.now();
   const authorizedEngagements = engagements
@@ -82,14 +117,50 @@ export default async function RunnersPage({
     <div className="mx-auto max-w-5xl">
       <AutoRefresh seconds={6} />
 
-      <h1 className="text-2xl font-bold">Runners</h1>
+      <h1 className="text-2xl font-bold">Machines</h1>
       <p className="mt-1 text-gray-400">
-        Run real security tools on a machine you control — the portal queues jobs;
-        your runner (e.g. Kali in UTM) polls over HTTPS, executes them locally, and
-        posts results back. Nothing offensive runs in the cloud. See{" "}
-        <code className="font-mono text-xs text-brand">runner/README.md</code> to
-        set up the agent.
+        Connect machines you control (e.g. Kali in UTM/Parallels) as runners. Each
+        polls over HTTPS, executes tools locally, and posts results back — nothing
+        offensive runs in the cloud. Anything the portal needs to run goes to the
+        machine you select. See{" "}
+        <code className="font-mono text-xs text-brand">runner/README.md</code>.
       </p>
+
+      {/* Installations — tools that jobs need but the machine is missing */}
+      {suggestions.length > 0 && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <h2 className="text-sm font-semibold text-amber-300">
+            <Icon name="wrench" className="mr-1 inline h-4 w-4" />
+            Installations needed
+          </h2>
+          <p className="mt-1 text-xs text-gray-400">
+            A job failed because a tool isn&apos;t installed on the machine.
+            Approve the install — it runs <code className="font-mono">apt</code>{" "}
+            for that package on the machine (needs your authorization).
+          </p>
+          <div className="mt-3 space-y-2">
+            {suggestions.map((s) => (
+              <form
+                key={`${s.runnerId}:${s.tool}`}
+                action={requestInstall}
+                className="flex flex-wrap items-center gap-3 rounded-md border border-surface-border bg-black/30 px-3 py-2"
+              >
+                <input type="hidden" name="runnerId" value={s.runnerId} />
+                <input type="hidden" name="tool" value={s.tool} />
+                <span className="text-sm">
+                  Install <span className="font-mono text-white">{s.tool}</span> on{" "}
+                  <span className="text-gray-300">{s.runnerName}</span>
+                </span>
+                <label className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <input type="checkbox" name="confirm" value="true" required className="h-3.5 w-3.5 accent-emerald-500" />
+                  I authorize this install
+                </label>
+                <button className="btn-ghost px-2 py-1 text-xs">Install</button>
+              </form>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* How-to-connect hint */}
       <details className="card mt-6">

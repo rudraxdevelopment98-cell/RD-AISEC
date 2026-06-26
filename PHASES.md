@@ -36,7 +36,10 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Tor anonymity toggle per runner (routes tool traffic via torsocks; shows exit IP)
 - ✅ Quick scans (no engagement) vs engagement/scope scans
 - ✅ Install missing tools on a runner from the portal (authorized; apt-only,
-  fixed package allowlist; runner reports which tools are present)
+  fixed package allowlist incl. nuclei; runner reports which tools are present;
+  apt package is server-driven so new installable tools need no re-pull)
+- ✅ "Machines" section (renamed Runners) with an Installations-needed panel:
+  jobs that fail because a tool isn't installed surface there to approve
 - ✅ Job error handling: auto-fail stalled jobs, "runner offline" flag on queued
   jobs, failure reason surfaced + Stop button
 

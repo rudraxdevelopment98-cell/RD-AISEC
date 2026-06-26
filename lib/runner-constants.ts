@@ -159,14 +159,21 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   nikto: "nikto",
   wpscan: "wpscan",
   sslscan: "sslscan",
+  nuclei: "nuclei", // Kali packages nuclei in apt
 };
 
-/** Serialize the tool specs for the runner (only tools that are in the allowlist). */
-export function runnerToolSpecs(): { id: string; bin: string; flag: string | null }[] {
+/** Serialize the tool specs for the runner (incl. apt package for installs). */
+export function runnerToolSpecs(): {
+  id: string;
+  bin: string;
+  flag: string | null;
+  pkg: string | null;
+}[] {
   return RUNNER_TOOLS.filter((t) => RUNNER_TOOL_SPECS[t.id]).map((t) => ({
     id: t.id,
     bin: RUNNER_TOOL_SPECS[t.id].bin,
     flag: RUNNER_TOOL_SPECS[t.id].flag,
+    pkg: INSTALLABLE_PKGS[t.id] ?? null,
   }));
 }
 
@@ -198,7 +205,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "5";
+export const RUNNER_VERSION = "6";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

@@ -25,7 +25,7 @@ const NAV: NavGroup[] = [
     section: "Scanning",
     items: [
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
-      { href: "/dashboard/runners", label: "Runners", icon: "server" },
+      { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],
