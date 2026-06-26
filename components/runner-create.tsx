@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Icon } from "@/components/icons";
 import { createRunner } from "@/lib/runners";
@@ -34,6 +34,20 @@ function SubmitButton() {
 
 export function CreateRunnerForm() {
   const [state, formAction] = useFormState(createRunner, {});
+  const [origin, setOrigin] = useState("https://rd-aisec.vercel.app");
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+
+  // One paste saves the config permanently (survives reboots / new terminals).
+  const setupCmd = state.token
+    ? `mkdir -p ~/.config/rdaisec && cat > ~/.config/rdaisec/runner.env <<'EOF'
+PORTAL_URL=${origin}
+RUNNER_TOKEN=${state.token}
+MAX_WORKERS=3
+EOF
+chmod 600 ~/.config/rdaisec/runner.env`
+    : "";
 
   return (
     <div className="card mt-6">
@@ -67,16 +81,24 @@ export function CreateRunnerForm() {
             </code>
             <CopyButton value={state.token} label="Copy token" />
           </div>
-          <p className="mt-3 text-xs text-gray-400">On your Kali VM, set:</p>
-          <div className="mt-1 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md border border-surface-border bg-black/50 px-3 py-2 font-mono text-xs text-gray-300">
-              export RUNNER_TOKEN={state.token}
-            </code>
-            <CopyButton
-              value={`export RUNNER_TOKEN=${state.token}`}
-              label="Copy"
-            />
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-gray-300">
+              Turnkey setup — paste this on your Kali machine (saves the token
+              permanently):
+            </p>
+            <CopyButton value={setupCmd} label="Copy setup" />
           </div>
+          <pre className="mt-1 overflow-x-auto rounded-md border border-surface-border bg-black/50 px-3 py-2 font-mono text-[11px] leading-relaxed text-gray-300">
+            {setupCmd}
+          </pre>
+          <p className="mt-2 text-xs text-gray-400">
+            Then start the runner:{" "}
+            <code className="rounded bg-black/40 px-1 text-gray-300">python3 rdaisec_runner.py</code>{" "}
+            — or run{" "}
+            <code className="rounded bg-black/40 px-1 text-gray-300">bash setup.sh</code>{" "}
+            to also start it on boot (auto-restart). Real{" "}
+            <code className="rounded bg-black/40 px-1 text-gray-300">export</code> vars still override the file.
+          </p>
         </div>
       )}
     </div>
