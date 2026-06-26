@@ -53,7 +53,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 sm:flex print:!hidden">
+      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 lg:flex print:!hidden">
         {/* Sidebar header — pinned top */}
         <div className="shrink-0 border-b border-surface-border p-4">
           <Link href="/" className="flex items-center gap-2 px-2">
@@ -100,7 +100,7 @@ export default async function DashboardLayout({
           <div className="flex min-w-0 items-center gap-3">
             <MobileNav groups={NAV} email={user?.email ?? null} />
             {/* Brand on mobile (sidebar shows it on sm+) */}
-            <Link href="/dashboard" className="flex items-center gap-2 sm:hidden">
+            <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-xs font-black text-black">
                 R
               </span>
@@ -108,12 +108,12 @@ export default async function DashboardLayout({
                 RD<span className="text-brand">-AISEC</span>
               </span>
             </Link>
-            <p className="hidden text-sm text-gray-500 sm:block">
+            <p className="hidden text-sm text-gray-500 lg:block">
               Security operations portal
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="tag ring-emerald accent-emerald hidden sm:inline-flex">
+            <span className="tag ring-emerald accent-emerald hidden lg:inline-flex">
               ● Authorized session
             </span>
             <form
@@ -121,7 +121,7 @@ export default async function DashboardLayout({
                 "use server";
                 await signOut({ redirectTo: "/" });
               }}
-              className="sm:hidden"
+              className="lg:hidden"
             >
               <button type="submit" className="text-xs text-gray-400">
                 Sign out
