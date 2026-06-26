@@ -129,6 +129,10 @@ build that item, verify, commit, and merge to `main`.
       a machine (open Jobs pre-filled) instead of "coming soon".
 - ✅ **Bug Bounty progress** — engaged programs on top with scan progress, open
       findings (crit/high), exploit/validate + Report links.
+- ✅ **Install fix (v18)** — non-tool packages (metasploit/tor/torsocks/aircrack)
+      now report installed (binary check) so they stop reappearing as "missing";
+      install timeout raised to 30 min (metasploit is ~2 GB); stale installs
+      auto-fail. WiFi scan output parses into AP findings (open/WEP flagged).
 - ✅ **WiFi (Phase 9)** — runner auto-detects wireless interfaces + monitor-mode
       capability (v17), reports them; dedicated **WiFi page** notifies to attach a
       monitor dongle, installs aircrack-ng one-click, and launches monitor/scan/

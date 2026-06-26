@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 // They open Jobs pre-filled — set the BSSID/channel and run on the machine.
 function actions(iface: string, mon: string) {
   return [
+    { label: "Scan APs (nmcli — importable)", cmd: "nmcli -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list" },
     { label: "Enable monitor mode", cmd: `airmon-ng start ${iface}` },
-    { label: "Scan APs (60s)", cmd: `timeout 60 airodump-ng ${mon}` },
+    { label: "Scan APs (airodump 60s)", cmd: `timeout 60 airodump-ng ${mon}` },
     {
       label: "Capture handshake",
       cmd: `timeout 180 airodump-ng -c CHANNEL --bssid AA:BB:CC:DD:EE:FF -w /tmp/capture ${mon}`,
