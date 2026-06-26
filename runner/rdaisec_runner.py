@@ -28,6 +28,9 @@ import time
 import urllib.error
 import urllib.request
 
+# Bump when this script changes meaningfully; the portal flags older runners.
+RUNNER_VERSION = "2"
+
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
@@ -81,6 +84,8 @@ def request(method: str, path: str, body=None):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Authorization", f"Bearer {RUNNER_TOKEN}")
+    req.add_header("X-Runner-Version", RUNNER_VERSION)
+    req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=30)

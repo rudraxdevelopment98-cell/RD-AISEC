@@ -56,6 +56,8 @@ model Runner {
   tokenHash  String    @unique
   ownerEmail String    @default("")
   lastSeenAt DateTime?
+  version    String    @default("") // runner script version it reports
+  toolCount  Int       @default(0)  // number of tools the runner has loaded
   createdAt  DateTime  @default(now())
   jobs       Job[]
 }

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Runner" ADD COLUMN     "toolCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "version" TEXT NOT NULL DEFAULT '';
+

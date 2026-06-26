@@ -23,8 +23,18 @@ export async function authenticateRunner(req: Request) {
   });
   if (!runner) return null;
 
+  // The runner reports its version + loaded-tool count via headers on each poll.
+  const version = (req.headers.get("x-runner-version") ?? "").slice(0, 20);
+  const toolsHeader = req.headers.get("x-runner-tools") ?? "";
+  const toolCount = toolsHeader
+    ? toolsHeader.split(",").map((t) => t.trim()).filter(Boolean).length
+    : runner.toolCount;
+
   await prisma.runner
-    .update({ where: { id: runner.id }, data: { lastSeenAt: new Date() } })
+    .update({
+      where: { id: runner.id },
+      data: { lastSeenAt: new Date(), ...(version ? { version } : {}), toolCount },
+    })
     .catch(() => {});
   return runner;
 }
