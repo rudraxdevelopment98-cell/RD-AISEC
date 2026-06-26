@@ -7,6 +7,8 @@ import { NeuralBg } from "@/components/neural-bg";
 import { prisma } from "@/lib/db";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { getMemberAccess } from "@/lib/members";
+import { canAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +28,51 @@ const JOB_DOT: Record<string, string> = {
   canceled: "bg-gray-500",
 };
 
-const JUMP = [
-  { href: "/dashboard/engagements", label: "Engagements", desc: "Cases, findings, reports", icon: "briefcase" },
-  { href: "/dashboard/network", label: "Network Map", desc: "Scan & visualize a network", icon: "globe" },
-  { href: "/dashboard/runners", label: "Runners", desc: "Run tools on your machines", icon: "server" },
-  { href: "/dashboard/scan", label: "Auto Scan", desc: "Passive web posture check", icon: "radar" },
-  { href: "/dashboard/assistant", label: "AI Assistant", desc: "Ask the knowledge base", icon: "bot" },
-  { href: "/dashboard/knowledge", label: "Knowledge Library", desc: "How-to write-ups", icon: "book" },
+// Full launchpad — every section grouped, with a one-line description. Filtered
+// per-user by access so people only see what they can open.
+const LAUNCH: { section: string; items: { href: string; label: string; desc: string; icon: string }[] }[] = [
+  {
+    section: "Work",
+    items: [
+      { href: "/dashboard/engagements", label: "Engagements", desc: "Cases, findings & reports", icon: "briefcase" },
+      { href: "/dashboard/findings", label: "Findings", desc: "All findings, filter by framework", icon: "alert" },
+      { href: "/dashboard/bugbounty", label: "Bug Bounty", desc: "Programs, scopes & automation", icon: "target" },
+      { href: "/dashboard/pentest", label: "Penetration Testing", desc: "Pentest workflow", icon: "target" },
+      { href: "/dashboard/forensics", label: "Digital Forensics", desc: "Forensics cases", icon: "fingerprint" },
+      { href: "/dashboard/consulting", label: "Security Consulting", desc: "Advisory engagements", icon: "shield" },
+    ],
+  },
+  {
+    section: "Offensive ops",
+    items: [
+      { href: "/dashboard/network", label: "Network Map", desc: "Scan & visualize a network", icon: "globe" },
+      { href: "/dashboard/runners", label: "Machines", desc: "Run tools on your machines", icon: "server" },
+      { href: "/dashboard/jobs", label: "Jobs", desc: "Queue & watch tool runs", icon: "bolt" },
+      { href: "/dashboard/exploit", label: "Exploitation", desc: "Validate & secure findings", icon: "skull" },
+      { href: "/dashboard/scan", label: "Auto Scan", desc: "Passive web check + schedules", icon: "radar" },
+      { href: "/dashboard/import", label: "Import (Burp)", desc: "Bring in Burp issues", icon: "copy" },
+    ],
+  },
+  {
+    section: "Knowledge & tools",
+    items: [
+      { href: "/dashboard/assistant", label: "AI Assistant", desc: "Ask the knowledge base", icon: "bot" },
+      { href: "/dashboard/knowledge", label: "Knowledge Library", desc: "How-to write-ups", icon: "book" },
+      { href: "/dashboard/frameworks", label: "Frameworks", desc: "ATT&CK · OWASP · NIST", icon: "shield" },
+      { href: "/dashboard/tools", label: "Tool Catalog", desc: "Security tooling reference", icon: "wrench" },
+      { href: "/dashboard/library", label: "Resource Vault", desc: "Saved resources", icon: "lock" },
+      { href: "/dashboard/shiva", label: "Shiva — MCP Security", desc: "MCP security", icon: "skull" },
+    ],
+  },
+  {
+    section: "Insights & admin",
+    items: [
+      { href: "/dashboard/analytics", label: "Analytics", desc: "Findings analytics", icon: "chart" },
+      { href: "/dashboard/history", label: "Monitoring", desc: "Activity timeline", icon: "clock" },
+      { href: "/dashboard/members", label: "Members", desc: "Team & access", icon: "server" },
+      { href: "/dashboard/settings", label: "Settings", desc: "Notifications & more", icon: "wrench" },
+    ],
+  },
 ];
 
 /* ── Severity donut (SVG) ───────────────────────────────── */
@@ -183,6 +223,11 @@ export default async function DashboardOverview({
 }) {
   const session = await auth();
   const firstName = session?.user?.name?.split(" ")[0] ?? "operator";
+  const access = await getMemberAccess(session?.user?.email);
+  const launch = LAUNCH.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => canAccess(i.href, access)),
+  })).filter((g) => g.items.length > 0);
   const now = Date.now();
   const since14 = new Date(now - 13 * 86_400_000);
   since14.setHours(0, 0, 0, 0);
@@ -423,22 +468,29 @@ export default async function DashboardOverview({
         </div>
       </section>
 
-      {/* Jump to */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Jump to</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {JUMP.map((j) => (
-            <Link key={j.href} href={j.href} className="card-hover flex items-center gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
-                <Icon name={j.icon} className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-semibold text-white">{j.label}</p>
-                <p className="truncate text-xs text-gray-500">{j.desc}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+      {/* Launchpad — everything, grouped */}
+      <section className="space-y-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+          Go to
+        </h2>
+        {launch.map((group) => (
+          <div key={group.section}>
+            <p className="mb-2 text-xs font-semibold text-gray-400">{group.section}</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {group.items.map((j) => (
+                <Link key={j.href} href={j.href} className="card-hover flex items-center gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
+                    <Icon name={j.icon} className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white">{j.label}</p>
+                    <p className="truncate text-xs text-gray-500">{j.desc}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );

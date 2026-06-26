@@ -388,6 +388,17 @@ export async function unarchiveJobs(formData: FormData) {
   revalidatePath("/dashboard/jobs");
 }
 
+/** Bulk: cancel every queued (not-yet-started) job. */
+export async function cancelQueuedJobs() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  await prisma.job.updateMany({
+    where: { status: "queued" },
+    data: { status: "canceled", finishedAt: new Date() },
+  });
+  revalidatePath("/dashboard/jobs");
+}
+
 /** Bulk: permanently delete selected jobs. */
 export async function deleteJobs(formData: FormData) {
   const session = await auth();

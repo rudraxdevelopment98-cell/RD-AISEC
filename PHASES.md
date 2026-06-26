@@ -105,6 +105,10 @@ build that item, verify, commit, and merge to `main`.
       (default 3) in worker threads, instead of one at a time (runner v11).
 - ✅ **Bulk job management** — select multiple jobs (with select-all), archive /
       restore / delete them; a separate Archived view keeps them on record.
+      Plus "Cancel all queued" and auto-archive of finished jobs >30 days old.
+- ✅ **Dashboard launchpad** — home page groups every section (access-filtered)
+      with one-line descriptions, so the whole portal is reachable from one hub.
+      Theme unchanged; no features removed.
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
