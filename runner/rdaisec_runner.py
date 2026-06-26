@@ -32,7 +32,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "6"
+RUNNER_VERSION = "7"
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -351,21 +351,31 @@ def run_install(inst):
     if not shutil.which("apt-get"):
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
-    sudo = [] if os.geteuid() == 0 else ["sudo", "-n"]
+    # Privilege escalation, in order of preference:
+    #   - running as root                  -> no sudo
+    #   - RUNNER_SUDO_PASS set (LOCAL env) -> sudo -S (password piped from here)
+    #   - otherwise                        -> sudo -n (fails if a password is needed)
+    # The password lives ONLY in this machine's env — it is never sent to the portal.
+    pw = os.environ.get("RUNNER_SUDO_PASS")
+    if os.geteuid() == 0:
+        sudo, stdin_in = [], None
+    elif pw:
+        sudo, stdin_in = ["sudo", "-S", "-p", ""], pw + "\n"
+    else:
+        sudo, stdin_in = ["sudo", "-n"], None
+
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
     parts: list[str] = []
     code = 0
     try:
         up = subprocess.run(
-            sudo + ["apt-get", "update"], capture_output=True, text=True, timeout=300, env=env
+            sudo + ["apt-get", "update"],
+            input=stdin_in, capture_output=True, text=True, timeout=300, env=env,
         )
         parts.append(up.stdout + up.stderr)
         ins = subprocess.run(
             sudo + ["apt-get", "install", "-y", pkg],
-            capture_output=True,
-            text=True,
-            timeout=600,
-            env=env,
+            input=stdin_in, capture_output=True, text=True, timeout=600, env=env,
         )
         parts.append(ins.stdout + ins.stderr)
         code = ins.returncode
@@ -374,10 +384,10 @@ def run_install(inst):
 
     text = "\n".join(parts)
     low = text.lower()
-    if code != 0 and ("password is required" in low or "sudo:" in low):
+    if code != 0 and ("password is required" in low or "sudo:" in low or "incorrect password" in low):
         text += (
-            "\n\nThe runner needs root to install packages. Run it as root, "
-            "or give the user passwordless sudo for apt."
+            "\n\nThe runner needs root to install. Either run it as root, set "
+            "RUNNER_SUDO_PASS on the runner, or give the user passwordless sudo for apt."
         )
     return text[:MAX_OUTPUT], code
 

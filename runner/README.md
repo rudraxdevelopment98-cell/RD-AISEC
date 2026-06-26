@@ -114,6 +114,34 @@ so its traffic exits through the Tor network. The portal shows the reported
 > through Tor. Use anonymity for web/app testing, not raw port/network sweeps.
 > Tor is also much slower; scans will take longer.
 
+## Installing tools (and sudo)
+
+Approve installs from the portal (Machines → a machine → Install tools, or the
+"Installations needed" panel). The runner runs `apt-get install` for an
+allowlisted package only. Installing needs root — pick one, **all keep the
+password on this machine, never in the portal**:
+
+1. **Run the runner as root** (simplest on Kali):
+   ```bash
+   sudo PORTAL_URL=... RUNNER_TOKEN=... python3 runner/rdaisec_runner.py
+   ```
+2. **Give a sudo password locally** via env var (the runner pipes it to `sudo -S`):
+   ```bash
+   export RUNNER_SUDO_PASS='your-kali-password'
+   python3 runner/rdaisec_runner.py
+   ```
+3. **Passwordless sudo for apt** (no password anywhere):
+   ```bash
+   echo "$USER ALL=(root) NOPASSWD: /usr/bin/apt-get" | sudo tee /etc/sudoers.d/rdaisec-apt
+   ```
+
+> **Do not** enter a sudo password into the portal — it's your machine's root
+> credential and the cloud should never hold it. `RUNNER_SUDO_PASS` lives only in
+> this machine's environment.
+
+> `httpx` is not an apt package on Kali (it ships as `httpx-toolkit` with a
+> different binary) — install it manually. Everything else installs from the portal.
+
 ## Safety model
 
 - **Authorization gate:** a job can only be queued for an engagement marked
