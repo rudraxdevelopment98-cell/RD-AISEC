@@ -57,6 +57,19 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P6.4** — **Job chains** (recon → scan → report)
 - ⬜ **P6.5** — **Notifications** (email / Discord on critical finding or job done)
 - ⬜ **P6.6** — Route the cloud recon pipeline **through the runner**
+- ⬜ **P6.7** — **arp-scan** — LAN layer-2 device discovery (IP + MAC + vendor),
+      feeds the Network Map. *Small; works on the runner's own subnet.*
+
+## ⬜ Phase 9 — Wireless (WiFi) *(needs a monitor-mode USB WiFi adapter on the runner)*
+> The runner's VM can't scan WiFi via the Mac's built-in radio — it needs a
+> compatible USB WiFi adapter passed through. Only scan networks you own/are
+> authorized to test.
+- ⬜ **P9.1** — **Target-less "environment scan" job type** (tools that scan the
+      air/LAN with no target) — prerequisite for WiFi.
+- ⬜ **P9.2** — **WiFi AP discovery** (`nmcli`/`iwlist` passive, or `airodump-ng`)
+      → access points with SSID/BSSID/channel/encryption/signal.
+- ⬜ **P9.3** — **WiFi visualization** — APs grouped by channel/signal/encryption,
+      open/weak-crypto flagged; associated clients.
 
 ## ⬜ Phase 7 — Evidence & polish *(no AI)*
 - ⬜ **P7.1** — **Evidence attachments** on findings (Vercel Blob)
