@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
+import { backfillFrameworkTags } from "@/lib/finding-backfill";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,11 @@ function Bar({
   );
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: { tagged?: string };
+}) {
   const engagements = await prisma.engagement.findMany({
     include: { findings: true },
     orderBy: { updatedAt: "desc" },
@@ -220,6 +225,20 @@ export default async function AnalyticsPage() {
           <p className="mt-4 text-xs text-gray-500">
             {mapped} of {findings.length} findings mapped to a framework.
           </p>
+          {searchParams.tagged && (
+            <p className="mt-2 text-xs text-emerald-300">
+              ✓ Tagged {searchParams.tagged} previously-unmapped finding
+              {searchParams.tagged === "1" ? "" : "s"}.
+            </p>
+          )}
+          {findings.length - mapped > 0 && (
+            <form action={backfillFrameworkTags} className="mt-3">
+              <button className="btn-ghost text-xs">
+                Tag {findings.length - mapped} unmapped finding
+                {findings.length - mapped === 1 ? "" : "s"}
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
