@@ -27,12 +27,17 @@ import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "7"
+RUNNER_VERSION = "8"
+
+# Heartbeat: ping the portal on a background thread so the machine stays "online"
+# even while busy running a long job/install (when the main loop isn't polling).
+PING_SECONDS = int(os.environ.get("PING_SECONDS", "30"))
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -241,6 +246,16 @@ def fetch_tools():
         return None
 
 
+def heartbeat_loop():
+    """Background: keep the machine 'online' regardless of what the loop is doing."""
+    while True:
+        try:
+            request("GET", "/api/runner/ping")
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(PING_SECONDS)
+
+
 def poll():
     """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
     try:
@@ -421,7 +436,10 @@ def main():
         print(f"Tools available (built-in defaults): {', '.join(sorted(TOOLS))}")
     print("Polling for jobs… (Ctrl-C to stop)\n")
 
-    print("Anonymity (Tor) is controlled from the portal → Runners.\n")
+    print("Anonymity (Tor) is controlled from the portal → Machines.\n")
+
+    # Start the heartbeat so we stay online during long jobs/installs.
+    threading.Thread(target=heartbeat_loop, daemon=True).start()
 
     last_refresh = time.monotonic()
     while True:

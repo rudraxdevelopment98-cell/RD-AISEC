@@ -30,8 +30,11 @@ build that item, verify, commit, and merge to `main`.
   reduced-motion aware.
 - ✅ Retry a failed/canceled job (re-queue same tool/target/runner)
 - ✅ Jobs split into its own page: live Active jobs (machine/online/elapsed) +
-  a History table with expandable result/output. Machines page now focuses on
-  machine connection + installs and links to Jobs.
+  a History table with search / status filter / sort and per-row manage
+  (import · retry/run-again · delete) + expandable result/output. Machines page
+  now focuses on machine connection + installs and links to Jobs.
+- ✅ Background heartbeat (runner /api/runner/ping thread) so a machine stays
+  online while busy running a long job or install (no more offline-between-tasks)
 
 ## ✅ Phase 2 — Runner & active testing *(done)*
 - ✅ Runner architecture (Kali polls, executes, posts back)
