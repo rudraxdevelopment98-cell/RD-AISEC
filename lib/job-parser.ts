@@ -297,6 +297,11 @@ function parseWafw00f(target: string, output: string): ParsedFinding[] {
 function parseWifi(output: string): ParsedFinding[] {
   // nmcli terse mode escapes the colons in a BSSID (AA\:BB\:...). Unescape first.
   const text = (output || "").replace(/\\:/g, ":");
+  // Only treat output as WiFi when there are clear wireless markers — otherwise
+  // a stray MAC in some other tool's output would create bogus "WiFi" findings.
+  const isWifi =
+    /\bWPA3?\b|\bWEP\b|\bESSID\b|\bBSSID\b|airodump|nmcli|Station MAC|monitor mode|wifi/i.test(text);
+  if (!isWifi) return [];
   const macRe = /\b([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b/;
   const out: ParsedFinding[] = [];
 
@@ -368,7 +373,9 @@ function parseWifi(output: string): ParsedFinding[] {
               ? "OPEN"
               : "?";
     // SSID: nmcli puts it before the BSSID; airodump CSV puts ESSID last.
-    let ssid = line.split(bssid)[0].replace(/[:|,]+$/, "").trim();
+    // Split on the ORIGINAL matched MAC (m[1]) — `bssid` is upper-cased and
+    // wouldn't match a lowercase MAC in the source line.
+    let ssid = line.split(m[1])[0].replace(/[:|,]+$/, "").trim();
     if (!ssid && line.includes(",")) {
       const cols = line.split(",").map((c) => c.trim());
       ssid =

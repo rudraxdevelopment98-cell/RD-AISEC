@@ -41,10 +41,16 @@ export async function POST(
     typeof body.exitCode === "number" ? body.exitCode : Number(body.exitCode ?? 0) || 0;
   const status = body.status === "failed" || exitCode !== 0 ? "failed" : "done";
 
-  await prisma.job.update({
-    where: { id: job.id },
+  // Only the first result for a still-active job is processed. A retried POST
+  // (network hiccup after a successful save) would otherwise re-auto-import
+  // findings or re-queue amass host scans.
+  const claimed = await prisma.job.updateMany({
+    where: { id: job.id, status: { in: ["queued", "running"] } },
     data: { output, exitCode, status, finishedAt: new Date() },
   });
+  if (claimed.count !== 1) {
+    return NextResponse.json({ ok: true, alreadyFinished: true });
+  }
 
   // Bug-bounty automation (no human in the loop).
   if (status === "done" && job.autoImport && job.engagementId) {

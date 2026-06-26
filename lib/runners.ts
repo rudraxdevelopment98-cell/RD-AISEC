@@ -453,13 +453,23 @@ export async function importJobFindings(formData: FormData) {
     job.tool,
   );
   if (findings.length > 0) {
-    await prisma.finding.createMany({
-      data: findings.map((f) => ({ ...f, engagementId })),
+    // Dedup against existing findings so re-importing the same job (or a job
+    // already auto-imported) doesn't create duplicates.
+    const existing = await prisma.finding.findMany({
+      where: { engagementId },
+      select: { title: true },
     });
-    await prisma.engagement.update({
-      where: { id: engagementId },
-      data: { updatedAt: new Date() },
-    });
+    const seen = new Set(existing.map((f) => f.title));
+    const fresh = findings.filter((f) => !seen.has(f.title));
+    if (fresh.length > 0) {
+      await prisma.finding.createMany({
+        data: fresh.map((f) => ({ ...f, engagementId })),
+      });
+      await prisma.engagement.update({
+        where: { id: engagementId },
+        data: { updatedAt: new Date() },
+      });
+    }
   }
 
   revalidatePath("/dashboard/runners");
