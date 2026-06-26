@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { runReconnaissancePipeline } from "@/lib/reconnaissance";
+import { classifyFinding } from "@/lib/finding-map";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -162,6 +163,11 @@ export async function executeReconnaissanceScan(
           status: "open",
           description: finding.description,
           recommendation: finding.recommendation,
+          ...classifyFinding({
+            title: finding.title,
+            description: finding.description,
+            severity: finding.severity,
+          }),
         },
       });
     }

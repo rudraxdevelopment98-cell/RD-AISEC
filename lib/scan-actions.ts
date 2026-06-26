@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { runScan, runScans, parseTargets } from "@/lib/scanner";
+import { classifyFinding } from "@/lib/finding-map";
 
 /**
  * Re-run the scan server-side (so we trust the data, not the client) and save
@@ -23,13 +24,18 @@ export async function saveScanFindings(formData: FormData) {
   if (failed.length === 0) return;
 
   await prisma.finding.createMany({
-    data: failed.map((c) => ({
-      engagementId,
-      title: `${c.name} — ${result.target}`,
-      severity: c.severity,
-      description: `Automated posture scan of ${result.finalUrl ?? result.target}.\n\n${c.detail}`,
-      recommendation: c.recommendation,
-    })),
+    data: failed.map((c) => {
+      const title = `${c.name} — ${result.target}`;
+      const description = `Automated posture scan of ${result.finalUrl ?? result.target}.\n\n${c.detail}`;
+      return {
+        engagementId,
+        title,
+        severity: c.severity,
+        description,
+        recommendation: c.recommendation,
+        ...classifyFinding({ title, description, severity: c.severity }),
+      };
+    }),
   });
   await prisma.engagement.update({
     where: { id: engagementId },
@@ -56,13 +62,18 @@ export async function saveBulkScanFindings(formData: FormData) {
   const data = results.flatMap((r) =>
     r.checks
       .filter((c) => !c.passed)
-      .map((c) => ({
-        engagementId,
-        title: `${c.name} — ${r.target}`,
-        severity: c.severity,
-        description: `Automated posture scan of ${r.finalUrl ?? r.target}.\n\n${c.detail}`,
-        recommendation: c.recommendation,
-      })),
+      .map((c) => {
+        const title = `${c.name} — ${r.target}`;
+        const description = `Automated posture scan of ${r.finalUrl ?? r.target}.\n\n${c.detail}`;
+        return {
+          engagementId,
+          title,
+          severity: c.severity,
+          description,
+          recommendation: c.recommendation,
+          ...classifyFinding({ title, description, severity: c.severity }),
+        };
+      }),
   );
   if (data.length === 0) return;
 

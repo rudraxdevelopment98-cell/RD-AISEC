@@ -6,6 +6,7 @@ import {
   FindingStatusBadge,
   EngagementStatusBadge,
 } from "@/components/badges";
+import { FrameworkBadges } from "@/components/framework-badges";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -186,6 +187,7 @@ export default async function EngagementDetail({
                 <FindingStatusBadge value={f.status} />
               </div>
             </div>
+            <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2" />
             {f.description && (
               <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">
                 {f.description}

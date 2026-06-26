@@ -123,6 +123,10 @@ model Finding {
   status         String     @default("open")
   description    String     @default("")
   recommendation String     @default("")
+  // Framework tags (deterministic mapping — see lib/finding-map.ts).
+  // MITRE ATT&CK tactic id (e.g. "TA0001") and OWASP Top 10 id (e.g. "A03"); "" = unmapped.
+  attack         String     @default("")
+  owasp          String     @default("")
   createdAt      DateTime   @default(now())
 }
 

@@ -10,6 +10,7 @@ import {
   SEVERITIES,
   FINDING_STATUSES,
 } from "@/lib/engagement-constants";
+import { classifyFinding } from "@/lib/finding-map";
 
 async function requireUser() {
   const session = await auth();
@@ -132,13 +133,16 @@ export async function addFinding(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   if (!engagementId || !title) return;
 
+  const severity = oneOf(formData.get("severity"), SEVERITIES, "medium");
+  const description = String(formData.get("description") ?? "").trim();
   await prisma.finding.create({
     data: {
       engagementId,
       title,
-      severity: oneOf(formData.get("severity"), SEVERITIES, "medium"),
-      description: String(formData.get("description") ?? "").trim(),
+      severity,
+      description,
       recommendation: String(formData.get("recommendation") ?? "").trim(),
+      ...classifyFinding({ title, description, severity }),
     },
   });
   // Touch the engagement so its updatedAt reflects new activity.
