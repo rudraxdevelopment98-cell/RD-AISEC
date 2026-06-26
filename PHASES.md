@@ -23,11 +23,15 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Passive Auto Scan (single + bulk)
 - ✅ Edit engagement (name/client/type/status/scope/authorization) + delete
 - ✅ Dashboard nav reorganized (Overview · Engagements · Scanning · Knowledge & tools)
-- ✅ Sci-fi dashboard: radar-scope backdrop (sweeping beam + rings), hero radar
-  emblem, count-up metrics, severity donut, activity sparkline, and a proper
-  animated flow pipeline (gradient connectors, traveling data packets, pulsing
-  nodes, arrowheads). CSS/SVG, no deps, respects reduced-motion.
+- ✅ Sci-fi dashboard: neural-network backdrop (synapse nodes/edges + traveling
+  signals), neural-orb hero emblem, count-up metrics, severity donut, activity
+  sparkline, and an animated scan→findings→report flow pipeline (gradient
+  connectors, traveling data packets, pulsing nodes). CSS/SVG, no deps,
+  reduced-motion aware.
 - ✅ Retry a failed/canceled job (re-queue same tool/target/runner)
+- ✅ Jobs split into its own page: live Active jobs (machine/online/elapsed) +
+  a History table with expandable result/output. Machines page now focuses on
+  machine connection + installs and links to Jobs.
 
 ## ✅ Phase 2 — Runner & active testing *(done)*
 - ✅ Runner architecture (Kali polls, executes, posts back)
