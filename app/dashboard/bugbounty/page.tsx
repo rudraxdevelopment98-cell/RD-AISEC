@@ -10,10 +10,13 @@ import {
   deleteBugProgram,
   createEngagementFromProgram,
   queueProgramRecon,
+  syncHackerOne,
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel, parseScopeTargets } from "@/lib/bugbounty-core";
 
 export const dynamic = "force-dynamic";
+// HackerOne sync makes several sequential API calls — give it headroom.
+export const maxDuration = 60;
 
 function PlatformSelect({ name = "platform" }: { name?: string }) {
   return (
@@ -81,38 +84,75 @@ export default async function BugBountyPage({
           passwords or API tokens are stored.
         </Hint>
       </h2>
-      <form action={saveBugAccount} className="card mt-3 flex flex-wrap items-center gap-2">
-        <PlatformSelect />
-        <input
-          name="handle"
-          placeholder="@handle"
-          className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-        />
-        <input
-          name="url"
-          placeholder="https://hackerone.com/yourhandle"
-          className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-        />
-        <button className="btn-ghost text-sm">Save</button>
+      <form action={saveBugAccount} className="card mt-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PlatformSelect />
+          <input
+            name="handle"
+            placeholder="@handle"
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <input
+            name="url"
+            placeholder="https://hackerone.com/yourhandle"
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            name="apiUser"
+            placeholder="HackerOne API username (for auto-sync)"
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <input
+            name="apiToken"
+            type="password"
+            placeholder="HackerOne API token (stored encrypted)"
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <button className="btn-ghost text-sm">Save</button>
+        </div>
+        <p className="text-[11px] text-gray-500">
+          API auto-sync works for HackerOne (free token at hackerone.com → Settings → API
+          Token). Bugcrowd/Intigriti/YesWeHack don&apos;t offer a free researcher API — add
+          those programs manually below. Tokens are encrypted and never shown again.
+        </p>
       </form>
       {accounts.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {accounts.map((a) => (
-            <span key={a.id} className="tag">
-              <span className="text-brand">{platformLabel(a.platform)}</span>
-              {a.url ? (
-                <a href={a.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  {a.handle || a.url}
-                </a>
-              ) : (
-                a.handle
-              )}
-              <form action={deleteBugAccount} className="inline">
-                <input type="hidden" name="id" value={a.id} />
-                <button className="ml-1 text-gray-500 hover:text-red-400">✕</button>
-              </form>
-            </span>
-          ))}
+        <div className="mt-3 space-y-2">
+          {accounts.map((a) => {
+            const canSync = a.platform === "hackerone" && !!a.apiUser && !!a.apiToken;
+            return (
+              <div key={a.id} className="card flex flex-wrap items-center justify-between gap-2 py-3">
+                <div className="min-w-0 text-sm">
+                  <span className="tag mr-2 text-brand">{platformLabel(a.platform)}</span>
+                  {a.url ? (
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:underline">
+                      {a.handle || a.url}
+                    </a>
+                  ) : (
+                    <span className="text-gray-300">{a.handle}</span>
+                  )}
+                  {a.apiToken && <span className="ml-2 text-[11px] text-emerald-400">🔑 token set</span>}
+                  {a.lastSyncStatus && (
+                    <span className="ml-2 text-[11px] text-gray-500">· {a.lastSyncStatus}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  {canSync && (
+                    <form action={syncHackerOne}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button className="text-sky-400 hover:text-sky-300">Sync now</button>
+                    </form>
+                  )}
+                  <form action={deleteBugAccount}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <button className="text-gray-500 hover:text-red-400">Remove</button>
+                  </form>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

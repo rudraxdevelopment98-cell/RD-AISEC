@@ -88,6 +88,9 @@ build that item, verify, commit, and merge to `main`.
       access (role/access baked into the JWT; edge-safe auth.config split).
 - ✅ **Bug Bounty** — track programs (HackerOne/Bugcrowd/…); paste scope →
       authorized engagement → one-click httpx recon over in-scope targets.
+      HackerOne **API auto-sync** (free token) pulls programs + in-scope assets;
+      token stored encrypted (AES-256-GCM). Other platforms stay manual (no free
+      researcher API).
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
