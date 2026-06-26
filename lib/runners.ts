@@ -363,6 +363,42 @@ export async function deleteJob(formData: FormData) {
   revalidatePath("/dashboard/runners");
 }
 
+/** Bulk: archive selected jobs (only finished ones; running can't be archived). */
+export async function archiveJobs(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length > 0) {
+    await prisma.job.updateMany({
+      where: { id: { in: ids }, status: { notIn: ["queued", "running"] } },
+      data: { archived: true },
+    });
+  }
+  revalidatePath("/dashboard/jobs");
+}
+
+/** Bulk: restore selected jobs from the archive. */
+export async function unarchiveJobs(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length > 0) {
+    await prisma.job.updateMany({ where: { id: { in: ids } }, data: { archived: false } });
+  }
+  revalidatePath("/dashboard/jobs");
+}
+
+/** Bulk: permanently delete selected jobs. */
+export async function deleteJobs(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length > 0) {
+    await prisma.job.deleteMany({ where: { id: { in: ids } } });
+  }
+  revalidatePath("/dashboard/jobs");
+}
+
 /** Re-queue a job (same tool/target/args/runner) — e.g. after installing a tool. */
 export async function retryJob(formData: FormData) {
   const session = await auth();

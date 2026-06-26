@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
@@ -30,8 +31,9 @@ function elapsed(from: Date | null, to: number): string {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { error?: string; engagement?: string };
+  searchParams: { error?: string; engagement?: string; view?: string };
 }) {
+  const archivedView = searchParams.view === "archived";
   // Auto-fail jobs stuck "running" too long (runner crashed / lost connection).
   await prisma.job.updateMany({
     where: { status: "running", startedAt: { lt: new Date(Date.now() - JOB_STALE_MS) } },
@@ -52,8 +54,9 @@ export default async function JobsPage({
       select: { id: true, name: true, scope: true },
     }),
     prisma.job.findMany({
+      where: { archived: archivedView },
       orderBy: { createdAt: "desc" },
-      take: 80,
+      take: archivedView ? 300 : 80,
       include: {
         engagement: { select: { name: true } },
         runner: { select: { name: true, lastSeenAt: true } },
@@ -162,7 +165,15 @@ export default async function JobsPage({
       )}
 
       {/* ── History (searchable / sortable table) ───────── */}
-      <h2 className="mt-10 text-lg font-bold">History</h2>
+      <div className="mt-10 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold">{archivedView ? "Archived jobs" : "History"}</h2>
+        <Link
+          href={archivedView ? "/dashboard/jobs" : "/dashboard/jobs?view=archived"}
+          className="text-xs text-brand hover:underline"
+        >
+          {archivedView ? "← Back to history" : "View archived →"}
+        </Link>
+      </div>
       {failedCount > 0 && (
         <p className="mt-2 text-xs text-red-300">
           <Icon name="alert" className="mr-1 inline h-3 w-3" />
@@ -170,9 +181,12 @@ export default async function JobsPage({
         </p>
       )}
       {history.length === 0 ? (
-        <p className="mt-3 text-sm text-gray-500">No completed jobs yet.</p>
+        <p className="mt-3 text-sm text-gray-500">
+          {archivedView ? "No archived jobs." : "No completed jobs yet."}
+        </p>
       ) : (
         <JobsTable
+          archived={archivedView}
           jobs={history.map((j) => ({
             id: j.id,
             tool: j.tool,
