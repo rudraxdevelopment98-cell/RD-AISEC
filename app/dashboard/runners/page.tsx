@@ -312,25 +312,37 @@ python3 rdaisec_runner.py`}
                       )}
 
                       {r.installs.length > 0 && (
-                        <ul className="mt-2 space-y-1">
+                        <ul className="mt-2 space-y-1.5">
                           {r.installs.map((ins) => (
                             <li key={ins.id} className="text-xs">
-                              <span className="font-mono text-gray-300">{ins.tool}</span>{" "}
-                              <span
-                                className={
-                                  ins.status === "failed"
-                                    ? "text-red-300"
-                                    : ins.status === "installing"
-                                      ? "text-sky-300"
-                                      : "text-amber-300"
-                                }
-                              >
-                                {ins.status}
-                              </span>
-                              {ins.status === "failed" && ins.output && (
-                                <span className="block truncate text-gray-500">
-                                  {ins.output.split("\n").slice(-2)[0]}
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-gray-300">{ins.tool}</span>
+                                <span
+                                  className={
+                                    ins.status === "failed"
+                                      ? "text-red-300"
+                                      : ins.status === "installing"
+                                        ? "text-sky-300"
+                                        : ins.status === "done"
+                                          ? "text-emerald-300"
+                                          : "text-amber-300"
+                                  }
+                                >
+                                  {ins.status === "installing" && (
+                                    <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                  )}
+                                  {ins.status}
                                 </span>
+                              </div>
+                              {ins.output && (
+                                <details className="mt-1" open={ins.status === "installing"}>
+                                  <summary className="cursor-pointer text-[11px] text-gray-500 hover:text-brand">
+                                    {ins.status === "installing" ? "Live output" : "Output"}
+                                  </summary>
+                                  <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-surface-border bg-black/50 p-2 font-mono text-[10px] leading-relaxed text-gray-300">
+                                    {ins.output}
+                                  </pre>
+                                </details>
                               )}
                             </li>
                           ))}

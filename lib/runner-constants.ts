@@ -340,7 +340,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "14";
+export const RUNNER_VERSION = "15";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

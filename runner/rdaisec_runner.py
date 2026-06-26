@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "14"
+RUNNER_VERSION = "15"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -490,6 +490,62 @@ def poll_install():
         return None
 
 
+def post_install_progress(inst_id, output):
+    """Best-effort push of partial install output (live verbose)."""
+    try:
+        request("POST", f"/api/runner/install/{inst_id}/progress", {"output": output}, timeout=10)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _stream_install_cmd(argv, stdin_in, env, timeout, inst_id, buf, state):
+    """Run one install command, streaming its output into buf and posting partial
+    progress. Returns the exit code (124 on timeout)."""
+    proc = subprocess.Popen(
+        argv,
+        stdin=subprocess.PIPE if stdin_in else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        env=env,
+    )
+    killed = {"v": False}
+
+    def _kill():
+        killed["v"] = True
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+
+    timer = threading.Timer(timeout, _kill)
+    timer.start()
+    try:
+        if stdin_in and proc.stdin:
+            try:
+                proc.stdin.write(stdin_in)
+                proc.stdin.close()
+            except Exception:  # noqa: BLE001
+                pass
+        for line in proc.stdout:  # type: ignore[union-attr]
+            if state["size"] < MAX_OUTPUT:
+                buf.append(line)
+                state["size"] += len(line)
+            if PROGRESS_SECONDS > 0:
+                now = time.monotonic()
+                if now - state["last"] >= PROGRESS_SECONDS:
+                    post_install_progress(inst_id, "".join(buf)[:MAX_OUTPUT])
+                    state["last"] = now
+        proc.wait()
+    finally:
+        timer.cancel()
+    if killed["v"]:
+        buf.append(f"\n…timed out after {timeout}s\n")
+        return 124
+    return proc.returncode if proc.returncode is not None else 0
+
+
 def run_install(inst):
     # Package name resolution, most authoritative first:
     #   1. pkg sent with the install request (server-driven — always current)
@@ -516,24 +572,19 @@ def run_install(inst):
         sudo, stdin_in = ["sudo", "-n"], None
 
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
-    parts: list[str] = []
+    inst_id = inst["id"]
+    buf: list[str] = [f"$ apt-get install {pkg}\n"]
+    state = {"size": len(buf[0]), "last": 0.0}
     code = 0
     try:
-        up = subprocess.run(
-            sudo + ["apt-get", "update"],
-            input=stdin_in, capture_output=True, text=True, timeout=300, env=env,
+        _stream_install_cmd(sudo + ["apt-get", "update"], stdin_in, env, 300, inst_id, buf, state)
+        code = _stream_install_cmd(
+            sudo + ["apt-get", "install", "-y", pkg], stdin_in, env, 600, inst_id, buf, state
         )
-        parts.append(up.stdout + up.stderr)
-        ins = subprocess.run(
-            sudo + ["apt-get", "install", "-y", pkg],
-            input=stdin_in, capture_output=True, text=True, timeout=600, env=env,
-        )
-        parts.append(ins.stdout + ins.stderr)
-        code = ins.returncode
-    except subprocess.TimeoutExpired:
-        return "Install timed out.", 124
+    except FileNotFoundError:
+        return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
-    text = "\n".join(parts)
+    text = "".join(buf)
     low = text.lower()
     if code != 0 and ("password is required" in low or "sudo:" in low or "incorrect password" in low):
         text += (
