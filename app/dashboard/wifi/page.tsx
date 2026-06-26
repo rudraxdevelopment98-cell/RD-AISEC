@@ -19,6 +19,7 @@ function actions(iface: string, mon: string) {
       cmd: `timeout 180 airodump-ng -c CHANNEL --bssid AA:BB:CC:DD:EE:FF -w /tmp/capture ${mon}`,
     },
     { label: "Deauth (authorized!)", cmd: `aireplay-ng --deauth 5 -a AA:BB:CC:DD:EE:FF ${mon}` },
+    { label: "Read capture CSV (importable)", cmd: "cat /tmp/capture-01.csv" },
     { label: "Stop monitor mode", cmd: `airmon-ng stop ${mon}` },
   ];
 }
