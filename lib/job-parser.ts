@@ -90,9 +90,58 @@ function parseHttpx(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+/** sqlmap: detect confirmed SQL injection points and the affected parameters. */
+function parseSqlmap(target: string, output: string): ParsedFinding[] {
+  const vulnerable =
+    /sqlmap identified the following injection point|is vulnerable/i.test(output);
+  if (!vulnerable) return [];
+
+  const params = Array.from(output.matchAll(/^Parameter:\s*(.+)$/gim)).map((m) =>
+    m[1].trim(),
+  );
+  const where = params.length ? ` (parameter${params.length > 1 ? "s" : ""}: ${params.join(", ")})` : "";
+  return [
+    {
+      title: `SQL injection on ${target}${where}`,
+      severity: "critical",
+      status: "open",
+      description:
+        `sqlmap confirmed a SQL injection point on ${target}${where}.\n\n` +
+        "SQL injection can allow reading or modifying the database and, depending on configuration, the underlying host.",
+      recommendation:
+        "Use parameterized queries / prepared statements for all database access, validate and constrain input, and apply least-privilege database accounts. Re-test after fixing.",
+    },
+  ];
+}
+
+/** Nikto: summarize the reported items ("+ " lines), elevating on risky keywords. */
+function parseNikto(target: string, output: string): ParsedFinding[] {
+  const skip = /^\+\s*(Target (IP|Hostname|Port)|Start Time|End Time|Server:|SSL Info|[\d]+ host\(s\) tested)/i;
+  const items = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("+ ") && !skip.test(l));
+  if (items.length === 0) return [];
+
+  const risky = /osvdb|cve-|vulnerab|outdated|deprecated|directory indexing|default (file|account)|x-frame-options|injection|traversal/i.test(
+    output,
+  );
+  return [
+    {
+      title: `Nikto findings on ${target}`,
+      severity: risky ? "medium" : "info",
+      status: "open",
+      description: `Nikto reported ${items.length} item(s) on ${target}:\n\n${items.join("\n")}`,
+      recommendation:
+        "Review each reported item; patch outdated software, remove default/sample files, and add missing security headers.",
+    },
+  ];
+}
+
 /**
- * Dispatch to the right parser. Lookup-only tools (whois/dig) intentionally
- * produce no findings — their output stays on the job as context.
+ * Dispatch to the right parser. Lookup-only tools (whois/dig) and config scans
+ * (sslscan/wpscan) intentionally produce no auto-findings — their output stays
+ * on the job for manual review.
  */
 export function parseJobFindings(
   tool: string,
@@ -107,6 +156,10 @@ export function parseJobFindings(
       return parseNuclei(target, output);
     case "httpx":
       return parseHttpx(target, output);
+    case "sqlmap":
+      return parseSqlmap(target, output);
+    case "nikto":
+      return parseNikto(target, output);
     default:
       return [];
   }

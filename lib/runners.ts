@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { findTool, isSafeValue, normalizeTarget } from "@/lib/runner-constants";
+import { findTool, isSafeValue, normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 
 /** Hash a runner token for storage/lookup (never store the plaintext). */
@@ -92,7 +92,7 @@ export async function queueJob(formData: FormData) {
   // nuclei keep the full URL.
   const finalTarget = normalizeTarget(tool!.id, target);
 
-  if (!isSafeValue(finalTarget)) {
+  if (!validateTarget(tool!.id, finalTarget)) {
     redirect(
       `${back}&error=${encodeURIComponent("Target contains characters that aren't allowed.")}`,
     );

@@ -153,9 +153,11 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [x] **Runner: portal UI — `/dashboard/runners`: register, queue, live jobs, output viewer**
 - [x] **Runner: output → Findings parser (nmap/nuclei/httpx) + "Import to findings"**
 
-> ✅ **Runner vertical slice shipped.** Set up the Kali agent with
-> `runner/README.md`. Next: more output parsers, scan history, and Workflows
-> (Phase 3) that chain runner jobs.
+> ✅ **Runner vertical slice shipped**, now with a web-app testing allowlist:
+> nmap, httpx, nuclei, **sqlmap (SQLi)**, **nikto**, **wpscan**, **sslscan**,
+> whois, dig — with per-tool target normalization and output→findings parsers
+> (nmap/httpx/nuclei/sqlmap/nikto). Set up the Kali agent via `runner/README.md`.
+> Next: more parsers (wpscan/sslscan), Workflows (Phase 3) that chain jobs.
 
 ### Phase 2 — Workspace (Assets · Monitoring · Teams)
 - [x] Resource Vault (early Assets)
