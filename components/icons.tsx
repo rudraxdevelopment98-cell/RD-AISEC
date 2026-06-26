@@ -10,6 +10,19 @@ const paths: Record<string, React.ReactNode> = {
       <rect x="14" y="14" width="7" height="7" rx="1" />
     </>
   ),
+  menu: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M6 6l12 12" />
+      <path d="M6 18 18 6" />
+    </>
+  ),
   target: (
     <>
       <circle cx="12" cy="12" r="9" />
