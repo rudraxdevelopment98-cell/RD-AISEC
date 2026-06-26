@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateRunner } from "@/lib/runner-auth";
+import { INSTALLABLE_PKGS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,12 @@ export async function GET(req: Request) {
       data: { status: "installing" },
     });
     if (claimed.count === 1) {
-      return NextResponse.json({ id: next.id, tool: next.tool });
+      // Send the apt package name so the runner doesn't need its own map.
+      return NextResponse.json({
+        id: next.id,
+        tool: next.tool,
+        pkg: INSTALLABLE_PKGS[next.tool] ?? null,
+      });
     }
   }
   return new NextResponse(null, { status: 204 });

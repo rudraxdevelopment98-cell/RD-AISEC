@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "13"
+RUNNER_VERSION = "14"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -491,10 +491,12 @@ def poll_install():
 
 
 def run_install(inst):
-    # Prefer the package the portal sent with the tool spec; fall back to the
-    # built-in map. This lets new installable tools work without re-pulling.
+    # Package name resolution, most authoritative first:
+    #   1. pkg sent with the install request (server-driven — always current)
+    #   2. pkg from the fetched tool spec
+    #   3. the built-in fallback map
     spec = TOOLS.get(inst["tool"], {})
-    pkg = spec.get("pkg") or INSTALL_PKGS.get(inst["tool"])
+    pkg = inst.get("pkg") or spec.get("pkg") or INSTALL_PKGS.get(inst["tool"])
     if not pkg:
         return f"'{inst['tool']}' isn't installable via apt — install it manually.", 1
     if not shutil.which("apt-get"):
