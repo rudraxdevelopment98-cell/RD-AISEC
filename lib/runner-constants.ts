@@ -128,6 +128,35 @@ export function findTool(id: string): RunnerTool | undefined {
   return RUNNER_TOOLS.find((t) => t.id === id);
 }
 
+/**
+ * Execution spec the runner needs per tool: the binary to run and the flag that
+ * carries the target (null = host-based, appended positionally with the scheme
+ * stripped). Served to runners by /api/runner/tools so adding a tool here makes
+ * it work on every runner WITHOUT re-pulling the runner script (the binary must
+ * still be installed on the runner). Keep `flag: null` exactly for the tools in
+ * HOST_TARGET_TOOLS below.
+ */
+export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | null }> = {
+  nmap: { bin: "nmap", flag: null },
+  httpx: { bin: "httpx", flag: "-u" },
+  nuclei: { bin: "nuclei", flag: "-u" },
+  whois: { bin: "whois", flag: null },
+  dig: { bin: "dig", flag: null },
+  sqlmap: { bin: "sqlmap", flag: "-u" },
+  nikto: { bin: "nikto", flag: "-h" },
+  wpscan: { bin: "wpscan", flag: "--url" },
+  sslscan: { bin: "sslscan", flag: null },
+};
+
+/** Serialize the tool specs for the runner (only tools that are in the allowlist). */
+export function runnerToolSpecs(): { id: string; bin: string; flag: string | null }[] {
+  return RUNNER_TOOLS.filter((t) => RUNNER_TOOL_SPECS[t.id]).map((t) => ({
+    id: t.id,
+    bin: RUNNER_TOOL_SPECS[t.id].bin,
+    flag: RUNNER_TOOL_SPECS[t.id].flag,
+  }));
+}
+
 // Tools that scan a host/IP (not a URL). These can't parse a "https://" scheme
 // or a path, so we strip the target down to its hostname for them. The URL-based
 // tools (httpx/nuclei/sqlmap/nikto/wpscan) keep the full URL.

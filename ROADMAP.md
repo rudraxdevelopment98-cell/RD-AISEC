@@ -182,6 +182,10 @@ Mostly ✅. Remaining work is the Runner foundation.
 - [x] **Network scanning + map** — nmap network presets (ping sweep / top-ports
       against a CIDR); multi-host parser (`lib/network.ts`); interactive radial
       SVG map at `/dashboard/network` (hosts, open ports, services; no AI/deps).
+- [x] **Server-driven runner tool list** — `GET /api/runner/tools` serves the
+      allowlist (`RUNNER_TOOL_SPECS`); the runner fetches it at startup, every
+      `TOOL_REFRESH`s, and on an unknown tool — so new tools work without
+      re-pulling the runner script (binary must still be installed).
 
 ### Phase 4 — Agents (Recon · Vuln · Reporting agents)
 - [x] **AI report writer** — `lib/ai-report.ts` drafts an executive summary

@@ -89,6 +89,13 @@ injection. This list mirrors `lib/runner-constants.ts` in the portal:
 > (e.g. `https://site/product.php?id=1`), or use the *Crawl* / *Test forms*
 > preset so it can discover parameters itself.
 
+**Self-updating allowlist.** The runner fetches its tool list from the portal
+(`GET /api/runner/tools`) at startup and every `TOOL_REFRESH` seconds (default
+300), and re-checks immediately if it sees an unknown tool. So when a new tool is
+added to the portal, it works here **without re-pulling this script** — you only
+need the binary installed (`sudo apt install -y <tool>`). The list above is the
+built-in fallback used when the portal can't be reached.
+
 To add a tool: add it to `RUNNER_TOOLS` in `lib/runner-constants.ts` (portal) and
 to `TOOLS` in `rdaisec_runner.py` (runner). Add a parser in `lib/job-parser.ts`
 if you want its output auto-converted to findings.
