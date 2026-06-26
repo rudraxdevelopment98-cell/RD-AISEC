@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { findTool, isSafeValue, normalizeTarget, validateTarget } from "@/lib/runner-constants";
+import {
+  findTool,
+  isSafeValue,
+  normalizeTarget,
+  validateTarget,
+  INSTALLABLE_PKGS,
+} from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 
 /** Hash a runner token for storage/lookup (never store the plaintext). */
@@ -49,6 +55,43 @@ export async function createRunner(
 
   revalidatePath("/dashboard/runners");
   return { token, name };
+}
+
+/**
+ * Request installing a missing tool on a runner. Requires explicit authorization
+ * ("proof") — the user must confirm they may install software on that machine.
+ * Only known, allowlisted packages (INSTALLABLE_PKGS) can be requested; the
+ * runner runs apt for that package only — never an arbitrary command.
+ */
+export async function requestInstall(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const tool = String(formData.get("tool") ?? "");
+  const confirmed = String(formData.get("confirm") ?? "") === "true";
+
+  if (!confirmed) {
+    redirect(
+      `/dashboard/runners?error=${encodeURIComponent(
+        "Tick the authorization box — installing software on a machine needs your confirmation.",
+      )}`,
+    );
+  }
+  if (!runnerId || !INSTALLABLE_PKGS[tool]) {
+    redirect(`/dashboard/runners?error=${encodeURIComponent("That tool can't be installed from here.")}`);
+  }
+
+  // Avoid duplicate pending/installing requests for the same tool.
+  const existing = await prisma.install.findFirst({
+    where: { runnerId, tool, status: { in: ["pending", "installing"] } },
+  });
+  if (!existing) {
+    await prisma.install.create({
+      data: { runnerId, tool, requestedBy: session.user.email ?? "" },
+    });
+  }
+  revalidatePath("/dashboard/runners");
 }
 
 export async function deleteRunner(formData: FormData) {

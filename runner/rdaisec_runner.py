@@ -32,7 +32,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "4"
+RUNNER_VERSION = "5"
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -100,6 +100,24 @@ TOOLS = dict(DEFAULT_TOOLS)
 # How often to re-fetch the allowlist from the portal (seconds).
 TOOL_REFRESH_SECONDS = int(os.environ.get("TOOL_REFRESH", "300"))
 
+# Tools the portal can install on request (tool id -> apt package). Mirrors
+# INSTALLABLE_PKGS in the portal. Only these can be installed — never arbitrary
+# package names. httpx/nuclei aren't apt packages, so they're installed manually.
+INSTALL_PKGS = {
+    "nmap": "nmap",
+    "whois": "whois",
+    "dig": "dnsutils",
+    "sqlmap": "sqlmap",
+    "nikto": "nikto",
+    "wpscan": "wpscan",
+    "sslscan": "sslscan",
+}
+
+
+def installed_tools() -> list[str]:
+    """Tool ids in the current allowlist whose binary is present on PATH."""
+    return sorted(t for t, spec in TOOLS.items() if shutil.which(spec["bin"]))
+
 # Whitelists mirrored from the portal — no shell metacharacters in either case.
 SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")          # host targets + flags
 SAFE_URL = re.compile(r"^[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$")  # URL targets
@@ -127,6 +145,7 @@ def request(method: str, path: str, body=None):
     req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
     req.add_header("X-Runner-Exit-Ip", EXIT_IP)
     req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
+    req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=30)
@@ -305,6 +324,71 @@ def post_result(job_id, output, exit_code):
         print(f"  failed to post result: {e}")
 
 
+# ---- Tool installs (authorized from the portal) ----------------------------
+
+def poll_install():
+    try:
+        resp = request("GET", "/api/runner/install")
+        if resp.status == 204:
+            return None
+        return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def run_install(inst):
+    pkg = INSTALL_PKGS.get(inst["tool"])
+    if not pkg:
+        return f"'{inst['tool']}' is not installable from the portal.", 1
+    if not shutil.which("apt-get"):
+        return "apt-get not found — this runner isn't a Debian/Kali system.", 127
+
+    sudo = [] if os.geteuid() == 0 else ["sudo", "-n"]
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    parts: list[str] = []
+    code = 0
+    try:
+        up = subprocess.run(
+            sudo + ["apt-get", "update"], capture_output=True, text=True, timeout=300, env=env
+        )
+        parts.append(up.stdout + up.stderr)
+        ins = subprocess.run(
+            sudo + ["apt-get", "install", "-y", pkg],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            env=env,
+        )
+        parts.append(ins.stdout + ins.stderr)
+        code = ins.returncode
+    except subprocess.TimeoutExpired:
+        return "Install timed out.", 124
+
+    text = "\n".join(parts)
+    low = text.lower()
+    if code != 0 and ("password is required" in low or "sudo:" in low):
+        text += (
+            "\n\nThe runner needs root to install packages. Run it as root, "
+            "or give the user passwordless sudo for apt."
+        )
+    return text[:MAX_OUTPUT], code
+
+
+def post_install_result(inst_id, output, code):
+    try:
+        request(
+            "POST",
+            f"/api/runner/install/{inst_id}/result",
+            {"output": output, "exitCode": code},
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"  failed to post install result: {e}")
+
+
 def main():
     global TOOLS, SUBNETS
     if not PORTAL_URL or not RUNNER_TOKEN:
@@ -349,8 +433,18 @@ def main():
             output, code = run_job(job)
             post_result(job["id"], output, code)
             print(f"  done (exit {code})\n")
-        else:
-            time.sleep(POLL_SECONDS)
+            continue
+
+        # When idle, handle any authorized tool install requests.
+        inst = poll_install()
+        if inst:
+            print(f"⬇ install {inst['tool']}…")
+            out, code = run_install(inst)
+            post_install_result(inst["id"], out, code)
+            print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
+            continue
+
+        time.sleep(POLL_SECONDS)
 
 
 if __name__ == "__main__":

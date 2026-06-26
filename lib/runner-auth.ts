@@ -34,6 +34,8 @@ export async function authenticateRunner(req: Request) {
   const exitIp = runner.anonymity ? exitHeader : "";
   // Local subnets the runner detected (for one-click "scan this network").
   const subnets = (req.headers.get("x-runner-subnets") ?? "").slice(0, 512);
+  // Which allowlisted tools actually have a binary present on the runner.
+  const installed = (req.headers.get("x-runner-installed") ?? "").slice(0, 512);
 
   await prisma.runner
     .update({
@@ -44,6 +46,7 @@ export async function authenticateRunner(req: Request) {
         toolCount,
         ...(runner.anonymity ? { exitIp } : {}),
         ...(subnets ? { subnets } : {}),
+        installed,
       },
     })
     .catch(() => {});

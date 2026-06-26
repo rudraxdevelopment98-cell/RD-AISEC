@@ -9,11 +9,13 @@ import {
   deleteJob,
   importJobFindings,
   setRunnerAnonymity,
+  requestInstall,
 } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
   JOB_STALE_MS,
+  INSTALLABLE_PKGS,
 } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +47,16 @@ export default async function RunnersPage({
   });
 
   const [runners, engagements, jobs] = await Promise.all([
-    prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.runner.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        installs: {
+          where: { status: { in: ["pending", "installing", "failed"] } },
+          orderBy: { createdAt: "desc" },
+          take: 6,
+        },
+      },
+    }),
     prisma.engagement.findMany({
       orderBy: { updatedAt: "desc" },
       select: { id: true, name: true, authorized: true },
@@ -172,6 +183,12 @@ python3 rdaisec_runner.py`}
           {runners.map((r) => {
             const online =
               r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
+            const installedSet = new Set(
+              (r.installed ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+            );
+            const missing = Object.keys(INSTALLABLE_PKGS).filter(
+              (t) => !installedSet.has(t),
+            );
             return (
               <div key={r.id} className="card flex items-center justify-between">
                 <div>
@@ -222,6 +239,78 @@ python3 rdaisec_runner.py`}
                       {r.anonymity ? "Turn off Tor" : "🧅 Turn on Tor (anonymize)"}
                     </button>
                   </form>
+
+                  {/* Install missing tools (authorized) */}
+                  {r.lastSeenAt && (missing.length > 0 || r.installs.length > 0) && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-brand">
+                        <Icon name="wrench" className="mr-1 inline h-3 w-3" />
+                        Install tools{missing.length > 0 ? ` (${missing.length} missing)` : ""}
+                      </summary>
+
+                      {missing.length > 0 ? (
+                        <form action={requestInstall} className="mt-2 space-y-2">
+                          <input type="hidden" name="runnerId" value={r.id} />
+                          <select
+                            name="tool"
+                            className="w-full rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
+                          >
+                            {missing.map((t) => (
+                              <option key={t} value={t}>
+                                {t} → apt {INSTALLABLE_PKGS[t]}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="flex items-start gap-2 text-xs text-gray-400">
+                            <input
+                              type="checkbox"
+                              name="confirm"
+                              value="true"
+                              required
+                              className="mt-0.5 h-3.5 w-3.5 accent-emerald-500"
+                            />
+                            I authorize installing software on this machine (I have permission).
+                          </label>
+                          <button className="btn-ghost px-2 py-1 text-xs">Install</button>
+                        </form>
+                      ) : (
+                        <p className="mt-2 text-xs text-gray-500">
+                          All installable tools are present.
+                        </p>
+                      )}
+
+                      {r.installs.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {r.installs.map((ins) => (
+                            <li key={ins.id} className="text-xs">
+                              <span className="font-mono text-gray-300">{ins.tool}</span>{" "}
+                              <span
+                                className={
+                                  ins.status === "failed"
+                                    ? "text-red-300"
+                                    : ins.status === "installing"
+                                      ? "text-sky-300"
+                                      : "text-amber-300"
+                                }
+                              >
+                                {ins.status}
+                              </span>
+                              {ins.status === "failed" && ins.output && (
+                                <span className="block truncate text-gray-500">
+                                  {ins.output.split("\n").slice(-2)[0]}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <p className="mt-2 text-[11px] text-gray-600">
+                        httpx / nuclei aren&apos;t apt packages — install those manually.
+                        Install needs the runner to have root (or passwordless sudo).
+                      </p>
+                    </details>
+                  )}
                 </div>
                 <form action={deleteRunner}>
                   <input type="hidden" name="id" value={r.id} />
