@@ -29,9 +29,10 @@ Runner (Kali)    ──polls GET /api/runner/job──►  runs tool  ──POST
 2. Make sure the tools you want are installed. On Kali:
    ```bash
    sudo apt update
-   sudo apt install -y nmap whois dnsutils       # nmap, whois, dig
+   sudo apt install -y nmap whois dnsutils sqlmap nikto wpscan sslscan
    # ProjectDiscovery tools (optional): httpx, nuclei
    # e.g. via their installers / go install; ensure they're on PATH
+   # (On Kali, most of these are preinstalled.)
    ```
 3. Copy `rdaisec_runner.py` into the VM (clone the repo, or scp the single file).
    It uses only the Python 3 standard library — nothing to `pip install`.
@@ -72,13 +73,21 @@ The runner only executes these, via `argv` (never a shell). Targets and args are
 re-validated against a strict character set, so a malformed value can't become an
 injection. This list mirrors `lib/runner-constants.ts` in the portal:
 
-| Tool     | Purpose                          | Target passed as |
-|----------|----------------------------------|------------------|
-| `nmap`   | Port & service scan              | last argument    |
-| `httpx`  | HTTP probe (title/status/tech)   | `-u <target>`    |
-| `nuclei` | Templated vuln/exposure checks   | `-u <target>`    |
-| `whois`  | Registration lookup (passive)    | last argument    |
-| `dig`    | DNS records (passive)            | last argument    |
+| Tool      | Purpose                          | Target passed as | Auto-findings |
+|-----------|----------------------------------|------------------|---------------|
+| `nmap`    | Port & service scan              | last argument    | ✅ open ports |
+| `httpx`   | HTTP probe (title/status/tech)   | `-u <target>`    | ✅ live service |
+| `nuclei`  | Templated vuln/exposure checks   | `-u <target>`    | ✅ per match |
+| `sqlmap`  | SQL injection (give a URL with a param, e.g. `?id=1`) | `-u <url>` | ✅ injection points |
+| `nikto`   | Web server scan (issues/misconfig) | `-h <url>`     | ✅ summary |
+| `wpscan`  | WordPress enumeration            | `--url <url>`    | — (manual) |
+| `sslscan` | TLS/SSL configuration            | last argument    | — (manual) |
+| `whois`   | Registration lookup (passive)    | last argument    | — (manual) |
+| `dig`     | DNS records (passive)            | last argument    | — (manual) |
+
+> **sqlmap needs a parameter to test.** Point it at a URL with a query parameter
+> (e.g. `https://site/product.php?id=1`), or use the *Crawl* / *Test forms*
+> preset so it can discover parameters itself.
 
 To add a tool: add it to `RUNNER_TOOLS` in `lib/runner-constants.ts` (portal) and
 to `TOOLS` in `rdaisec_runner.py` (runner). Add a parser in `lib/job-parser.ts`

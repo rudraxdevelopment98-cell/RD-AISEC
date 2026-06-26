@@ -35,23 +35,37 @@ JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # 15 min per job
 MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
 
 # Allowlist mirrored from lib/runner-constants.ts. Each entry maps a tool id to
-# its binary and how the target is passed:
-#   "arg"  -> appended as the last argv item
-#   "u"    -> passed via "-u <target>" (ProjectDiscovery tools)
+# its binary and the flag that carries the target:
+#   "flag": None    -> host-based; target appended as the last argv item (scheme stripped)
+#   "flag": "-u"    -> URL-based; target passed via that flag (full URL kept)
 TOOLS = {
-    "nmap":   {"bin": "nmap",   "target": "arg"},
-    "httpx":  {"bin": "httpx",  "target": "u"},
-    "nuclei": {"bin": "nuclei", "target": "u"},
-    "whois":  {"bin": "whois",  "target": "arg"},
-    "dig":    {"bin": "dig",    "target": "arg"},
+    "nmap":    {"bin": "nmap",    "flag": None},
+    "httpx":   {"bin": "httpx",   "flag": "-u"},
+    "nuclei":  {"bin": "nuclei",  "flag": "-u"},
+    "whois":   {"bin": "whois",   "flag": None},
+    "dig":     {"bin": "dig",     "flag": None},
+    "sqlmap":  {"bin": "sqlmap",  "flag": "-u"},
+    "nikto":   {"bin": "nikto",   "flag": "-h"},
+    "wpscan":  {"bin": "wpscan",  "flag": "--url"},
+    "sslscan": {"bin": "sslscan", "flag": None},
 }
 
-# Same strict whitelist the portal uses — no shell metacharacters.
-SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")
+# Whitelists mirrored from the portal — no shell metacharacters in either case.
+SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")          # host targets + flags
+SAFE_URL = re.compile(r"^[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$")  # URL targets
 
 
 def safe(value: str) -> bool:
     return bool(value) and len(value) <= 512 and bool(SAFE_VALUE.match(value))
+
+
+def safe_url(value: str) -> bool:
+    return (
+        bool(value)
+        and len(value) <= 1024
+        and not value.startswith("-")
+        and bool(SAFE_URL.match(value))
+    )
 
 
 def request(method: str, path: str, body=None):
@@ -86,8 +100,6 @@ def build_argv(job):
         return None, f"Tool '{job['tool']}' is not allowed on this runner."
 
     target = job.get("target", "")
-    if not safe(target):
-        return None, f"Target failed validation: {target!r}"
 
     args = [a for a in (job.get("args") or "").split(" ") if a]
     for a in args:
@@ -95,11 +107,16 @@ def build_argv(job):
             return None, f"Argument failed validation: {a!r}"
 
     argv = [spec["bin"], *args]
-    if spec["target"] == "u":
-        argv += ["-u", target]  # httpx/nuclei accept a full URL
+    if spec["flag"]:
+        # URL-based tool (httpx/nuclei/sqlmap/nikto/wpscan) — keep the full URL.
+        if not safe_url(target):
+            return None, f"Target failed validation: {target!r}"
+        argv += [spec["flag"], target]
     else:
-        # nmap/whois/dig need a bare host — strip any scheme/path.
+        # Host-based tool (nmap/whois/dig/sslscan) — strip any scheme/path.
         host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", target, flags=re.I).split("/")[0]
+        if not safe(host):
+            return None, f"Target failed validation: {target!r}"
         argv.append(host)
     return argv, None
 
