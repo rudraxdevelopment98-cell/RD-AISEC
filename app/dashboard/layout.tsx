@@ -111,6 +111,10 @@ export default async function DashboardLayout({
               RD<span className="text-brand">-AISEC</span>
             </span>
           </Link>
+          <p className="mt-2 px-2 text-[10px] leading-tight text-gray-600">
+            AI Security Operating System — Founded, Architected &amp; Led by{" "}
+            <span className="text-gray-400">Kuldeep J</span>
+          </p>
         </div>
 
         {/* Nav — scrolls if it overflows */}

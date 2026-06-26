@@ -84,8 +84,12 @@ export function MobileNav({
               <SidebarNav groups={groups} />
             </div>
 
+            <p className="shrink-0 border-t border-surface-border px-4 pt-3 text-[10px] leading-tight text-gray-600">
+              AI Security Operating System — Founded, Architected &amp; Led by{" "}
+              <span className="text-gray-400">Kuldeep J</span>
+            </p>
             {email && (
-              <div className="shrink-0 border-t border-surface-border p-4">
+              <div className="shrink-0 p-4">
                 <div className="flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-brand/20 text-xs font-bold text-brand">
                     {email.charAt(0).toUpperCase()}
