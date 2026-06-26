@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NeuralBg } from "@/components/neural-bg";
 import { canAccess } from "@/lib/access";
+import { getMemberAccess } from "@/lib/members";
 
 // Full navigation, reorganized by what you're doing: plan work → run offensive
 // ops → reference knowledge → admin. Items are filtered per-user by access.
@@ -64,11 +67,13 @@ export default async function DashboardLayout({
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? "U").charAt(0).toUpperCase();
 
-  // Filter nav to what this user may reach (owners see everything).
-  const info = {
-    role: (user as { role?: string } | undefined)?.role,
-    access: (user as { access?: string[] } | undefined)?.access,
-  };
+  // Live access from the database (so an owner's edits apply immediately — no
+  // re-login needed). Enforce the current path here, then filter the nav.
+  const info = await getMemberAccess(user?.email);
+  const pathname = headers().get("x-pathname") ?? "/dashboard";
+  if (pathname.startsWith("/dashboard") && !canAccess(pathname, info)) {
+    redirect("/dashboard?denied=1");
+  }
   const nav = NAV.map((g) => ({
     ...g,
     items: g.items.filter((i) => canAccess(i.href, info)),
