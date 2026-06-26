@@ -9,8 +9,9 @@ import {
   updateBugProgram,
   deleteBugProgram,
   createEngagementFromProgram,
-  queueProgramRecon,
   syncHackerOne,
+  setBugAuto,
+  runProgramNow,
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel, parseScopeTargets } from "@/lib/bugbounty-core";
 
@@ -59,8 +60,8 @@ export default async function BugBountyPage({
       <HelpBanner>
         <p>• Save your platform handles for quick links to your dashboards.</p>
         <p>• Add a program and paste its in-scope targets (one per line).</p>
-        <p>• &quot;Create engagement&quot; turns the scope into an authorized engagement so all scanning/exploitation tools apply.</p>
-        <p>• &quot;Automate recon&quot; queues an httpx probe for every in-scope target on a machine.</p>
+        <p>• &quot;Run pipeline now&quot; scans every in-scope target (httpx + nuclei) on a machine; findings import automatically.</p>
+        <p>• Turn on <b>Enable automation</b> to run that pipeline daily and auto-sync HackerOne — fully hands-off.</p>
         <p className="text-gray-500">Only test what each program&apos;s scope explicitly authorizes.</p>
       </HelpBanner>
 
@@ -255,10 +256,11 @@ export default async function BugBountyPage({
                   )}
 
                   {runners.length > 0 && targets.length > 0 && (
-                    <form action={queueProgramRecon} className="flex items-center gap-2">
+                    <form action={runProgramNow} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={p.id} />
                       <select
                         name="runnerId"
+                        defaultValue={p.autoRunnerId || runners[0]?.id}
                         className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-[11px] outline-none focus:border-brand"
                       >
                         {runners.map((r) => (
@@ -267,7 +269,7 @@ export default async function BugBountyPage({
                           </option>
                         ))}
                       </select>
-                      <button className="text-sky-400 hover:text-sky-300">Automate recon (httpx)</button>
+                      <button className="text-sky-400 hover:text-sky-300">Run pipeline now</button>
                     </form>
                   )}
 
@@ -276,6 +278,45 @@ export default async function BugBountyPage({
                     <button className="text-gray-500 hover:text-red-400">Delete</button>
                   </form>
                 </div>
+
+                {/* Automation */}
+                {runners.length > 0 && targets.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-black/20 px-3 py-2 text-xs">
+                    {p.auto ? (
+                      <>
+                        <span className="tag ring-emerald accent-emerald">🤖 Auto on · daily</span>
+                        <span className="text-gray-500">
+                          on {runners.find((r) => r.id === p.autoRunnerId)?.name ?? "—"}
+                          {p.lastAutoAt ? ` · last ${new Date(p.lastAutoAt).toLocaleDateString()}` : ""}
+                        </span>
+                        <form action={setBugAuto} className="ml-auto">
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="auto" value="false" />
+                          <input type="hidden" name="autoRunnerId" value={p.autoRunnerId} />
+                          <button className="text-amber-400 hover:text-amber-300">Pause automation</button>
+                        </form>
+                      </>
+                    ) : (
+                      <form action={setBugAuto} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={p.id} />
+                        <input type="hidden" name="auto" value="true" />
+                        <span className="text-gray-400">Run this program automatically every day on</span>
+                        <select
+                          name="autoRunnerId"
+                          defaultValue={runners[0]?.id}
+                          className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-[11px] outline-none focus:border-brand"
+                        >
+                          {runners.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="text-emerald-400 hover:text-emerald-300">Enable automation</button>
+                      </form>
+                    )}
+                  </div>
+                )}
 
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs text-brand hover:underline">Edit scope</summary>

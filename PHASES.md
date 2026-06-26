@@ -91,6 +91,10 @@ build that item, verify, commit, and merge to `main`.
       HackerOne **API auto-sync** (free token) pulls programs + in-scope assets;
       token stored encrypted (AES-256-GCM). Other platforms stay manual (no free
       researcher API).
+- ✅ **Full bug-bounty automation** — per-program pipeline (httpx + nuclei over
+      in-scope targets) with **auto-import** of findings (deduped, ATT&CK/OWASP
+      tagged); "Run now" + a daily "Enable automation" toggle. The cron syncs
+      HackerOne and runs every auto-enabled program hands-off.
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)

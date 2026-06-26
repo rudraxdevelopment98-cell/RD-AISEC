@@ -6,8 +6,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { parseScopeTargets, platformLabel } from "@/lib/bugbounty-core";
 import { isSafeUrl, normalizeTarget, validateTarget } from "@/lib/runner-constants";
-import { encryptSecret, decryptSecret } from "@/lib/crypto";
-import { fetchPrograms, fetchScope } from "@/lib/hackerone";
+import { encryptSecret } from "@/lib/crypto";
+import { syncHackerOneAccount, queueProgramPipeline } from "@/lib/bug-pipeline";
 
 const BACK = "/dashboard/bugbounty";
 
@@ -54,54 +54,56 @@ export async function syncHackerOne(formData: FormData) {
   if (!account || account.platform !== "hackerone") {
     redirect(`${BACK}?error=${encodeURIComponent("Not a HackerOne account.")}`);
   }
-  const token = decryptSecret(account!.apiToken);
-  if (!account!.apiUser || !token) {
+  if (!account!.apiUser || !account!.apiToken) {
     redirect(`${BACK}?error=${encodeURIComponent("Add your HackerOne API username + token first.")}`);
   }
-
-  let status = "";
-  try {
-    const programs = await fetchPrograms(account!.apiUser, token);
-    let imported = 0;
-    for (const p of programs) {
-      let scope: string[] = [];
-      try {
-        scope = await fetchScope(account!.apiUser, token, p.handle);
-      } catch {
-        // Skip a single program's scope failure; keep going.
-      }
-      const existing = await prisma.bugProgram.findFirst({
-        where: { platform: "hackerone", name: p.name },
-      });
-      const data = {
-        platform: "hackerone",
-        name: p.name,
-        url: `https://hackerone.com/${p.handle}`,
-        scope: scope.join("\n"),
-        ownerEmail: email,
-      };
-      if (existing) {
-        // Don't clobber a non-empty scope with an empty pull.
-        await prisma.bugProgram.update({
-          where: { id: existing.id },
-          data: scope.length ? data : { url: data.url },
-        });
-      } else {
-        await prisma.bugProgram.create({ data });
-      }
-      imported += 1;
-    }
-    status = `Synced ${imported} program(s).`;
-  } catch (err) {
-    status = err instanceof Error ? err.message : "Sync failed.";
-  }
-
-  await prisma.bugAccount.update({
-    where: { id },
-    data: { lastSyncAt: new Date(), lastSyncStatus: status },
+  const status = await syncHackerOneAccount({
+    id: account!.id,
+    apiUser: account!.apiUser,
+    apiToken: account!.apiToken,
+    ownerEmail: email,
   });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent(status)}`);
+}
+
+/** Turn automation on/off for a program and pick the machine it runs on. */
+export async function setBugAuto(formData: FormData) {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const auto = String(formData.get("auto") ?? "") === "true";
+  const autoRunnerId = String(formData.get("autoRunnerId") ?? "");
+  await prisma.bugProgram.update({ where: { id }, data: { auto, autoRunnerId } });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent(auto ? "Automation enabled" : "Automation paused")}`);
+}
+
+/** Run the recon/vuln pipeline for a program now (manual trigger). */
+export async function runProgramNow(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const runnerId = String(formData.get("runnerId") ?? "");
+  if (!runnerId) redirect(`${BACK}?error=${encodeURIComponent("Pick a machine to scan from.")}`);
+  const program = await prisma.bugProgram.findUnique({ where: { id } });
+  if (!program) redirect(`${BACK}?error=${encodeURIComponent("Program not found.")}`);
+
+  const n = await queueProgramPipeline(
+    {
+      id: program!.id,
+      name: program!.name,
+      platform: program!.platform,
+      scope: program!.scope,
+      ownerEmail: program!.ownerEmail,
+      engagementId: program!.engagementId,
+    },
+    runnerId,
+    email,
+    25,
+  );
+  if (n === 0) {
+    redirect(`${BACK}?error=${encodeURIComponent("No new jobs — no scannable targets, or all already queued.")}`);
+  }
+  redirect(`/dashboard/jobs?queued=${n}`);
 }
 
 export async function deleteBugAccount(formData: FormData) {
