@@ -33,7 +33,8 @@ The branch `claude/ai-cybersecurity-dashboard-vu46gc` already has everything.
 
 | Variable | Required | Value |
 |---|---|---|
-| `DATABASE_URL` | ✅ | Your Postgres connection string from step 1 |
+| `DATABASE_URL` | ✅ | Pooled Postgres connection string (Neon: the `-pooler` host) |
+| `DIRECT_URL` | ✅ | Direct (non-pooled) connection — Neon: same as `DATABASE_URL` with `-pooler` removed. Used for migrations; avoids the `prisma migrate deploy` P1002 advisory-lock timeout. |
 | `AUTH_SECRET` | ✅ | A random string — generate with `npx auth secret` or `openssl rand -base64 33` |
 | `AUTHORIZED_EMAILS` | recommended | Comma-separated allowlist of emails permitted to sign in |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | for GitHub login | From a GitHub OAuth app |
