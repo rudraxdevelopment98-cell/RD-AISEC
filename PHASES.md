@@ -23,6 +23,9 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Passive Auto Scan (single + bulk)
 - ✅ Edit engagement (name/client/type/status/scope/authorization) + delete
 - ✅ Dashboard nav reorganized (Overview · Engagements · Scanning · Knowledge & tools)
+- ✅ Galaxy dashboard: animated starfield hero, count-up metrics, severity donut,
+  14-day activity sparkline, animated scan→findings→report pipeline (CSS/SVG,
+  no deps, respects reduced-motion)
 
 ## ✅ Phase 2 — Runner & active testing *(done)*
 - ✅ Runner architecture (Kali polls, executes, posts back)
