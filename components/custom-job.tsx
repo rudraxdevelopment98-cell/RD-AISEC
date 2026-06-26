@@ -19,7 +19,7 @@ export function CustomJobForm({
   defaultCommand?: string;
 }) {
   return (
-    <details className="card mt-4 group">
+    <details className="card mt-4 group" open={!!defaultCommand}>
       <summary className="cursor-pointer list-none font-semibold text-white">
         <span className="text-brand">⌘</span> Run a custom command
         <span className="ml-2 text-xs font-normal text-gray-500 group-open:hidden">

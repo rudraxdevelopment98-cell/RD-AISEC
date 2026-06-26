@@ -1,25 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icons";
 import type { Stage } from "@/data/portal";
 
+/** Drop an inline "# comment" so the command is runnable as-is. */
+function stripComment(cmd: string): string {
+  return cmd.replace(/\s+#\s.*$/, "").trim();
+}
+
 function CommandLine({ cmd }: { cmd: string }) {
   const [copied, setCopied] = useState(false);
+  const runnable = stripComment(cmd);
   return (
     <div className="group flex items-center justify-between gap-3 rounded-md border border-surface-border bg-black/50 px-3 py-2">
       <code className="overflow-x-auto font-mono text-xs text-gray-300">{cmd}</code>
-      <button
-        onClick={() => {
-          navigator.clipboard?.writeText(cmd);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        }}
-        className="shrink-0 text-gray-500 transition hover:text-brand"
-        title="Copy command"
-      >
-        <Icon name={copied ? "check" : "copy"} className="h-4 w-4" />
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Link
+          href={`/dashboard/jobs?cmd=${encodeURIComponent(runnable)}`}
+          title="Run on a machine (opens Jobs, set your target first)"
+          className="text-gray-500 transition hover:text-brand"
+        >
+          <Icon name="bolt" className="h-4 w-4" />
+        </Link>
+        <button
+          onClick={() => {
+            navigator.clipboard?.writeText(runnable);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+          }}
+          className="text-gray-500 transition hover:text-brand"
+          title="Copy command"
+        >
+          <Icon name={copied ? "check" : "copy"} className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -101,13 +117,14 @@ function StageCard({ stage, index }: { stage: Stage; index: number }) {
         </div>
       )}
 
-      <button
-        disabled
-        title="Live execution coming soon"
-        className="btn mt-4 w-full cursor-not-allowed border border-dashed border-surface-border text-gray-600"
-      >
-        <Icon name="bolt" className="h-4 w-4" /> Run this stage — coming soon
-      </button>
+      {stage.commands.length > 0 && (
+        <Link
+          href={`/dashboard/jobs?cmd=${encodeURIComponent(stripComment(stage.commands[0]))}`}
+          className="btn-ghost mt-4 flex w-full items-center justify-center gap-2 text-sm"
+        >
+          <Icon name="bolt" className="h-4 w-4" /> Run this stage on a machine
+        </Link>
+      )}
     </div>
   );
 }
