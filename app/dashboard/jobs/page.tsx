@@ -31,7 +31,7 @@ function elapsed(from: Date | null, to: number): string {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { error?: string; engagement?: string; view?: string };
+  searchParams: { error?: string; engagement?: string; view?: string; cmd?: string };
 }) {
   const archivedView = searchParams.view === "archived";
   // Auto-fail jobs stuck "running" too long (runner crashed / lost connection).
@@ -112,6 +112,7 @@ export default async function JobsPage({
       <CustomJobForm
         engagements={engagements}
         runners={runners.map((r) => ({ id: r.id, name: r.name }))}
+        defaultCommand={searchParams.cmd}
       />
 
       {/* ── Active (live) ───────────────────────────────── */}
