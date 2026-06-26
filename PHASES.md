@@ -87,7 +87,10 @@ build that item, verify, commit, and merge to `main`.
 ## ⬜ Phase 6 — Automation *(no AI)*
 - ⬜ **P6.1** — More parsers: **wpscan**, **sslscan** → findings
 - ⬜ **P6.2** — **Content discovery** (gobuster/ffuf + wordlist)
-- ⬜ **P6.3** — **Scheduled / recurring** jobs
+- 🔜 **P6.3** — **Scheduled / recurring** jobs — ✅ recurring *posture scans*
+      (daily/weekly Vercel cron → saves deduped findings to the engagement;
+      pause/resume/run-now/delete on the Auto Scan page). ⬜ recurring *runner*
+      jobs (nmap/nuclei on a schedule) still to do.
 - ⬜ **P6.4** — **Job chains** (recon → scan → report)
 - ⬜ **P6.5** — **Notifications** (email / Discord on critical finding or job done)
 - ⬜ **P6.6** — Route the cloud recon pipeline **through the runner**
