@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { EngagementStatusBadge } from "@/components/badges";
+import { EmptyState } from "@/components/empty-state";
 import { listEngagements, createEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES } from "@/lib/engagement-constants";
 
@@ -78,9 +79,10 @@ export default async function EngagementsPage() {
       {/* List */}
       <div className="mt-6 space-y-3">
         {engagements.length === 0 && (
-          <p className="card text-sm text-gray-500">
-            No engagements yet. Create one above to get started.
-          </p>
+          <EmptyState icon="briefcase" title="No engagements yet">
+            Create your first engagement above — a pentest, forensics case, or
+            consulting job. Findings, scans, and reports all live inside one.
+          </EmptyState>
         )}
         {engagements.map((e) => (
           <div

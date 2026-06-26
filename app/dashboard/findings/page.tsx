@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
+import { EmptyState } from "@/components/empty-state";
 import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
@@ -188,9 +189,21 @@ export default async function FindingsPage({
       {/* Results */}
       <div className="mt-4 space-y-3">
         {findings.length === 0 ? (
-          <p className="card text-sm text-gray-500">
-            No findings{anyFilter ? " match these filters" : " yet"}.
-          </p>
+          anyFilter ? (
+            <EmptyState icon="search" title="No findings match these filters">
+              Try clearing a filter, or broaden your search.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              icon="alert"
+              title="No findings yet"
+              actionHref="/dashboard/jobs"
+              actionLabel="Run a scan"
+            >
+              Findings appear here as you run scans, import Burp issues, or log them
+              on an engagement. They&apos;re auto-tagged to ATT&amp;CK / OWASP.
+            </EmptyState>
+          )
         ) : (
           findings.map((f) => (
             <div key={f.id} className="card">

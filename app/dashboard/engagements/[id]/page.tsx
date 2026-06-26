@@ -7,6 +7,7 @@ import {
   EngagementStatusBadge,
 } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -40,12 +41,13 @@ export default async function EngagementDetail({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link
-        href="/dashboard/engagements"
-        className="text-sm text-gray-500 hover:text-brand"
-      >
-        ← All engagements
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Engagements", href: "/dashboard/engagements" },
+          { label: e.name },
+        ]}
+      />
 
       {/* Header */}
       <header className="card mt-3">
