@@ -298,13 +298,62 @@ function parseWifi(output: string): ParsedFinding[] {
   // nmcli terse mode escapes the colons in a BSSID (AA\:BB\:...). Unescape first.
   const text = (output || "").replace(/\\:/g, ":");
   const macRe = /\b([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b/;
+  const out: ParsedFinding[] = [];
+
+  // ── Captured handshakes (airodump shows "WPA handshake: <bssid>") ──
+  const handshakes = new Set<string>();
+  for (const m of text.matchAll(/WPA handshake:\s*([0-9A-Fa-f:]{17})/gi)) {
+    handshakes.add(m[1].toUpperCase());
+  }
+  for (const b of handshakes) {
+    out.push({
+      title: `WPA handshake captured (${b})`,
+      severity: "high",
+      status: "open",
+      description:
+        `A WPA handshake was captured for access point ${b}. It can be cracked offline against a wordlist:\n\n` +
+        `aircrack-ng -w wordlist.txt capture-01.cap`,
+      recommendation:
+        "Use a long, random WPA2/WPA3 passphrase (or 802.1X/enterprise). Short/dictionary passphrases fall to offline cracking.",
+    });
+  }
+
+  // ── airodump CSV station (client) section ──
+  if (/Station MAC/i.test(text)) {
+    const clients: string[] = [];
+    let inStations = false;
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (/^Station MAC/i.test(line)) {
+        inStations = true;
+        continue;
+      }
+      if (!inStations) continue;
+      const cols = line.split(",").map((c) => c.trim());
+      if (cols.length < 6 || !macRe.test(cols[0])) continue;
+      const sta = cols[0].toUpperCase();
+      const assoc = macRe.test(cols[5] ?? "") ? cols[5].toUpperCase() : "(not associated)";
+      clients.push(`${sta} → ${assoc}`);
+    }
+    if (clients.length > 0) {
+      out.push({
+        title: `WiFi clients observed (${clients.length})`,
+        severity: "info",
+        status: "open",
+        description: `Stations seen near the capture:\n\n${clients.join("\n")}`,
+        recommendation:
+          "Confirm associated devices are expected. Unknown clients on your network warrant investigation.",
+      });
+    }
+  }
+
   type AP = { ssid: string; bssid: string; sec: string; line: string };
   const aps: AP[] = [];
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     const m = line.match(macRe);
     if (!m) continue;
-    if (/station|associated|handshake|BSSID/i.test(line) && !/:/.test(line.replace(macRe, "")))
+    if (/station|associated|handshake|^BSSID/i.test(line) && !/:/.test(line.replace(macRe, "")))
       continue;
     const bssid = m[1].toUpperCase();
     const sec = /\bWPA3\b/i.test(line)
@@ -318,25 +367,43 @@ function parseWifi(output: string): ParsedFinding[] {
             : /\b(OPN|open)\b/i.test(line) || /:\s*(--)?\s*$/.test(line)
               ? "OPEN"
               : "?";
-    // SSID = the part before the BSSID (nmcli terse) or first column.
-    const before = line.split(bssid)[0].replace(/[:|]+$/, "").trim();
-    const ssid = before || "(hidden)";
+    // SSID: nmcli puts it before the BSSID; airodump CSV puts ESSID last.
+    let ssid = line.split(bssid)[0].replace(/[:|,]+$/, "").trim();
+    if (!ssid && line.includes(",")) {
+      const cols = line.split(",").map((c) => c.trim());
+      ssid =
+        cols
+          .slice(1)
+          .reverse()
+          .find(
+            (c) =>
+              c &&
+              !/^[0-9]+$/.test(c) &&
+              !macRe.test(c) &&
+              !/^(WPA|WPA2|WPA3|WEP|OPN|CCMP|TKIP|PSK|MGT|-1)$/i.test(c),
+          ) ?? "";
+    }
+    if (!ssid) ssid = "(hidden)";
+    // Skip a BSSID already counted as a client/handshake-only line.
     aps.push({ ssid, bssid, sec, line });
   }
-  if (aps.length === 0) return [];
+  // Dedupe APs by BSSID (CSV + TUI can repeat).
+  const seenBssid = new Set<string>();
+  const uniqueAps = aps.filter((a) => (seenBssid.has(a.bssid) ? false : seenBssid.add(a.bssid)));
 
-  const out: ParsedFinding[] = [];
-  out.push({
-    title: `WiFi networks discovered (${aps.length})`,
-    severity: "info",
-    status: "open",
-    description:
-      `Wireless scan found ${aps.length} access point(s):\n\n` +
-      aps.map((a) => `${a.ssid}  ${a.bssid}  ${a.sec}`).join("\n"),
-    recommendation:
-      "Confirm every access point is expected. Investigate unknown/rogue APs near your environment.",
-  });
-  for (const a of aps) {
+  if (uniqueAps.length > 0) {
+    out.push({
+      title: `WiFi networks discovered (${uniqueAps.length})`,
+      severity: "info",
+      status: "open",
+      description:
+        `Wireless scan found ${uniqueAps.length} access point(s):\n\n` +
+        uniqueAps.map((a) => `${a.ssid}  ${a.bssid}  ${a.sec}`).join("\n"),
+      recommendation:
+        "Confirm every access point is expected. Investigate unknown/rogue APs near your environment.",
+    });
+  }
+  for (const a of uniqueAps) {
     if (a.sec === "OPEN") {
       out.push({
         title: `Open WiFi network "${a.ssid}" (${a.bssid})`,
