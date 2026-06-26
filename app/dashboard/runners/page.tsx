@@ -4,7 +4,7 @@ import { CreateRunnerForm } from "@/components/runner-create";
 import { QueueJobForm } from "@/components/runner-queue";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { deleteRunner, cancelJob, deleteJob, importJobFindings } from "@/lib/runners";
-import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { RUNNER_ONLINE_WINDOW_MS, RUNNER_VERSION } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -164,6 +164,21 @@ python3 rdaisec_runner.py`}
                       ? `Last seen ${new Date(r.lastSeenAt).toLocaleString()}`
                       : "Never connected yet"}
                   </p>
+                  {r.lastSeenAt && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {r.toolCount > 0 && (
+                        <span className="tag">{r.toolCount} tools</span>
+                      )}
+                      {r.version && (
+                        <span className="tag">v{r.version}</span>
+                      )}
+                      {r.version && r.version !== RUNNER_VERSION && (
+                        <span className="tag border-amber-500/40 text-amber-300">
+                          update available — git pull
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <form action={deleteRunner}>
                   <input type="hidden" name="id" value={r.id} />
