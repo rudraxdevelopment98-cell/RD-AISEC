@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
+import { HelpBanner } from "@/components/hint";
 import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
@@ -101,6 +102,12 @@ export default async function FindingsPage({
           </a>
         )}
       </div>
+
+      <HelpBanner>
+        <p>• Click a framework / severity chip to filter; click again to clear.</p>
+        <p>• Export CSV respects the current filters (includes ATT&amp;CK/OWASP columns).</p>
+        <p>• Click a finding to open its engagement; work exploits on the Exploitation page.</p>
+      </HelpBanner>
 
       {/* Search */}
       <form className="mt-5 flex gap-2" action="/dashboard/findings">

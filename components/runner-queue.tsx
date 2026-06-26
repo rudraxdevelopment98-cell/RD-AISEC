@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { queueJob } from "@/lib/runners";
 import { RUNNER_TOOLS } from "@/lib/runner-constants";
+import { parseScopeTargets } from "@/lib/bugbounty-core";
 
+type Eng = { id: string; name: string; scope?: string };
 type Opt = { id: string; name: string };
 
 export function QueueJobForm({
@@ -11,15 +13,24 @@ export function QueueJobForm({
   runners,
   defaultEngagementId,
 }: {
-  engagements: Opt[];
+  engagements: Eng[];
   runners: Opt[];
   defaultEngagementId?: string;
 }) {
   const [toolId, setToolId] = useState(RUNNER_TOOLS[0].id);
+  const [engId, setEngId] = useState(defaultEngagementId ?? engagements[0]?.id ?? "");
+  const [target, setTarget] = useState("");
+
   const presets = useMemo(
     () => RUNNER_TOOLS.find((t) => t.id === toolId)?.presets ?? [],
     [toolId],
   );
+
+  // Targets parsed from the selected engagement's scope.
+  const scopeTargets = useMemo(() => {
+    const eng = engagements.find((e) => e.id === engId);
+    return parseScopeTargets(eng?.scope ?? "");
+  }, [engId, engagements]);
 
   if (runners.length === 0 || engagements.length === 0) {
     return (
@@ -42,7 +53,8 @@ export function QueueJobForm({
       <form action={queueJob} className="mt-4 grid gap-3 sm:grid-cols-2">
         <select
           name="engagementId"
-          defaultValue={defaultEngagementId ?? engagements[0]?.id}
+          value={engId}
+          onChange={(e) => setEngId(e.target.value)}
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
         >
           {engagements.map((e) => (
@@ -88,12 +100,38 @@ export function QueueJobForm({
           ))}
         </select>
 
+        {/* Pick a target from the engagement's scope, or type one. */}
+        {scopeTargets.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => e.target.value && setTarget(e.target.value)}
+            className="rounded-lg border border-brand/40 bg-surface px-3 py-2 text-sm text-brand outline-none focus:border-brand sm:col-span-2"
+          >
+            <option value="">📋 Pick a target from this engagement&apos;s scope…</option>
+            {scopeTargets.map((t) => (
+              <option key={t} value={t} className="text-gray-200">
+                {t}
+              </option>
+            ))}
+          </select>
+        )}
+
         <input
           name="target"
           required
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          list="scope-targets"
           placeholder="Target — e.g. scanme.nmap.org or 10.0.0.5"
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:col-span-2"
         />
+        {scopeTargets.length > 0 && (
+          <datalist id="scope-targets">
+            {scopeTargets.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+        )}
 
         <button type="submit" className="btn-primary sm:col-span-2">
           Queue job
