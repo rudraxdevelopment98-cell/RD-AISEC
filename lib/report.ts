@@ -1,4 +1,5 @@
 import type { Engagement, Finding } from "@prisma/client";
+import { execSummaryMarkdown } from "@/lib/ai-report";
 
 export type EngagementWithFindings = Engagement & { findings: Finding[] };
 
@@ -29,7 +30,6 @@ function fmtDate(d: Date): string {
 /** Render an engagement and its findings as a client-ready Markdown report. */
 export function buildMarkdown(e: EngagementWithFindings): string {
   const lines: string[] = [];
-  const open = e.findings.filter((f) => f.status === "open").length;
 
   lines.push(`# Security Assessment Report — ${e.name}`);
   lines.push("");
@@ -46,19 +46,16 @@ export function buildMarkdown(e: EngagementWithFindings): string {
   );
   lines.push("");
 
-  lines.push("## Executive Summary");
-  lines.push("");
-  lines.push(
-    `This engagement recorded **${e.findings.length}** finding(s), of which **${open}** remain open.`,
-  );
+  // AI-drafted executive summary (deterministic synthesis from findings).
+  lines.push(execSummaryMarkdown(e));
+
   const counts = severityCounts(e.findings);
   if (counts.length) {
-    lines.push("");
     lines.push("| Severity | Count |");
     lines.push("| --- | --- |");
     for (const c of counts) lines.push(`| ${c.severity} | ${c.count} |`);
+    lines.push("");
   }
-  lines.push("");
 
   if (e.scope) {
     lines.push("## Scope");

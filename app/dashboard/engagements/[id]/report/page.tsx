@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEngagement } from "@/lib/engagements";
 import { sortFindings, severityCounts } from "@/lib/report";
+import { buildExecutiveSummary } from "@/lib/ai-report";
 import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
 import { PrintButton } from "@/components/print-button";
 import { Icon } from "@/components/icons";
@@ -16,10 +17,19 @@ export default async function ReportPage({
   const e = await getEngagement(params.id);
   if (!e) notFound();
 
-  const open = e.findings.filter((f) => f.status === "open").length;
   const counts = severityCounts(e.findings);
   const sorted = sortFindings(e.findings);
   const date = new Date(e.createdAt).toISOString().slice(0, 10);
+  const summary = buildExecutiveSummary(e);
+
+  const RATING_STYLE: Record<string, string> = {
+    Critical: "border-red-500/50 text-red-300",
+    High: "border-orange-500/50 text-orange-300",
+    Elevated: "border-amber-500/50 text-amber-300",
+    Low: "border-sky-500/50 text-sky-300",
+    Resolved: "border-emerald-500/50 text-emerald-300",
+    Informational: "border-gray-500/50 text-gray-300",
+  };
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -64,12 +74,26 @@ export default async function ReportPage({
         </header>
 
         <section className="mt-6">
-          <h2 className="text-lg font-semibold">Executive Summary</h2>
-          <p className="mt-2 text-sm text-gray-300 print:text-black">
-            This engagement recorded <strong>{e.findings.length}</strong>{" "}
-            finding{e.findings.length === 1 ? "" : "s"}, of which{" "}
-            <strong>{open}</strong> remain open.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Executive Summary</h2>
+            <span className="flex items-center gap-2 print:hidden">
+              <span className="tag">
+                <Icon name="bot" className="h-3 w-3" /> AI-drafted
+              </span>
+              <span
+                className={`tag ${RATING_STYLE[summary.rating] ?? RATING_STYLE.Informational}`}
+              >
+                Risk: {summary.rating}
+              </span>
+            </span>
+          </div>
+
+          {summary.paragraphs.map((para, i) => (
+            <p key={i} className="mt-2 text-sm text-gray-300 print:text-black">
+              {para}
+            </p>
+          ))}
+
           {counts.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {counts.map((c) => (
@@ -78,6 +102,33 @@ export default async function ReportPage({
                   <span className="text-sm text-gray-400 print:text-black">× {c.count}</span>
                 </span>
               ))}
+            </div>
+          )}
+
+          {summary.keyRisks.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-200 print:text-black">Key risks</h3>
+              <ul className="mt-2 space-y-1">
+                {summary.keyRisks.map((r, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-300 print:text-black">
+                    <SeverityBadge value={r.severity} />
+                    <span>{r.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.recommendations.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-200 print:text-black">
+                Prioritized recommendations
+              </h3>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-300 print:text-black">
+                {summary.recommendations.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ol>
             </div>
           )}
         </section>
