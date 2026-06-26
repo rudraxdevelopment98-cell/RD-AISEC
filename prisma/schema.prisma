@@ -58,6 +58,8 @@ model Runner {
   lastSeenAt DateTime?
   version    String    @default("") // runner script version it reports
   toolCount  Int       @default(0)  // number of tools the runner has loaded
+  anonymity  Boolean   @default(false) // desired: route tool traffic via Tor
+  exitIp     String    @default("")    // Tor exit IP the runner reports when on
   createdAt  DateTime  @default(now())
   jobs       Job[]
 }

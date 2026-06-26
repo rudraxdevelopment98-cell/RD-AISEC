@@ -28,6 +28,7 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Output → findings (nmap/httpx/nuclei/sqlmap/nikto)
 - ✅ Server-driven tool list + runner health badge (version / tool count)
 - ✅ Burp Suite XML import
+- ✅ Tor anonymity toggle per runner (routes tool traffic via torsocks; shows exit IP)
 
 ## ✅ Phase 3 — Network & visualization *(done)*
 - ✅ Network scanning (nmap CIDR presets)

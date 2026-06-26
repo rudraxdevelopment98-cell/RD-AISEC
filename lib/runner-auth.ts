@@ -29,11 +29,19 @@ export async function authenticateRunner(req: Request) {
   const toolCount = toolsHeader
     ? toolsHeader.split(",").map((t) => t.trim()).filter(Boolean).length
     : runner.toolCount;
+  // Tor exit IP it reports while anonymity is on (only persist when anonymity is on).
+  const exitHeader = (req.headers.get("x-runner-exit-ip") ?? "").slice(0, 64);
+  const exitIp = runner.anonymity ? exitHeader : "";
 
   await prisma.runner
     .update({
       where: { id: runner.id },
-      data: { lastSeenAt: new Date(), ...(version ? { version } : {}), toolCount },
+      data: {
+        lastSeenAt: new Date(),
+        ...(version ? { version } : {}),
+        toolCount,
+        ...(runner.anonymity ? { exitIp } : {}),
+      },
     })
     .catch(() => {});
   return runner;

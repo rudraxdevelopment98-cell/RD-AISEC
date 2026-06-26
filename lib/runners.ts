@@ -60,6 +60,27 @@ export async function deleteRunner(formData: FormData) {
 }
 
 /**
+ * Toggle Tor anonymity for a runner. The runner reads this on its next poll and
+ * routes its tool traffic through Tor (torsocks). Clears the reported exit IP
+ * when turning off.
+ */
+export async function setRunnerAnonymity(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  const on = String(formData.get("on") ?? "") === "true";
+  if (id) {
+    await prisma.runner
+      .update({
+        where: { id },
+        data: { anonymity: on, ...(on ? {} : { exitIp: "" }) },
+      })
+      .catch(() => {});
+  }
+  revalidatePath("/dashboard/runners");
+}
+
+/**
  * Queue a tool execution for a runner to pick up.
  * Guardrails: engagement must be authorized; tool + preset must be allowlisted;
  * target must be in scope and contain no shell metacharacters.
