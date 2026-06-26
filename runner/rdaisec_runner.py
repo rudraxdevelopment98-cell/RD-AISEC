@@ -32,7 +32,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "5"
+RUNNER_VERSION = "6"
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -83,15 +83,15 @@ MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
 #   "flag": None    -> host-based; target appended as the last argv item (scheme stripped)
 #   "flag": "-u"    -> URL-based; target passed via that flag (full URL kept)
 DEFAULT_TOOLS = {
-    "nmap":    {"bin": "nmap",    "flag": None},
-    "httpx":   {"bin": "httpx",   "flag": "-u"},
-    "nuclei":  {"bin": "nuclei",  "flag": "-u"},
-    "whois":   {"bin": "whois",   "flag": None},
-    "dig":     {"bin": "dig",     "flag": None},
-    "sqlmap":  {"bin": "sqlmap",  "flag": "-u"},
-    "nikto":   {"bin": "nikto",   "flag": "-h"},
-    "wpscan":  {"bin": "wpscan",  "flag": "--url"},
-    "sslscan": {"bin": "sslscan", "flag": None},
+    "nmap":    {"bin": "nmap",    "flag": None,    "pkg": "nmap"},
+    "httpx":   {"bin": "httpx",   "flag": "-u",    "pkg": None},
+    "nuclei":  {"bin": "nuclei",  "flag": "-u",    "pkg": "nuclei"},
+    "whois":   {"bin": "whois",   "flag": None,    "pkg": "whois"},
+    "dig":     {"bin": "dig",     "flag": None,    "pkg": "dnsutils"},
+    "sqlmap":  {"bin": "sqlmap",  "flag": "-u",    "pkg": "sqlmap"},
+    "nikto":   {"bin": "nikto",   "flag": "-h",    "pkg": "nikto"},
+    "wpscan":  {"bin": "wpscan",  "flag": "--url", "pkg": "wpscan"},
+    "sslscan": {"bin": "sslscan", "flag": None,    "pkg": "sslscan"},
 }
 
 # Live allowlist — replaced by fetch_tools() at startup if the portal responds.
@@ -111,6 +111,7 @@ INSTALL_PKGS = {
     "nikto": "nikto",
     "wpscan": "wpscan",
     "sslscan": "sslscan",
+    "nuclei": "nuclei",
 }
 
 
@@ -230,7 +231,7 @@ def fetch_tools():
         for t in data.get("tools", []):
             tid, b = t.get("id"), t.get("bin")
             if tid and b:
-                tools[tid] = {"bin": b, "flag": t.get("flag")}
+                tools[tid] = {"bin": b, "flag": t.get("flag"), "pkg": t.get("pkg")}
         return tools or None
     except urllib.error.HTTPError as e:
         if e.code == 401:
@@ -341,9 +342,12 @@ def poll_install():
 
 
 def run_install(inst):
-    pkg = INSTALL_PKGS.get(inst["tool"])
+    # Prefer the package the portal sent with the tool spec; fall back to the
+    # built-in map. This lets new installable tools work without re-pulling.
+    spec = TOOLS.get(inst["tool"], {})
+    pkg = spec.get("pkg") or INSTALL_PKGS.get(inst["tool"])
     if not pkg:
-        return f"'{inst['tool']}' is not installable from the portal.", 1
+        return f"'{inst['tool']}' isn't installable via apt — install it manually.", 1
     if not shutil.which("apt-get"):
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
