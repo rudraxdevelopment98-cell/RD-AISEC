@@ -191,6 +191,16 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P7.4** — More **knowledge topics** (drop-in Markdown)
 - ⬜ **P7.5** — Mobile polish for engagement detail + recon tabs
 
+## ✅ Auto-exploit (hands-off bug hunting)
+- ✅ After recon findings land, the engine derives exploit-validation actions
+      (searchsploit the product/CVE, nmap --script vuln on the host) and queues
+      them automatically (deduped, converges, no loops). searchsploit output →
+      "Public exploits available" findings; nmap vuln → findings. All notified.
+- ✅ Weaponized exploitation (Metasploit/aireplay) stays one-click on the
+      Exploit page (not auto-fired). 
+- ✅ "Automate all programs" one-click: import (HackerOne sync) → Automate all →
+      daily recon + auto-exploit + findings + report + Discord notify, hands-off.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

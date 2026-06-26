@@ -12,6 +12,7 @@ import {
   syncHackerOne,
   setBugAuto,
   runProgramNow,
+  automateAllPrograms,
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel, parseScopeTargets } from "@/lib/bugbounty-core";
 
@@ -222,6 +223,24 @@ export default async function BugBountyPage({
       <h2 className="mt-8 text-lg font-bold">
         Programs {programs.length > 0 && <span className="text-sm font-normal text-gray-500">({programs.length})</span>}
       </h2>
+
+      {/* One-click full automation across all programs */}
+      {programs.length > 0 && runners.length > 0 && (
+        <form action={automateAllPrograms} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
+          <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
+          <span className="text-gray-400">scan + auto-exploit every program daily on</span>
+          <select
+            name="runnerId"
+            defaultValue={runners[0]?.id}
+            className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
+          >
+            {runners.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+          <button className="btn-primary px-2 py-1">Automate all</button>
+        </form>
+      )}
       {programs.length === 0 ? (
         <p className="mt-3 card text-sm text-gray-500">No programs yet. Add one above.</p>
       ) : (

@@ -8,6 +8,19 @@ import { parseScopeEntries, platformLabel } from "@/lib/bugbounty-core";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
+import { exploitActions } from "@/lib/exploit-core";
+
+// Recon tools whose findings should trigger automated exploit validation.
+// (Excludes searchsploit/sslscan etc. so exploit results don't re-trigger.)
+export const RECON_TOOLS = new Set([
+  "nmap",
+  "nuclei",
+  "httpx",
+  "gobuster",
+  "whatweb",
+  "masscan",
+  "enum4linux",
+]);
 
 // Tools run per in-scope target. `mode` controls the target form: "url" gets an
 // http:// prefix (httpx/nuclei/gobuster), "host" gets a bare host (nmap).
@@ -161,6 +174,52 @@ export async function queueHostScans(
         queuedBy: queuedBy || "automation",
       });
     }
+  }
+  if (data.length > 0) await prisma.job.createMany({ data });
+  return data.length;
+}
+
+/**
+ * Auto-exploit: derive validation actions (searchsploit / nmap --script vuln)
+ * from fresh recon findings and queue them on the same runner. Deduped against
+ * ALL jobs for the engagement (any status) so it converges and never loops.
+ * autoImport=true so the results (e.g. "public exploits available") become
+ * findings too. Returns the number of jobs queued.
+ */
+export async function queueExploitJobs(
+  engagementId: string,
+  runnerId: string,
+  findings: { title: string; description?: string | null; severity?: string | null; owasp?: string | null }[],
+  queuedBy: string,
+  cap = 8,
+): Promise<number> {
+  const wanted = findings.flatMap((f) => exploitActions(f));
+  if (wanted.length === 0) return 0;
+
+  const existing = await prisma.job.findMany({
+    where: { engagementId },
+    select: { tool: true, target: true, args: true },
+  });
+  const keyOf = (t: string, tg: string, a: string) => `${t}|${tg}|${a}`;
+  const seen = new Set(existing.map((j) => keyOf(j.tool, j.target, j.args)));
+
+  const data = [];
+  for (const a of wanted) {
+    const target = normalizeTarget(a.tool, a.target);
+    if (!validateTarget(a.tool, target)) continue;
+    const k = keyOf(a.tool, target, a.args);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    data.push({
+      engagementId,
+      runnerId,
+      tool: a.tool,
+      target,
+      args: a.args,
+      autoImport: true,
+      queuedBy: queuedBy || "auto-exploit",
+    });
+    if (data.length >= cap) break;
   }
   if (data.length > 0) await prisma.job.createMany({ data });
   return data.length;

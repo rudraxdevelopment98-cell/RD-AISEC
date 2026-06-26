@@ -5,7 +5,7 @@ import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
 import { parseSubdomains } from "@/lib/bugbounty-core";
-import { queueHostScans } from "@/lib/bug-pipeline";
+import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { notifyFindings } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +86,13 @@ export async function POST(
             select: { name: true },
           });
           await notifyFindings(fresh, eng.name);
+
+          // Auto-exploit: from fresh RECON findings, queue exploit-validation
+          // jobs (searchsploit / nmap vuln) on the same runner. Their results
+          // come back through this same route and become findings too.
+          if (RECON_TOOLS.has(job.tool) && job.runnerId) {
+            await queueExploitJobs(job.engagementId, job.runnerId, fresh, job.queuedBy);
+          }
         }
       }
     }

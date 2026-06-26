@@ -260,6 +260,32 @@ function parseDnsrecon(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+/** searchsploit: list public Exploit-DB matches for a product/CVE as a finding. */
+function parseSearchsploit(target: string, output: string): ParsedFinding[] {
+  if (/Exploits?:\s*No Results|^\s*No Results/im.test(output)) return [];
+  // Result rows look like "  <title>  | <path/to/exploit>".
+  const rows = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.includes("|") && /[a-z0-9]\/[a-z0-9]/i.test(l) && !/^Exploit Title|^-+/.test(l))
+    .map((l) => l.replace(/\s*\|\s*/, " — "));
+  if (rows.length === 0) return [];
+  return [
+    {
+      title: `Public exploits available for "${target}" (${rows.length})`,
+      severity: "high",
+      status: "open",
+      description:
+        `Exploit-DB has ${rows.length} entr${rows.length === 1 ? "y" : "ies"} matching "${target}":\n\n` +
+        rows.slice(0, 25).join("\n") +
+        (rows.length > 25 ? `\n…and ${rows.length - 25} more` : "") +
+        `\n\nFetch one with:  searchsploit -m <path>`,
+      recommendation:
+        "Confirm the affected component/version is exposed, validate the exploit on the authorized target, then patch/upgrade to remove it.",
+    },
+  ];
+}
+
 /** wafw00f: note whether a WAF is present (absence is useful context, not a vuln). */
 function parseWafw00f(target: string, output: string): ParsedFinding[] {
   const behind = output.match(/is behind (.+?)(?: WAF| \(|\.|$)/i);
@@ -469,6 +495,8 @@ export function parseJobFindings(
       return parseDnsrecon(target, output);
     case "wafw00f":
       return parseWafw00f(target, output);
+    case "searchsploit":
+      return parseSearchsploit(target, output);
     default:
       // Custom jobs (e.g. an nmcli/airodump WiFi scan) — parse APs if present.
       return parseWifi(output);
