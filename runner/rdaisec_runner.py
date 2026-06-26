@@ -34,11 +34,13 @@ POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
 JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # 15 min per job
 MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
 
-# Allowlist mirrored from lib/runner-constants.ts. Each entry maps a tool id to
-# its binary and the flag that carries the target:
+# Default allowlist (fallback). The runner fetches the live allowlist from the
+# portal at startup and periodically, so new tools added to the portal work
+# WITHOUT re-pulling this script — as long as the binary is installed here.
+# Each entry maps a tool id to its binary and the flag that carries the target:
 #   "flag": None    -> host-based; target appended as the last argv item (scheme stripped)
 #   "flag": "-u"    -> URL-based; target passed via that flag (full URL kept)
-TOOLS = {
+DEFAULT_TOOLS = {
     "nmap":    {"bin": "nmap",    "flag": None},
     "httpx":   {"bin": "httpx",   "flag": "-u"},
     "nuclei":  {"bin": "nuclei",  "flag": "-u"},
@@ -49,6 +51,12 @@ TOOLS = {
     "wpscan":  {"bin": "wpscan",  "flag": "--url"},
     "sslscan": {"bin": "sslscan", "flag": None},
 }
+
+# Live allowlist — replaced by fetch_tools() at startup if the portal responds.
+TOOLS = dict(DEFAULT_TOOLS)
+
+# How often to re-fetch the allowlist from the portal (seconds).
+TOOL_REFRESH_SECONDS = int(os.environ.get("TOOL_REFRESH", "300"))
 
 # Whitelists mirrored from the portal — no shell metacharacters in either case.
 SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")          # host targets + flags
@@ -76,6 +84,25 @@ def request(method: str, path: str, body=None):
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=30)
+
+
+def fetch_tools():
+    """Pull the live tool allowlist from the portal. Returns a dict or None."""
+    try:
+        resp = request("GET", "/api/runner/tools")
+        data = json.loads(resp.read().decode())
+        tools = {}
+        for t in data.get("tools", []):
+            tid, b = t.get("id"), t.get("bin")
+            if tid and b:
+                tools[tid] = {"bin": b, "flag": t.get("flag")}
+        return tools or None
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
+        return None  # older portal without the route, etc. — keep current list
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def claim_job():
@@ -155,14 +182,36 @@ def post_result(job_id, output, exit_code):
 
 
 def main():
+    global TOOLS
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
     print(f"RD-AISEC runner → {PORTAL_URL}")
-    print(f"Tools available: {', '.join(TOOLS)}")
+
+    fetched = fetch_tools()
+    if fetched:
+        TOOLS = fetched
+        print(f"Tools available (from portal): {', '.join(sorted(TOOLS))}")
+    else:
+        print(f"Tools available (built-in defaults): {', '.join(sorted(TOOLS))}")
     print("Polling for jobs… (Ctrl-C to stop)\n")
+
+    last_refresh = time.monotonic()
     while True:
+        # Refresh the allowlist periodically so new portal tools appear here.
+        if time.monotonic() - last_refresh > TOOL_REFRESH_SECONDS:
+            f = fetch_tools()
+            if f:
+                TOOLS = f
+            last_refresh = time.monotonic()
+
         job = claim_job()
         if job:
+            # Unknown tool? Refresh once immediately before giving up on it.
+            if job["tool"] not in TOOLS:
+                f = fetch_tools()
+                if f:
+                    TOOLS = f
+                    last_refresh = time.monotonic()
             print(f"▶ job {job['id']}: {job['tool']} {job.get('args','')} {job['target']}")
             output, code = run_job(job)
             post_result(job["id"], output, code)
