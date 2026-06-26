@@ -117,6 +117,12 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Persistent runner config** (v13) — runner auto-loads runner.env /
       ~/.config/rdaisec/runner.env (set token once); setup.sh writes it and
       installs a systemd service (boot start + auto-restart).
+- ✅ **Turnkey runner setup** — new-runner box shows a pre-filled copy-paste
+      command (portal URL + token) that writes the config file.
+- ✅ **Server-driven install packages** (v14) — install endpoint sends the apt
+      package name; runner installs correctly without its own map.
+- ✅ **Live install output** (v15) — apt installs stream their output to the
+      Machines page (like job live output), so you watch progress, not just pass/fail.
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)
