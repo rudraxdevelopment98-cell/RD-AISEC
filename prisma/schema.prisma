@@ -65,8 +65,25 @@ model Runner {
   anonymity  Boolean   @default(false) // desired: route tool traffic via Tor
   exitIp     String    @default("")    // Tor exit IP the runner reports when on
   subnets    String    @default("")    // comma-separated local CIDRs the runner detected
+  installed  String    @default("")    // comma-separated tool ids whose binary is present
   createdAt  DateTime  @default(now())
   jobs       Job[]
+  installs   Install[]
+}
+
+// A request to install a tool's package on a runner (authorized by the user).
+model Install {
+  id          String    @id @default(cuid())
+  runner      Runner    @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  runnerId    String
+  tool        String
+  // "pending" | "installing" | "done" | "failed"
+  status      String    @default("pending")
+  output      String    @default("")
+  exitCode    Int?
+  requestedBy String    @default("")
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
 }
 
 // A single tool execution queued by the portal and run by a Runner.

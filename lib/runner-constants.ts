@@ -148,6 +148,19 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   sslscan: { bin: "sslscan", flag: null },
 };
 
+// Tools we can install from the portal, mapped to their apt package. Only these
+// (a fixed list — never arbitrary names) can be requested for install. httpx and
+// nuclei aren't apt packages (ProjectDiscovery) so they're installed manually.
+export const INSTALLABLE_PKGS: Record<string, string> = {
+  nmap: "nmap",
+  whois: "whois",
+  dig: "dnsutils",
+  sqlmap: "sqlmap",
+  nikto: "nikto",
+  wpscan: "wpscan",
+  sslscan: "sslscan",
+};
+
 /** Serialize the tool specs for the runner (only tools that are in the allowlist). */
 export function runnerToolSpecs(): { id: string; bin: string; flag: string | null }[] {
   return RUNNER_TOOLS.filter((t) => RUNNER_TOOL_SPECS[t.id]).map((t) => ({
@@ -185,7 +198,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "4";
+export const RUNNER_VERSION = "5";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;
