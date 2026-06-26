@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "12"
+RUNNER_VERSION = "13"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -81,6 +81,44 @@ def detect_subnets() -> list[str]:
         if net.is_private and 16 <= net.prefixlen <= 30:
             nets.add(str(net))
     return sorted(nets)
+
+def _load_env_files():
+    """Load KEY=VALUE config from a file so PORTAL_URL / RUNNER_TOKEN persist
+    across terminals and reboots (no need to `export` each time). Real
+    environment variables always win, so `export` still overrides the file.
+
+    Checked in order (first found wins per key):
+      $RDAISEC_ENV, ./runner.env, ./.env, ~/.config/rdaisec/runner.env
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = []
+    if os.environ.get("RDAISEC_ENV"):
+        candidates.append(os.environ["RDAISEC_ENV"])
+    candidates += [
+        os.path.join(here, "runner.env"),
+        os.path.join(here, ".env"),
+        os.path.expanduser("~/.config/rdaisec/runner.env"),
+    ]
+    for path in candidates:
+        try:
+            with open(path, encoding="utf-8") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key and key not in os.environ:  # don't override real env
+                        os.environ[key] = val
+            print(f"Loaded config from {path}")
+        except FileNotFoundError:
+            continue
+        except Exception:  # noqa: BLE001
+            continue
+
+
+_load_env_files()
 
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
