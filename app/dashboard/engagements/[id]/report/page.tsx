@@ -159,6 +159,11 @@ export default async function ReportPage({
                       {i + 1}. {f.title}
                     </h3>
                     <span className="flex gap-2">
+                      {f.confirmed && (
+                        <span className="tag border-red-500/50 text-red-300 print:text-red-700">
+                          ✅ confirmed exploitable
+                        </span>
+                      )}
                       <SeverityBadge value={f.severity} />
                       <FindingStatusBadge value={f.status} />
                     </span>

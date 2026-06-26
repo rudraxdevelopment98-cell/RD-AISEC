@@ -137,6 +137,8 @@ model Finding {
   // MITRE ATT&CK tactic id (e.g. "TA0001") and OWASP Top 10 id (e.g. "A03"); "" = unmapped.
   attack         String     @default("")
   owasp          String     @default("")
+  // Set when automated validation proved the issue is exploitable (glows in UI).
+  confirmed      Boolean    @default(false)
   createdAt      DateTime   @default(now())
 }
 
