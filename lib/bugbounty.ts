@@ -78,6 +78,19 @@ export async function setBugAuto(formData: FormData) {
   redirect(`${BACK}?ok=${encodeURIComponent(auto ? "Automation enabled" : "Automation paused")}`);
 }
 
+/** One click: turn on daily automation for every active program, on one machine. */
+export async function automateAllPrograms(formData: FormData) {
+  await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  if (!runnerId) redirect(`${BACK}?error=${encodeURIComponent("Pick a machine first.")}`);
+  const res = await prisma.bugProgram.updateMany({
+    where: { status: "active" },
+    data: { auto: true, autoRunnerId: runnerId },
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Automation enabled on ${res.count} program(s)`)}`);
+}
+
 /** Run the recon/vuln pipeline for a program now (manual trigger). */
 export async function runProgramNow(formData: FormData) {
   const email = await requireUser();
