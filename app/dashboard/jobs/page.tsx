@@ -66,7 +66,8 @@ export default async function JobsPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <AutoRefresh seconds={5} />
+      {/* Only auto-refresh while something is live — so filtering History isn't reset. */}
+      {active.length > 0 && <AutoRefresh seconds={5} />}
 
       <h1 className="text-2xl font-bold">Jobs</h1>
       <p className="mt-1 text-gray-400">
