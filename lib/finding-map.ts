@@ -48,9 +48,25 @@ function firstMatch(rules: { re: RegExp; id: string }[], hay: string): string {
  * dimension when nothing matches (e.g. a benign open-port/info finding gets
  * Discovery but no OWASP category).
  */
+// Infer which tool produced a finding from its text — used for backfilling old
+// findings that predate the stored framework tags (they have no `tool`).
+function inferTool(hay: string): string {
+  const h = hay.toLowerCase();
+  if (/\bnmap\b|open port \d/.test(h)) return "nmap";
+  if (/\bnuclei\b|template/.test(h)) return "nuclei";
+  if (/\bsqlmap\b/.test(h)) return "sqlmap";
+  if (/\bnikto\b/.test(h)) return "nikto";
+  if (/\bhttpx\b|live http/.test(h)) return "httpx";
+  if (/\bsslscan\b/.test(h)) return "sslscan";
+  if (/\bwpscan\b|wordpress/.test(h)) return "wpscan";
+  if (/\bwhois\b/.test(h)) return "whois";
+  if (/\bdig\b|dns record/.test(h)) return "dig";
+  return "";
+}
+
 export function classifyFinding(input: ClassifyInput): FrameworkTags {
-  const tool = (input.tool ?? "").toLowerCase();
   const hay = `${input.tool ?? ""} ${input.title ?? ""} ${input.description ?? ""}`;
+  const tool = (input.tool ?? "").toLowerCase() || inferTool(hay);
 
   let owasp = firstMatch(OWASP_RULES, hay);
   let attack = firstMatch(ATTACK_RULES, hay);
