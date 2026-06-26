@@ -177,6 +177,19 @@ export default async function JobsPage({
                     ⚠ assigned machine is offline — won&apos;t run until it reconnects.
                   </p>
                 )}
+                {j.status === "running" && j.output && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-xs text-brand hover:underline">
+                      Live output
+                    </summary>
+                    <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-surface-border bg-black/50 p-2 font-mono text-[11px] leading-relaxed text-gray-300">
+                      {j.output}
+                    </pre>
+                    <p className="mt-1 text-[10px] text-gray-600">
+                      Streams from the machine; refreshes every few seconds.
+                    </p>
+                  </details>
+                )}
               </div>
             );
           })}
