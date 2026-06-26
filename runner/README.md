@@ -39,6 +39,36 @@ Runner (Kali)    ──polls GET /api/runner/job──►  runs tool  ──POST
 
 ## 3. Run the agent
 
+### Easiest: one-time setup (config saved permanently + auto-start)
+
+```bash
+bash setup.sh
+```
+
+This asks for your **Portal URL** and **Runner token**, saves them to
+`~/.config/rdaisec/runner.env` (so you never have to `export` them again — even
+after closing the terminal or rebooting), and can install a **systemd service**
+that starts the runner on boot and restarts it if it crashes.
+
+- Status: `sudo systemctl status rdaisec-runner`
+- Live logs: `journalctl -u rdaisec-runner -f`
+- Stop/disable: `sudo systemctl disable --now rdaisec-runner`
+
+To change settings later, re-run `bash setup.sh` or edit
+`~/.config/rdaisec/runner.env`, then `sudo systemctl restart rdaisec-runner`.
+
+### Or run it manually
+
+The runner auto-loads `runner.env` (next to the script) or
+`~/.config/rdaisec/runner.env`, so you can just create that file once:
+
+```bash
+cp runner.env.example runner.env   # edit PORTAL_URL + RUNNER_TOKEN
+python3 rdaisec_runner.py
+```
+
+…or set the variables inline (overrides the file):
+
 ```bash
 export PORTAL_URL="https://rd-aisec.vercel.app"   # your deployed portal
 export RUNNER_TOKEN="rdr_...."                     # the token from step 1

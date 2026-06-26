@@ -114,6 +114,9 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Quick-jump search** (⌘K) — jump to any section, engagement, or program.
 - ✅ **Breadcrumbs** on engagement detail; **consistent empty states** with
       guidance + actions (EmptyState component).
+- ✅ **Persistent runner config** (v13) — runner auto-loads runner.env /
+      ~/.config/rdaisec/runner.env (set token once); setup.sh writes it and
+      installs a systemd service (boot start + auto-restart).
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)

@@ -22,6 +22,9 @@ yarn-error.log*
 # env files (NEVER commit secrets)
 .env
 .env*.local
+# runner config (holds the runner token)
+runner/runner.env
+runner.env
 
 # typescript
 *.tsbuildinfo
