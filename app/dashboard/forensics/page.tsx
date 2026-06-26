@@ -1,9 +1,17 @@
 import { notFound } from "next/navigation";
 import { PillarView } from "@/components/pillar-view";
 import { getPillar } from "@/data/portal";
+import { prisma } from "@/lib/db";
 
-export default function ForensicsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ForensicsPage() {
   const pillar = getPillar("forensics");
   if (!pillar) notFound();
-  return <PillarView pillar={pillar} />;
+  const engagements = await prisma.engagement.findMany({
+    where: { authorized: true },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, name: true },
+  });
+  return <PillarView pillar={pillar} engagements={engagements} />;
 }

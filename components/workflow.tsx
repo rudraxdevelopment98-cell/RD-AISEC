@@ -10,7 +10,12 @@ function stripComment(cmd: string): string {
   return cmd.replace(/\s+#\s.*$/, "").trim();
 }
 
-function CommandLine({ cmd }: { cmd: string }) {
+function jobsHref(cmd: string, engagementId?: string): string {
+  const eng = engagementId ? `&engagement=${engagementId}` : "";
+  return `/dashboard/jobs?cmd=${encodeURIComponent(cmd)}${eng}`;
+}
+
+function CommandLine({ cmd, engagementId }: { cmd: string; engagementId?: string }) {
   const [copied, setCopied] = useState(false);
   const runnable = stripComment(cmd);
   return (
@@ -18,7 +23,7 @@ function CommandLine({ cmd }: { cmd: string }) {
       <code className="overflow-x-auto font-mono text-xs text-gray-300">{cmd}</code>
       <div className="flex shrink-0 items-center gap-2">
         <Link
-          href={`/dashboard/jobs?cmd=${encodeURIComponent(runnable)}`}
+          href={jobsHref(runnable, engagementId)}
           title="Run on a machine (opens Jobs, set your target first)"
           className="text-gray-500 transition hover:text-brand"
         >
@@ -40,7 +45,15 @@ function CommandLine({ cmd }: { cmd: string }) {
   );
 }
 
-function StageCard({ stage, index }: { stage: Stage; index: number }) {
+function StageCard({
+  stage,
+  index,
+  engagementId,
+}: {
+  stage: Stage;
+  index: number;
+  engagementId?: string;
+}) {
   const [done, setDone] = useState<Set<number>>(new Set());
   const toggle = (i: number) =>
     setDone((prev) => {
@@ -112,14 +125,14 @@ function StageCard({ stage, index }: { stage: Stage; index: number }) {
       {stage.commands.length > 0 && (
         <div className="mt-4 space-y-2">
           {stage.commands.map((c) => (
-            <CommandLine key={c} cmd={c} />
+            <CommandLine key={c} cmd={c} engagementId={engagementId} />
           ))}
         </div>
       )}
 
       {stage.commands.length > 0 && (
         <Link
-          href={`/dashboard/jobs?cmd=${encodeURIComponent(stripComment(stage.commands[0]))}`}
+          href={jobsHref(stripComment(stage.commands[0]), engagementId)}
           className="btn-ghost mt-4 flex w-full items-center justify-center gap-2 text-sm"
         >
           <Icon name="bolt" className="h-4 w-4" /> Run this stage on a machine
@@ -129,11 +142,35 @@ function StageCard({ stage, index }: { stage: Stage; index: number }) {
   );
 }
 
-export function Workflow({ stages }: { stages: Stage[] }) {
+export function Workflow({
+  stages,
+  engagements = [],
+}: {
+  stages: Stage[];
+  engagements?: { id: string; name: string }[];
+}) {
+  const [engagementId, setEngagementId] = useState("");
   return (
     <div className="mt-6 space-y-4">
+      {engagements.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-2">
+          <label className="text-sm text-gray-400">Run stages under engagement:</label>
+          <select
+            value={engagementId}
+            onChange={(e) => setEngagementId(e.target.value)}
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:max-w-xs"
+          >
+            <option value="">Quick run (no engagement)</option>
+            {engagements.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {stages.map((stage, i) => (
-        <StageCard key={stage.name} stage={stage} index={i} />
+        <StageCard key={stage.name} stage={stage} index={i} engagementId={engagementId || undefined} />
       ))}
     </div>
   );
