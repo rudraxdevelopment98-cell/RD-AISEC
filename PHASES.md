@@ -85,7 +85,11 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P5.5** — Scan **history per asset** (posture trend over time)
 
 ## ⬜ Phase 6 — Automation *(no AI)*
-- ⬜ **P6.1** — More parsers: **wpscan**, **sslscan** → findings
+- 🔜 **P6.1** — More parsers → findings: ✅ masscan, arp-scan, gobuster,
+      WhatWeb, enum4linux, dnsrecon (zone transfer), wafw00f. ⬜ wpscan, sslscan.
+- ✅ **Exploit playbooks** — each finding gets curated "ways to exploit/validate"
+      (one-click run on a machine) + "how to secure it" steps, matched by type
+      (SQLi, XSS, SSH, RDP, SMB, TLS, DNS AXFR, outdated component, web, …).
 - ⬜ **P6.2** — **Content discovery** (gobuster/ffuf + wordlist)
 - 🔜 **P6.3** — **Scheduled / recurring** jobs — ✅ recurring *posture scans*
       (daily/weekly Vercel cron → saves deduped findings to the engagement;

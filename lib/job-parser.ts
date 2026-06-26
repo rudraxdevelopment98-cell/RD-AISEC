@@ -142,6 +142,153 @@ function parseNikto(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+/** masscan: lines like "Discovered open port 80/tcp on 1.2.3.4" → one finding each. */
+function parseMasscan(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  for (const m of output.matchAll(/Discovered open port (\d+)\/(\w+) on ([\d.]+)/gi)) {
+    const [, port, proto, host] = m;
+    out.push({
+      title: `Open port ${port}/${proto} on ${host}`,
+      severity: "info",
+      status: "open",
+      description: `masscan found ${port}/${proto} open on ${host}` + (target ? `\n\nScan target: ${target}` : ""),
+      recommendation:
+        "Confirm this service is meant to be exposed. Close or firewall it if not, and ensure it is patched and access-controlled.",
+    });
+  }
+  return out;
+}
+
+/** arp-scan: "192.168.1.1\taa:bb:cc:..\tVendor" → one summary finding of LAN devices. */
+function parseArpScan(target: string, output: string): ParsedFinding[] {
+  const rows = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^(\d{1,3}\.){3}\d{1,3}\s+([0-9a-f]{2}:){5}[0-9a-f]{2}/i.test(l));
+  if (rows.length === 0) return [];
+  return [
+    {
+      title: `LAN devices discovered on ${target} (${rows.length})`,
+      severity: "info",
+      status: "open",
+      description: `arp-scan found ${rows.length} device(s) on ${target}:\n\n${rows.join("\n")}`,
+      recommendation:
+        "Confirm every device is expected. Investigate any unknown hosts/MAC vendors on the network.",
+    },
+  ];
+}
+
+/** gobuster: "/admin (Status: 200)" lines → one summary finding; elevate on sensitive paths. */
+function parseGobuster(target: string, output: string): ParsedFinding[] {
+  const paths = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^\/\S*\s*\(Status:\s*\d{3}\)/i.test(l));
+  if (paths.length === 0) return [];
+  const sensitive = /\/(admin|login|backup|\.git|\.env|config|phpmyadmin|wp-admin|api|upload|dashboard|test|dev|old|\.svn|\.bak)/i.test(
+    output,
+  );
+  return [
+    {
+      title: `Discovered paths on ${target} (${paths.length})`,
+      severity: sensitive ? "medium" : "info",
+      status: "open",
+      description: `gobuster found ${paths.length} path(s) on ${target}:\n\n${paths.join("\n")}`,
+      recommendation:
+        "Review exposed paths. Restrict or remove admin panels, backups, VCS folders (.git/.svn), and config files that shouldn't be public.",
+    },
+  ];
+}
+
+/** WhatWeb: one finding summarizing the detected technology stack. */
+function parseWhatweb(target: string, output: string): ParsedFinding[] {
+  const line = output
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => /^https?:\/\//i.test(l));
+  if (!line) return [];
+  return [
+    {
+      title: `Technology stack on ${target}`,
+      severity: "info",
+      status: "open",
+      description: `WhatWeb fingerprint:\n\n${line}`,
+      recommendation:
+        "Review the exposed technologies and versions. Hide version banners where possible and ensure each component is current and patched.",
+    },
+  ];
+}
+
+/** enum4linux: summarize SMB exposure; elevate when null sessions / shares are found. */
+function parseEnum4linux(target: string, output: string): ParsedFinding[] {
+  const hasShares = /Sharename|Mapping: OK|\[\+\] Attempting to map shares/i.test(output);
+  const nullSession = /allows sessions using username '', password ''|Server allows session using username|Got domain\/workgroup name/i.test(
+    output,
+  );
+  if (!hasShares && !nullSession) return [];
+  return [
+    {
+      title: `SMB enumeration exposed information on ${target}`,
+      severity: nullSession ? "medium" : "low",
+      status: "open",
+      description:
+        `enum4linux gathered SMB/Windows information from ${target}` +
+        (nullSession ? " via an anonymous (null) session" : "") +
+        ".\n\nReview the job output for shares, users, and groups that shouldn't be readable anonymously.",
+      recommendation:
+        "Disable anonymous/null SMB sessions, restrict share permissions, disable SMBv1, and keep the host patched (e.g. against MS17-010).",
+    },
+  ];
+}
+
+/** dnsrecon: flag a successful zone transfer (high impact); otherwise no finding. */
+function parseDnsrecon(target: string, output: string): ParsedFinding[] {
+  if (!/zone transfer.*success|\[\+\]\s*zone transfer|AXFR.*(success|records)/i.test(output)) {
+    return [];
+  }
+  return [
+    {
+      title: `DNS zone transfer allowed on ${target}`,
+      severity: "high",
+      status: "open",
+      description:
+        `dnsrecon completed a DNS zone transfer (AXFR) against ${target}, exposing the full DNS record set.\n\n` +
+        "This leaks internal hostnames and infrastructure that aid an attacker's mapping.",
+      recommendation:
+        "Restrict zone transfers to authorized secondary name servers only (allow-transfer / TSIG). Do not allow AXFR from arbitrary clients.",
+    },
+  ];
+}
+
+/** wafw00f: note whether a WAF is present (absence is useful context, not a vuln). */
+function parseWafw00f(target: string, output: string): ParsedFinding[] {
+  const behind = output.match(/is behind (.+?)(?: WAF| \(|\.|$)/i);
+  if (behind) {
+    return [
+      {
+        title: `WAF detected on ${target}: ${behind[1].trim()}`,
+        severity: "info",
+        status: "open",
+        description: `wafw00f reports ${target} is behind ${behind[1].trim()}.`,
+        recommendation: "Account for the WAF when testing; ensure it is tuned and not the only control.",
+      },
+    ];
+  }
+  if (/no WAF|No WAF|seems to be unprotected|number of requests/i.test(output)) {
+    return [
+      {
+        title: `No WAF detected on ${target}`,
+        severity: "low",
+        status: "open",
+        description: `wafw00f did not detect a web application firewall protecting ${target}.`,
+        recommendation:
+          "Consider a WAF as a defense-in-depth layer for internet-facing applications. It is not a substitute for fixing the underlying issues.",
+      },
+    ];
+  }
+  return [];
+}
+
 /**
  * Dispatch to the right parser. Lookup-only tools (whois/dig) and config scans
  * (sslscan/wpscan) intentionally produce no auto-findings — their output stays
@@ -164,6 +311,20 @@ export function parseJobFindings(
       return parseSqlmap(target, output);
     case "nikto":
       return parseNikto(target, output);
+    case "masscan":
+      return parseMasscan(target, output);
+    case "arpscan":
+      return parseArpScan(target, output);
+    case "gobuster":
+      return parseGobuster(target, output);
+    case "whatweb":
+      return parseWhatweb(target, output);
+    case "enum4linux":
+      return parseEnum4linux(target, output);
+    case "dnsrecon":
+      return parseDnsrecon(target, output);
+    case "wafw00f":
+      return parseWafw00f(target, output);
     default:
       return [];
   }
