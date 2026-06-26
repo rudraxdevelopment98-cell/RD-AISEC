@@ -12,32 +12,36 @@ export type ParsedFinding = {
   recommendation: string;
 };
 
+import { parseNmapNetwork, hostLabel } from "@/lib/network";
+
 const SEVERITIES = new Set(["info", "low", "medium", "high", "critical"]);
 function normSeverity(s: string): string {
   const v = (s || "").toLowerCase();
   return SEVERITIES.has(v) ? v : "info";
 }
 
-/** Nmap normal output: lines like "22/tcp open ssh OpenSSH 8.2p1". */
+/**
+ * Nmap normal output → one finding per open port. Host-aware: a network scan
+ * (multiple "Nmap scan report for" blocks) attributes each port to its host.
+ */
 function parseNmap(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
-  const re = /^(\d{1,5}\/(?:tcp|udp))\s+open\s+(\S+)(?:\s+(.*))?$/i;
-  for (const raw of output.split("\n")) {
-    const line = raw.trim();
-    const m = re.exec(line);
-    if (!m) continue;
-    const [, port, service, version] = m;
-    out.push({
-      title: `Open port ${port} (${service}) on ${target}`,
-      severity: "info",
-      status: "open",
-      description:
-        `Nmap found ${port} open running ${service}` +
-        (version ? ` — ${version.trim()}` : "") +
-        `.\n\nTarget: ${target}`,
-      recommendation:
-        "Confirm this service is intended to be exposed. Close or firewall it if not, and ensure it is patched and access-controlled.",
-    });
+  for (const h of parseNmapNetwork(output)) {
+    const label = hostLabel(h);
+    for (const p of h.ports) {
+      out.push({
+        title: `Open port ${p.port}/${p.proto} (${p.service}) on ${label}`,
+        severity: "info",
+        status: "open",
+        description:
+          `Nmap found ${p.port}/${p.proto} open running ${p.service}` +
+          (p.version ? ` — ${p.version}` : "") +
+          `.\n\nHost: ${label}` +
+          (target && target !== label ? `\nScan target: ${target}` : ""),
+        recommendation:
+          "Confirm this service is intended to be exposed. Close or firewall it if not, and ensure it is patched and access-controlled.",
+      });
+    }
   }
   return out;
 }

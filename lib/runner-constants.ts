@@ -37,6 +37,16 @@ export const RUNNER_TOOLS: RunnerTool[] = [
       { id: "quick", label: "Quick (top 100 ports)", args: ["-Pn", "-F", "-T4"] },
       { id: "service", label: "Service + version", args: ["-Pn", "-sV", "-T4"] },
       { id: "full", label: "Full TCP (all ports)", args: ["-Pn", "-p-", "-T4"] },
+      {
+        id: "discovery",
+        label: "Network discovery (ping sweep — give a CIDR)",
+        args: ["-sn", "-T4"],
+      },
+      {
+        id: "network",
+        label: "Network scan (top ports — give a CIDR)",
+        args: ["-Pn", "-T4", "--top-ports", "100"],
+      },
     ],
   },
   {
