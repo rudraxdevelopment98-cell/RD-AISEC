@@ -70,11 +70,13 @@ model Runner {
 }
 
 // A single tool execution queued by the portal and run by a Runner.
+// engagementId is OPTIONAL: a "quick scan" (e.g. the runner's own network) has
+// no engagement; engagement scans are the formal, scope-gated ones.
 model Job {
-  id           String     @id @default(cuid())
-  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
-  engagementId String
-  runner       Runner?    @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+  id           String      @id @default(cuid())
+  engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  engagementId String?
+  runner       Runner?     @relation(fields: [runnerId], references: [id], onDelete: SetNull)
   runnerId     String?
   // allowlisted tool id, e.g. "nmap" | "nuclei" | "httpx" | "whois" | "dig"
   tool         String

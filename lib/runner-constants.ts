@@ -190,6 +190,11 @@ export const RUNNER_VERSION = "4";
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;
 
+// A job stuck in "running" longer than this is treated as dead (runner crashed,
+// lost connection, or the tool hung) and auto-failed. Must exceed the runner's
+// per-job timeout (JOB_TIMEOUT, default 900s) with margin.
+export const JOB_STALE_MS = 20 * 60_000;
+
 // Cap stored tool output so a chatty tool can't bloat the database.
 export const MAX_OUTPUT_CHARS = 200_000;
 

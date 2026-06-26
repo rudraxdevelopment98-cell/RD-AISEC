@@ -28,14 +28,6 @@ export function LocalScanForm({
       </div>
     );
   }
-  if (engagements.length === 0) {
-    return (
-      <div className="card text-sm text-gray-400">
-        Create an engagement and mark it <strong>authorized</strong> to scan a
-        runner&apos;s network.
-      </div>
-    );
-  }
 
   return (
     <div className="card">
@@ -45,7 +37,8 @@ export function LocalScanForm({
       </h2>
       <p className="mt-1 text-sm text-gray-400">
         Scans the local network the selected runner is connected to — no need to
-        know the CIDR. Results render as the map below.
+        know the CIDR. Use <strong>Quick scan</strong> to just see the map, or pick
+        an engagement to file the results into a case. Results render as the map below.
       </p>
 
       <form action={queueLocalScan} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -79,9 +72,10 @@ export function LocalScanForm({
 
         <select
           name="engagementId"
-          defaultValue={engagements[0]?.id}
+          defaultValue=""
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
         >
+          <option value="">Quick scan (no engagement)</option>
           {engagements.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}

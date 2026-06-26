@@ -10,7 +10,11 @@ import {
   importJobFindings,
   setRunnerAnonymity,
 } from "@/lib/runners";
-import { RUNNER_ONLINE_WINDOW_MS, RUNNER_VERSION } from "@/lib/runner-constants";
+import {
+  RUNNER_ONLINE_WINDOW_MS,
+  RUNNER_VERSION,
+  JOB_STALE_MS,
+} from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +31,19 @@ export default async function RunnersPage({
 }: {
   searchParams: { error?: string; engagement?: string };
 }) {
+  // Stop jobs that have been "running" too long — the runner crashed, lost
+  // connection, or the tool hung. They're auto-failed so they don't hang forever.
+  await prisma.job.updateMany({
+    where: { status: "running", startedAt: { lt: new Date(Date.now() - JOB_STALE_MS) } },
+    data: {
+      status: "failed",
+      exitCode: 124,
+      output:
+        "No result received in time — the runner stopped responding, lost connection, or the tool hung. The job was stopped automatically.",
+      finishedAt: new Date(),
+    },
+  });
+
   const [runners, engagements, jobs] = await Promise.all([
     prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.engagement.findMany({
@@ -38,7 +55,7 @@ export default async function RunnersPage({
       take: 40,
       include: {
         engagement: { select: { name: true } },
-        runner: { select: { name: true } },
+        runner: { select: { name: true, lastSeenAt: true } },
       },
     }),
   ]);
@@ -47,6 +64,8 @@ export default async function RunnersPage({
   const authorizedEngagements = engagements
     .filter((e) => e.authorized)
     .map((e) => ({ id: e.id, name: e.name }));
+
+  const failedCount = jobs.filter((j) => j.status === "failed").length;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -222,6 +241,14 @@ python3 rdaisec_runner.py`}
 
       {/* Job queue / history */}
       <h2 className="mt-10 text-lg font-bold">Jobs</h2>
+
+      {failedCount > 0 && (
+        <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <Icon name="alert" className="mr-1 inline h-4 w-4" />
+          {failedCount} job{failedCount === 1 ? "" : "s"} failed — see the reason on each below.
+        </div>
+      )}
+
       {jobs.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500">
           No jobs yet. Queue one above — it&apos;ll appear here and update live as
@@ -229,66 +256,89 @@ python3 rdaisec_runner.py`}
         </p>
       ) : (
         <div className="mt-4 space-y-3">
-          {jobs.map((j) => (
-            <div key={j.id} className="card">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-semibold text-white">
-                      {j.tool} {j.args}
-                    </span>
-                    <span className={`tag capitalize ${JOB_STATUS_STYLE[j.status] ?? ""}`}>
-                      {j.status}
-                    </span>
+          {jobs.map((j) => {
+            const runnerOffline =
+              !!j.runnerId &&
+              (!j.runner?.lastSeenAt ||
+                now - new Date(j.runner.lastSeenAt).getTime() >= RUNNER_ONLINE_WINDOW_MS);
+            const stuckQueued = j.status === "queued" && runnerOffline;
+            const failed = j.status === "failed";
+            const reason = (j.output ?? "").trim().split("\n")[0].slice(0, 200);
+            return (
+              <div
+                key={j.id}
+                className={`card ${failed ? "border-red-500/30" : ""}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-white">
+                        {j.tool} {j.args}
+                      </span>
+                      <span className={`tag capitalize ${JOB_STATUS_STYLE[j.status] ?? ""}`}>
+                        {j.status}
+                      </span>
+                      {stuckQueued && (
+                        <span className="tag border-amber-500/40 text-amber-300">
+                          runner offline — won&apos;t run
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">
+                      <span className="text-gray-300">{j.target}</span>
+                      {" · "}
+                      {j.engagement?.name ?? "Quick scan"}
+                      {" · "}
+                      {j.runner?.name ?? "unassigned"}
+                      {" · "}
+                      {new Date(j.createdAt).toLocaleString()}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-gray-400">
-                    <span className="text-gray-300">{j.target}</span>
-                    {" · "}
-                    {j.engagement?.name ?? "—"}
-                    {" · "}
-                    {j.runner?.name ?? "unassigned"}
-                    {" · "}
-                    {new Date(j.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {(j.status === "queued" || j.status === "running") && (
-                    <form action={cancelJob}>
+                  <div className="flex items-center gap-3">
+                    {(j.status === "queued" || j.status === "running") && (
+                      <form action={cancelJob}>
+                        <input type="hidden" name="id" value={j.id} />
+                        <button className="text-xs text-gray-500 hover:text-amber-400">
+                          {j.status === "running" ? "Stop" : "Cancel"}
+                        </button>
+                      </form>
+                    )}
+                    {j.status === "done" && j.engagementId && (
+                      <form action={importJobFindings}>
+                        <input type="hidden" name="id" value={j.id} />
+                        <button className="btn-ghost px-2 py-1 text-xs">
+                          <Icon name="arrow" className="h-3 w-3" /> Import to findings
+                        </button>
+                      </form>
+                    )}
+                    <form action={deleteJob}>
                       <input type="hidden" name="id" value={j.id} />
-                      <button className="text-xs text-gray-500 hover:text-amber-400">
-                        Cancel
+                      <button className="text-xs text-gray-600 hover:text-red-400">
+                        Delete
                       </button>
                     </form>
-                  )}
-                  {j.status === "done" && (
-                    <form action={importJobFindings}>
-                      <input type="hidden" name="id" value={j.id} />
-                      <button className="btn-ghost px-2 py-1 text-xs">
-                        <Icon name="arrow" className="h-3 w-3" /> Import to findings
-                      </button>
-                    </form>
-                  )}
-                  <form action={deleteJob}>
-                    <input type="hidden" name="id" value={j.id} />
-                    <button className="text-xs text-gray-600 hover:text-red-400">
-                      Delete
-                    </button>
-                  </form>
+                  </div>
                 </div>
-              </div>
 
-              {j.output && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-xs text-gray-500 hover:text-brand">
-                    View output{j.exitCode != null ? ` (exit ${j.exitCode})` : ""}
-                  </summary>
-                  <pre className="mt-2 max-h-80 overflow-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-                    {j.output}
-                  </pre>
-                </details>
-              )}
-            </div>
-          ))}
+                {failed && reason && (
+                  <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-300">
+                    {reason}
+                  </p>
+                )}
+
+                {j.output && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-xs text-gray-500 hover:text-brand">
+                      View output{j.exitCode != null ? ` (exit ${j.exitCode})` : ""}
+                    </summary>
+                    <pre className="mt-2 max-h-80 overflow-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
+                      {j.output}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
