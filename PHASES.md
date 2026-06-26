@@ -99,6 +99,10 @@ build that item, verify, commit, and merge to `main`.
       runs every auto-enabled program hands-off.
 - ✅ **P6.5 Notifications** — Discord/Slack webhook ping when a new finding at/
       above a chosen severity lands (incl. from automation). Settings page (owner).
+- ✅ **Deeper pipeline** — automation now runs httpx + nuclei + nmap + gobuster
+      per in-scope target (per-tool target form), all auto-imported.
+- ✅ **Concurrent runner** — the runner executes up to MAX_WORKERS jobs at once
+      (default 3) in worker threads, instead of one at a time (runner v11).
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)

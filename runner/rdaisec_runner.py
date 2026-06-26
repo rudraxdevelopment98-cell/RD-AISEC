@@ -34,11 +34,17 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "10"
+RUNNER_VERSION = "11"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
 PING_SECONDS = int(os.environ.get("PING_SECONDS", "30"))
+
+# How many jobs to run at once on this machine. Each claimed job runs in its own
+# worker thread; raise MAX_WORKERS on a beefier box. 1 = the old serial behavior.
+MAX_WORKERS = max(1, int(os.environ.get("MAX_WORKERS", "3")))
+ACTIVE_WORKERS = 0
+WORKERS_LOCK = threading.Lock()
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -457,8 +463,26 @@ def post_install_result(inst_id, output, code):
     )
 
 
+def worker(job):
+    """Run one job in its own thread and post the result; free the slot after."""
+    global ACTIVE_WORKERS
+    try:
+        print(f"▶ job {job['id']}: {job['tool']} {job.get('args','')} {job['target']}")
+        output, code = run_job(job)
+        post_result(job["id"], output, code)
+        print(f"  done {job['id']} (exit {code})\n")
+    except Exception as e:  # noqa: BLE001 — never let a worker crash silently
+        try:
+            post_result(job["id"], f"runner error: {e}", 1)
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        with WORKERS_LOCK:
+            ACTIVE_WORKERS -= 1
+
+
 def main():
-    global TOOLS, SUBNETS
+    global TOOLS, SUBNETS, ACTIVE_WORKERS
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
     print(f"RD-AISEC runner → {PORTAL_URL}")
@@ -480,6 +504,8 @@ def main():
     # Start the heartbeat so we stay online during long jobs/installs.
     threading.Thread(target=heartbeat_loop, daemon=True).start()
 
+    print(f"Concurrency: up to {MAX_WORKERS} job(s) at once.\n")
+
     last_refresh = time.monotonic()
     while True:
         # Refresh the allowlist periodically so new portal tools appear here.
@@ -489,31 +515,44 @@ def main():
                 TOOLS = f
             last_refresh = time.monotonic()
 
-        job, anon = poll()
-        if anon is not None:
-            apply_anonymity(anon)
-
-        if job:
-            # Unknown tool? Refresh once immediately before giving up on it.
+        # Claim and dispatch jobs until we hit the worker cap or the queue empties.
+        started = 0
+        while True:
+            with WORKERS_LOCK:
+                if ACTIVE_WORKERS >= MAX_WORKERS:
+                    break
+            job, anon = poll()
+            if anon is not None:
+                apply_anonymity(anon)
+            if not job:
+                break
+            # Unknown tool? Refresh once immediately before running it.
             if job["tool"] not in TOOLS:
                 f = fetch_tools()
                 if f:
                     TOOLS = f
                     last_refresh = time.monotonic()
-            print(f"▶ job {job['id']}: {job['tool']} {job.get('args','')} {job['target']}")
-            output, code = run_job(job)
-            post_result(job["id"], output, code)
-            print(f"  done (exit {code})\n")
+            with WORKERS_LOCK:
+                ACTIVE_WORKERS += 1
+            threading.Thread(target=worker, args=(job,), daemon=True).start()
+            started += 1
+
+        if started:
+            # Loop back quickly to claim more (a worker may free a slot soon).
+            time.sleep(1)
             continue
 
-        # When idle, handle any authorized tool install requests.
-        inst = poll_install()
-        if inst:
-            print(f"⬇ install {inst['tool']}…")
-            out, code = run_install(inst)
-            post_install_result(inst["id"], out, code)
-            print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
-            continue
+        # Idle this pass. Only handle installs when nothing is running.
+        with WORKERS_LOCK:
+            busy = ACTIVE_WORKERS
+        if busy == 0:
+            inst = poll_install()
+            if inst:
+                print(f"⬇ install {inst['tool']}…")
+                out, code = run_install(inst)
+                post_install_result(inst["id"], out, code)
+                print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
+                continue
 
         time.sleep(POLL_SECONDS)
 

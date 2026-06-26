@@ -9,11 +9,34 @@ import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
 
-// Tools run per in-scope target. URL-based; results auto-import to findings.
-const PIPELINE: { tool: string; args: string }[] = [
-  { tool: "httpx", args: "-title -status-code -tech-detect" }, // alive + tech
-  { tool: "nuclei", args: "-jsonl" }, // templated vulnerabilities
+// Tools run per in-scope target. `mode` controls the target form: "url" gets an
+// http:// prefix (httpx/nuclei/gobuster), "host" gets a bare host (nmap).
+// Results auto-import to findings.
+type Step = { tool: string; args: string; mode: "url" | "host" };
+const PIPELINE: Step[] = [
+  { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" }, // alive + tech
+  { tool: "nuclei", args: "-jsonl", mode: "url" }, // templated vulnerabilities
+  { tool: "nmap", args: "-Pn -F -T4", mode: "host" }, // top-100 ports + services
+  {
+    tool: "gobuster",
+    args: "dir -q -w /usr/share/wordlists/dirb/common.txt",
+    mode: "url",
+  }, // content discovery
 ];
+
+/** Bare host from any host/URL value. */
+function bareHost(v: string): string {
+  return v.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split("/")[0];
+}
+
+/** Form a step's target (url-mode adds http://) and validate it for that tool. */
+function stepTarget(host: string, step: Step): string | null {
+  const bare = bareHost(host);
+  if (!bare) return null;
+  const target = step.mode === "url" ? `http://${bare}` : bare;
+  const normalized = normalizeTarget(step.tool, target);
+  return validateTarget(step.tool, normalized) ? normalized : null;
+}
 
 const AUTO_INTERVAL_MS = 20 * 60 * 60 * 1000; // ~daily
 
@@ -67,11 +90,7 @@ export async function queueProgramPipeline(
   // scanned when amass finishes (chained in the runner result route). Plain
   // hosts are scanned directly.
   const wildcards = entries.filter((e) => e.wildcard).map((e) => e.host).slice(0, 5);
-  const directHosts = entries
-    .filter((e) => !e.wildcard)
-    .map((e) => normalizeTarget("httpx", e.host))
-    .filter((t) => validateTarget("httpx", t))
-    .slice(0, cap);
+  const directHosts = entries.filter((e) => !e.wildcard).map((e) => e.host).slice(0, cap);
 
   const pending = await prisma.job.findMany({
     where: { engagementId, status: { in: ["queued", "running"] } },
@@ -94,9 +113,10 @@ export async function queueProgramPipeline(
       data.push({ engagementId, runnerId, tool: "amass", target: domain, args: "enum -passive", autoImport: true, queuedBy });
     }
   }
-  for (const target of directHosts) {
+  for (const host of directHosts) {
     for (const step of PIPELINE) {
-      if (pendingKey.has(`${step.tool}|${target}`)) continue;
+      const target = stepTarget(host, step);
+      if (!target || pendingKey.has(`${step.tool}|${target}`)) continue;
       data.push({ engagementId, runnerId, tool: step.tool, target, args: step.args, autoImport: true, queuedBy });
     }
   }
@@ -117,11 +137,8 @@ export async function queueHostScans(
   queuedBy: string,
   cap = 15,
 ): Promise<number> {
-  const targets = hosts
-    .map((h) => normalizeTarget("httpx", h))
-    .filter((t) => validateTarget("httpx", t))
-    .slice(0, cap);
-  if (targets.length === 0) return 0;
+  const picked = hosts.map(bareHost).filter(Boolean).slice(0, cap);
+  if (picked.length === 0) return 0;
 
   const pending = await prisma.job.findMany({
     where: { engagementId, status: { in: ["queued", "running"] } },
@@ -130,9 +147,10 @@ export async function queueHostScans(
   const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
 
   const data = [];
-  for (const target of targets) {
+  for (const host of picked) {
     for (const step of PIPELINE) {
-      if (pendingKey.has(`${step.tool}|${target}`)) continue;
+      const target = stepTarget(host, step);
+      if (!target || pendingKey.has(`${step.tool}|${target}`)) continue;
       data.push({
         engagementId,
         runnerId,
@@ -161,7 +179,7 @@ export async function runDueBugPrograms(): Promise<{ programs: number; jobs: num
     // Only queue if the chosen runner still exists.
     const runner = await prisma.runner.findUnique({ where: { id: p.autoRunnerId } });
     if (!runner) continue;
-    jobs += await queueProgramPipeline(p, p.autoRunnerId, p.ownerEmail, 10);
+    jobs += await queueProgramPipeline(p, p.autoRunnerId, p.ownerEmail, 8);
     count += 1;
   }
   return { programs: count, jobs };

@@ -98,7 +98,7 @@ export async function runProgramNow(formData: FormData) {
     },
     runnerId,
     email,
-    25,
+    15,
   );
   if (n === 0) {
     redirect(`${BACK}?error=${encodeURIComponent("No new jobs — no scannable targets, or all already queued.")}`);
