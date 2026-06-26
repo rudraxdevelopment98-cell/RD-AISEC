@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { Icon } from "@/components/icons";
 import { Counter } from "@/components/counter";
 import { SeverityBadge } from "@/components/badges";
+import { NeuralBg } from "@/components/neural-bg";
 import { prisma } from "@/lib/db";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -284,36 +285,9 @@ export default async function DashboardOverview() {
             </div>
           </div>
 
-          {/* Radar scope emblem */}
-          <div className="float-slow relative hidden h-32 w-32 shrink-0 sm:block">
-            <svg viewBox="0 0 120 120" className="h-full w-full drop-shadow-[0_0_20px_rgba(52,211,153,0.25)]">
-              <defs>
-                <linearGradient id="radarBeam" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#34d399" stopOpacity="0.55" />
-                  <stop offset="1" stopColor="#34d399" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <circle cx="60" cy="60" r="56" fill="rgba(2,6,23,0.55)" stroke="#1f2a3c" />
-              <circle cx="60" cy="60" r="42" fill="none" stroke="#34d399" strokeOpacity="0.18" />
-              <circle cx="60" cy="60" r="28" fill="none" stroke="#34d399" strokeOpacity="0.18" />
-              <circle cx="60" cy="60" r="14" fill="none" stroke="#34d399" strokeOpacity="0.18" />
-              <line x1="60" y1="6" x2="60" y2="114" stroke="#34d399" strokeOpacity="0.12" />
-              <line x1="6" y1="60" x2="114" y2="60" stroke="#34d399" strokeOpacity="0.12" />
-              <path d="M60,60 L60,6 A54,54 0 0,1 108,38 Z" fill="url(#radarBeam)">
-                <animateTransform
-                  attributeName="transform"
-                  type="rotate"
-                  from="0 60 60"
-                  to="360 60 60"
-                  dur="4s"
-                  repeatCount="indefinite"
-                />
-              </path>
-              <circle className="blip" cx="80" cy="44" r="2.6" fill="#5eead4" style={{ animationDelay: "0s" }} />
-              <circle className="blip" cx="44" cy="76" r="2.2" fill="#38bdf8" style={{ animationDelay: "1.2s" }} />
-              <circle className="blip" cx="82" cy="82" r="2" fill="#5eead4" style={{ animationDelay: "2.1s" }} />
-              <circle cx="60" cy="60" r="3" fill="#34d399" />
-            </svg>
+          {/* Neural orb emblem */}
+          <div className="float-slow relative hidden h-32 w-32 shrink-0 overflow-hidden rounded-full border border-surface-border bg-surface/40 shadow-[0_0_30px_rgba(52,211,153,0.2)] sm:block">
+            <NeuralBg />
           </div>
         </div>
       </section>

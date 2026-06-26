@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
+import { NeuralBg } from "@/components/neural-bg";
 
 const NAV: NavGroup[] = [
   {
@@ -26,6 +27,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
+      { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
       { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],
@@ -53,12 +55,10 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      {/* Radar-scope backdrop — behind everything, subtle */}
+      {/* Neural-network backdrop — behind everything, subtle */}
       <div className="scene print:hidden" aria-hidden>
-        <div className="scene-radar" />
-        <div className="scene-radar-rings" />
         <div className="scene-grid" />
-        <div className="scene-particles" />
+        <NeuralBg />
       </div>
 
       <aside className="relative z-10 hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border bg-surface-card/40 lg:flex print:!hidden">
