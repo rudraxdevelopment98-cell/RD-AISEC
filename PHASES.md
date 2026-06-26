@@ -109,6 +109,11 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Dashboard launchpad** — home page groups every section (access-filtered)
       with one-line descriptions, so the whole portal is reachable from one hub.
       Theme unchanged; no features removed.
+- ✅ **Live verbose** — running jobs stream partial output to a "Live output"
+      panel (runner v12 streams via /api/runner/job/[id]/progress).
+- ✅ **Quick-jump search** (⌘K) — jump to any section, engagement, or program.
+- ✅ **Breadcrumbs** on engagement detail; **consistent empty states** with
+      guidance + actions (EmptyState component).
 - ✅ **Help system** — Hint popovers + dismissible HelpBanner components.
 - ✅ **Nav reorganized** (Overview · Engagements · Offensive ops · Knowledge · Admin)
 - ⬜ **P5.4** — **Audit log** (who queued/edited/exported what)

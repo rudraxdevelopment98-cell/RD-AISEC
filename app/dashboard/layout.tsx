@@ -5,6 +5,7 @@ import { auth, signOut } from "@/auth";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NeuralBg } from "@/components/neural-bg";
+import { CommandPalette } from "@/components/command-palette";
 import { canAccess } from "@/lib/access";
 import { getMemberAccess } from "@/lib/members";
 
@@ -81,6 +82,9 @@ export default async function DashboardLayout({
     ...g,
     items: g.items.filter((i) => canAccess(i.href, info)),
   })).filter((g) => g.items.length > 0);
+  const navLinks = nav.flatMap((g) =>
+    g.items.map((i) => ({ label: i.label, href: i.href, section: g.section })),
+  );
 
   return (
     <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
@@ -155,6 +159,7 @@ export default async function DashboardLayout({
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <CommandPalette links={navLinks} />
             <span className="tag ring-emerald accent-emerald hidden lg:inline-flex">
               ● Authorized session
             </span>
