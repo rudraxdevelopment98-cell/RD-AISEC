@@ -57,6 +57,11 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Interactive network map (radial SVG, gateway highlighted)
 - ✅ One-click "scan this runner's network" (auto-detected local subnet)
 - ✅ Monitoring timeline (scans + jobs, 14-day chart)
+- ✅ Jobs History filter fix (auto-refresh only while jobs are live, so
+  searching/filtering/sorting History no longer resets)
+- ✅ **Frameworks & standards** reference page (MITRE ATT&CK® tactics, OWASP
+  Top 10, NIST CSF 2.0, and tooling/detection frameworks: Metasploit, Nuclei,
+  Zeek, Suricata, Sigma, CVE/NVD) — grounding for the knowledge base
 
 ---
 
@@ -83,6 +88,9 @@ build that item, verify, commit, and merge to `main`.
 - ⬜ **P6.6** — Route the cloud recon pipeline **through the runner**
 - ⬜ **P6.7** — **arp-scan** — LAN layer-2 device discovery (IP + MAC + vendor),
       feeds the Network Map. *Small; works on the runner's own subnet.*
+- ⬜ **P6.8** — **Auto-map findings to frameworks** — tag each finding with its
+      MITRE ATT&CK tactic + OWASP category from the tool/output (deterministic
+      rules, no AI); filter/report by framework. *Builds on the Frameworks page.*
 
 ## ⬜ Phase 9 — Wireless (WiFi) *(needs a monitor-mode USB WiFi adapter on the runner)*
 > The runner's VM can't scan WiFi via the Mac's built-in radio — it needs a
