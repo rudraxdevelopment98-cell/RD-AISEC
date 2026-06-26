@@ -28,20 +28,37 @@ export async function saveNotifySetting(formData: FormData) {
     redirect(`${BACK}?error=${encodeURIComponent("Webhook must be an https:// URL.")}`);
   }
   const min = SEVERITIES.includes(minSeverity) ? minSeverity : "high";
+  const data = { discordWebhook, minSeverity: min, enabled, ownerEmail: email };
 
   const existing = await prisma.notifySetting.findFirst();
   if (existing) {
-    await prisma.notifySetting.update({
-      where: { id: existing.id },
-      data: { discordWebhook, minSeverity: min, enabled, ownerEmail: email },
-    });
+    await prisma.notifySetting.update({ where: { id: existing.id }, data });
   } else {
-    await prisma.notifySetting.create({
-      data: { discordWebhook, minSeverity: min, enabled, ownerEmail: email },
-    });
+    await prisma.notifySetting.create({ data });
   }
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent("Notification settings saved")}`);
+}
+
+/** Save the research/exploit workspace (Drive link + Kali exploit folder). */
+export async function saveWorkspace(formData: FormData) {
+  const email = await requireOwner();
+  const driveUrl = String(formData.get("driveUrl") ?? "").trim();
+  const exploitDir = String(formData.get("exploitDir") ?? "").trim();
+  if (exploitDir && !exploitDir.startsWith("/")) {
+    redirect(`${BACK}?error=${encodeURIComponent("Kali folder must be an absolute path (start with /).")}`);
+  }
+  if (driveUrl && !/^https:\/\//i.test(driveUrl)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Drive link must be an https:// URL.")}`);
+  }
+  const existing = await prisma.notifySetting.findFirst();
+  if (existing) {
+    await prisma.notifySetting.update({ where: { id: existing.id }, data: { driveUrl, exploitDir } });
+  } else {
+    await prisma.notifySetting.create({ data: { driveUrl, exploitDir, ownerEmail: email } });
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent("Workspace saved")}`);
 }
 
 export async function testNotify() {
