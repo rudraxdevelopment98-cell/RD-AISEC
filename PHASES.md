@@ -35,6 +35,9 @@ build that item, verify, commit, and merge to `main`.
   now focuses on machine connection + installs and links to Jobs.
 - ✅ Background heartbeat (runner /api/runner/ping thread) so a machine stays
   online while busy running a long job or install (no more offline-between-tasks)
+- ✅ Global **Findings** page (all engagements) with filters: ATT&CK tactic,
+  OWASP category, severity, and title search. Framework badges + analytics bars
+  are clickable → drill into "all A03 Injection" etc. Backfill for old findings.
 
 ## ✅ Phase 2 — Runner & active testing *(done)*
 - ✅ Runner architecture (Kali polls, executes, posts back)

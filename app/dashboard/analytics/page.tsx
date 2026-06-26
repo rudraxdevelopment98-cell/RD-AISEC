@@ -27,15 +27,17 @@ function Bar({
   count,
   max,
   color,
+  href,
 }: {
   label: string;
   count: number;
   max: number;
   color: string;
+  href?: string;
 }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
+  const inner = (
+    <>
       <span className="w-28 shrink-0 text-sm capitalize text-gray-400">
         {label.replace(/_/g, " ")}
       </span>
@@ -45,8 +47,16 @@ function Bar({
       <span className="w-8 shrink-0 text-right text-sm font-medium text-gray-300">
         {count}
       </span>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="flex items-center gap-3 rounded-md transition hover:bg-white/5">
+        {inner}
+      </Link>
+    );
+  }
+  return <div className="flex items-center gap-3">{inner}</div>;
 }
 
 export default async function AnalyticsPage({
@@ -206,7 +216,7 @@ export default async function AnalyticsPage({
           ) : (
             <div className="mt-4 space-y-2.5">
               {byAttack.map((b) => (
-                <Bar key={b.key} label={b.label} count={b.count} max={maxAttack} color="bg-red-500/70" />
+                <Bar key={b.key} label={b.label} count={b.count} max={maxAttack} color="bg-red-500/70" href={`/dashboard/findings?attack=${b.key}`} />
               ))}
             </div>
           )}
@@ -218,7 +228,7 @@ export default async function AnalyticsPage({
           ) : (
             <div className="mt-4 space-y-2.5">
               {byOwasp.map((b) => (
-                <Bar key={b.key} label={b.label} count={b.count} max={maxOwasp} color="bg-amber-500/70" />
+                <Bar key={b.key} label={b.label} count={b.count} max={maxOwasp} color="bg-amber-500/70" href={`/dashboard/findings?owasp=${b.key}`} />
               ))}
             </div>
           )}

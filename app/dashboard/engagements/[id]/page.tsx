@@ -187,7 +187,7 @@ export default async function EngagementDetail({
                 <FindingStatusBadge value={f.status} />
               </div>
             </div>
-            <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2" />
+            <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2" linked />
             {f.description && (
               <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">
                 {f.description}
