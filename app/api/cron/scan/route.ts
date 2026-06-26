@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDueSchedules } from "@/lib/scheduled-core";
+import { runDueHackerOneSyncs, runDueBugPrograms } from "@/lib/bug-pipeline";
 
 // Long-running: scanning several targets can take a while.
 export const maxDuration = 300;
@@ -21,5 +22,16 @@ export async function GET(req: Request) {
   }
 
   const result = await runDueSchedules();
-  return NextResponse.json({ ok: true, ...result });
+
+  // Bug-bounty automation: refresh HackerOne programs, then run due pipelines.
+  let bug = { synced: 0, programs: 0, jobs: 0 };
+  try {
+    const synced = await runDueHackerOneSyncs();
+    const due = await runDueBugPrograms();
+    bug = { synced, ...due };
+  } catch {
+    /* don't let bug automation break the posture-scan cron */
+  }
+
+  return NextResponse.json({ ok: true, ...result, bug });
 }

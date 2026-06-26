@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateRunner } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
+import { parseJobFindings } from "@/lib/job-parser";
+import { tagFindings } from "@/lib/finding-map";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,29 @@ export async function POST(
     where: { id: job.id },
     data: { output, exitCode, status, finishedAt: new Date() },
   });
+
+  // Bug-bounty automation: parse results into findings automatically (deduped),
+  // since there's no human to click "Import".
+  if (status === "done" && job.autoImport && job.engagementId) {
+    const parsed = tagFindings(parseJobFindings(job.tool, job.target, output), job.tool);
+    if (parsed.length > 0) {
+      const existing = await prisma.finding.findMany({
+        where: { engagementId: job.engagementId },
+        select: { title: true },
+      });
+      const seen = new Set(existing.map((f) => f.title));
+      const fresh = parsed.filter((f) => !seen.has(f.title));
+      if (fresh.length > 0) {
+        await prisma.finding.createMany({
+          data: fresh.map((f) => ({ ...f, engagementId: job.engagementId! })),
+        });
+        await prisma.engagement.update({
+          where: { id: job.engagementId },
+          data: { updatedAt: new Date() },
+        });
+      }
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -108,6 +108,9 @@ model Job {
   output       String     @default("") // raw tool output (capped)
   exitCode     Int?
   queuedBy     String     @default("") // user email, for audit
+  // When true, results are parsed into findings automatically on completion
+  // (used by bug-bounty automation, which has no human in the loop).
+  autoImport   Boolean    @default(false)
   createdAt    DateTime   @default(now())
   startedAt    DateTime?
   finishedAt   DateTime?
@@ -213,6 +216,11 @@ model BugProgram {
   notes        String      @default("")
   reward       String      @default("") // e.g. "$$$ / swag"
   status       String      @default("active") // active | paused | archived
+  // Automation: when `auto` is on, the daily cron runs the recon/vuln pipeline
+  // against in-scope targets using `autoRunnerId`.
+  auto         Boolean     @default(false)
+  autoRunnerId String      @default("")
+  lastAutoAt   DateTime?
   ownerEmail   String      @default("")
   engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
   engagementId String?
