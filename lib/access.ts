@@ -13,6 +13,7 @@ export const GRANTABLE_ITEMS: { key: string; label: string; group: string }[] = 
   { key: "/dashboard/forensics", label: "Digital Forensics", group: "Engagements" },
   { key: "/dashboard/consulting", label: "Security Consulting", group: "Engagements" },
   { key: "/dashboard/network", label: "Network Map", group: "Scanning" },
+  { key: "/dashboard/wifi", label: "WiFi", group: "Scanning" },
   { key: "/dashboard/runners", label: "Machines", group: "Scanning" },
   { key: "/dashboard/jobs", label: "Jobs", group: "Scanning" },
   { key: "/dashboard/exploit", label: "Exploitation", group: "Scanning" },

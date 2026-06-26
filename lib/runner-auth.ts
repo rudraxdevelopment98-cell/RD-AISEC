@@ -36,6 +36,9 @@ export async function authenticateRunner(req: Request) {
   const anonStatus = (req.headers.get("x-runner-anon-status") ?? "").slice(0, 20);
   // Local subnets the runner detected (for one-click "scan this network").
   const subnets = (req.headers.get("x-runner-subnets") ?? "").slice(0, 512);
+  // Wireless interfaces + monitor-mode capability (for WiFi).
+  const wifi = (req.headers.get("x-runner-wifi") ?? "").slice(0, 256);
+  const wifiMonitor = (req.headers.get("x-runner-wifi-monitor") ?? "") === "1";
   // Which allowlisted tools actually have a binary present on the runner.
   const installed = (req.headers.get("x-runner-installed") ?? "").slice(0, 512);
 
@@ -49,6 +52,8 @@ export async function authenticateRunner(req: Request) {
         ...(runner.anonymity ? { exitIp } : {}),
         ...(anonStatus ? { anonStatus } : {}),
         ...(subnets ? { subnets } : {}),
+        wifi,
+        wifiMonitor,
         installed,
       },
     })

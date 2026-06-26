@@ -34,7 +34,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "16"
+RUNNER_VERSION = "17"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -59,6 +59,34 @@ _tor_proc = None
 # Local subnets this machine is on (detected at startup), reported to the portal
 # so you can one-click "scan this runner's network".
 SUBNETS: list[str] = []
+
+# Wireless interfaces + whether any adapter supports monitor mode (for WiFi).
+WIFI_IFACES: list[str] = []
+WIFI_MONITOR = False
+
+
+def detect_wifi() -> tuple[list[str], bool]:
+    """Return (wireless interface names, any-adapter-supports-monitor-mode)."""
+    if not shutil.which("iw"):
+        return [], False
+    ifaces: list[str] = []
+    monitor = False
+    try:
+        out = subprocess.run(["iw", "dev"], capture_output=True, text=True, timeout=5).stdout
+        for line in out.splitlines():
+            m = re.search(r"Interface\s+(\S+)", line)
+            if m:
+                ifaces.append(m.group(1))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        lst = subprocess.run(["iw", "list"], capture_output=True, text=True, timeout=8).stdout
+        # "* monitor" appears under "Supported interface modes" when capable.
+        if re.search(r"\*\s*monitor", lst):
+            monitor = True
+    except Exception:  # noqa: BLE001
+        pass
+    return ifaces, monitor
 
 
 def detect_subnets() -> list[str]:
@@ -215,6 +243,8 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Exit-Ip", EXIT_IP)
     req.add_header("X-Runner-Anon-Status", ANON_STATUS)
     req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
+    req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
+    req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     if data is not None:
         req.add_header("Content-Type", "application/json")
@@ -342,9 +372,11 @@ def fetch_tools():
 def heartbeat_loop():
     """Background: keep the machine 'online' regardless of what the loop is doing.
     Also self-heals the Tor exit IP once bootstrapping completes."""
-    global EXIT_IP, ANON_STATUS
+    global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR
     while True:
         try:
+            # Re-detect WiFi so plugging in a monitor-mode dongle is noticed.
+            WIFI_IFACES, WIFI_MONITOR = detect_wifi()
             if ANON_ON and not EXIT_IP:
                 ip = tor_exit_ip(retries=1)
                 if ip:
@@ -647,7 +679,7 @@ def worker(job):
 
 
 def main():
-    global TOOLS, SUBNETS, ACTIVE_WORKERS
+    global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
     print(f"RD-AISEC runner → {PORTAL_URL}")
@@ -655,6 +687,10 @@ def main():
     SUBNETS = detect_subnets()
     if SUBNETS:
         print(f"Local network(s): {', '.join(SUBNETS)}")
+
+    WIFI_IFACES, WIFI_MONITOR = detect_wifi()
+    if WIFI_IFACES:
+        print(f"WiFi: {', '.join(WIFI_IFACES)} (monitor mode: {'yes' if WIFI_MONITOR else 'no'})")
 
     fetched = fetch_tools()
     if fetched:
