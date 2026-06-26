@@ -21,6 +21,8 @@ build that item, verify, commit, and merge to `main`.
 - ✅ Findings (severity/status/recommendation)
 - ✅ Report writer (deterministic exec summary) → Markdown + print
 - ✅ Passive Auto Scan (single + bulk)
+- ✅ Edit engagement (name/client/type/status/scope/authorization) + delete
+- ✅ Dashboard nav reorganized (Overview · Engagements · Scanning · Knowledge & tools)
 
 ## ✅ Phase 2 — Runner & active testing *(done)*
 - ✅ Runner architecture (Kali polls, executes, posts back)

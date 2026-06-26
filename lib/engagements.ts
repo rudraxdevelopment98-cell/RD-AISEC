@@ -88,6 +88,36 @@ export async function updateEngagementAuthorization(formData: FormData) {
   revalidatePath(`/dashboard/engagements/${id}`);
 }
 
+export async function updateEngagement(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) {
+    redirect(`/dashboard/engagements/${id}/edit?error=${encodeURIComponent("Name is required.")}`);
+  }
+  const authorized = formData.get("authorized") === "on";
+  const authorizedBy = String(formData.get("authorizedBy") ?? "").trim();
+
+  await prisma.engagement.update({
+    where: { id },
+    data: {
+      name,
+      client: String(formData.get("client") ?? "").trim(),
+      type: oneOf(formData.get("type"), ENGAGEMENT_TYPES, "pentest"),
+      status: oneOf(formData.get("status"), ENGAGEMENT_STATUSES, "planning"),
+      scope: String(formData.get("scope") ?? "").trim(),
+      authorized,
+      authorizedBy: authorized ? authorizedBy || email : "",
+    },
+  });
+
+  revalidatePath(`/dashboard/engagements/${id}`);
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements/${id}`);
+}
+
 export async function deleteEngagement(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");

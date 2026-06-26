@@ -83,28 +83,39 @@ export default async function EngagementsPage() {
           </p>
         )}
         {engagements.map((e) => (
-          <Link
+          <div
             key={e.id}
-            href={`/dashboard/engagements/${e.id}`}
             className="card-hover flex items-center justify-between gap-4"
           >
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-lg border border-surface-border text-brand">
+            <Link
+              href={`/dashboard/engagements/${e.id}`}
+              className="flex min-w-0 flex-1 items-center gap-3"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
                 <Icon name={TYPE_ICON[e.type] ?? "target"} className="h-5 w-5" />
               </span>
-              <div>
-                <p className="font-semibold text-white">{e.name}</p>
-                <p className="text-xs text-gray-500">
-                  {e.client || "—"} · {e._count.findings} finding
-                  {e._count.findings === 1 ? "" : "s"}
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-white">{e.name}</p>
+                <p className="truncate text-xs text-gray-500">
+                  <span className="capitalize">{e.type}</span> · {e.client || "—"} ·{" "}
+                  {e._count.findings} finding{e._count.findings === 1 ? "" : "s"}
                   {!e.authorized && (
                     <span className="ml-2 text-amber-400">⚠ unauthorized</span>
                   )}
                 </p>
               </div>
+            </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              <EngagementStatusBadge value={e.status} />
+              <Link
+                href={`/dashboard/engagements/${e.id}/edit`}
+                className="text-xs text-gray-500 hover:text-brand"
+                title="Edit engagement"
+              >
+                Edit
+              </Link>
             </div>
-            <EngagementStatusBadge value={e.status} />
-          </Link>
+          </div>
         ))}
       </div>
     </div>

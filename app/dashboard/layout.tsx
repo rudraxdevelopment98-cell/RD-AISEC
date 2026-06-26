@@ -8,36 +8,36 @@ const NAV: NavGroup[] = [
     section: "Overview",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
-      { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
+      { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
     ],
   },
   {
-    section: "Pillars",
+    section: "Engagements",
     items: [
+      { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
       { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
-      { href: "/dashboard/consulting", label: "Security Consulting", icon: "briefcase" },
+      { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
     ],
   },
   {
-    section: "Automation",
+    section: "Scanning",
     items: [
-      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
-      { href: "/dashboard/runners", label: "Runners", icon: "server" },
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
-      { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
+      { href: "/dashboard/runners", label: "Runners", icon: "server" },
+      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],
   },
   {
-    section: "Resources",
+    section: "Knowledge & tools",
     items: [
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
       { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
-      { href: "/dashboard/library", label: "Resource Vault", icon: "server" },
       { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
-      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "book" },
+      { href: "/dashboard/library", label: "Resource Vault", icon: "lock" },
+      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
     ],
   },
 ];
