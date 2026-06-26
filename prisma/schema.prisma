@@ -29,6 +29,7 @@ model Engagement {
   resources    Resource[]
   jobs         Job[]
   scans        ScanRun[]
+  schedules    ScheduledScan[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -146,4 +147,21 @@ model ScanRun {
   durationMs     Int        @default(0) // execution time in ms
   createdAt      DateTime   @default(now())
   completedAt    DateTime? // when scan finished
+}
+
+// A recurring passive web-posture scan. The Vercel cron hits /api/cron/scan,
+// which runs every enabled schedule whose interval has elapsed and saves new
+// findings to its engagement (deduped against existing open findings).
+model ScheduledScan {
+  id           String      @id @default(cuid())
+  targets      String      // newline/comma-separated URLs (<= MAX_BULK_TARGETS)
+  engagement   Engagement  @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId String
+  // "daily" | "weekly"
+  frequency    String      @default("daily")
+  enabled      Boolean     @default(true)
+  ownerEmail   String      @default("")
+  lastRunAt    DateTime?
+  lastStatus   String      @default("") // human summary of the last run
+  createdAt    DateTime    @default(now())
 }
