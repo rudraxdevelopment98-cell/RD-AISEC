@@ -176,7 +176,11 @@ function Pipeline({ scans, findings, reports }: { scans: number; findings: numbe
   );
 }
 
-export default async function DashboardOverview() {
+export default async function DashboardOverview({
+  searchParams,
+}: {
+  searchParams?: { denied?: string };
+}) {
   const session = await auth();
   const firstName = session?.user?.name?.split(" ")[0] ?? "operator";
   const now = Date.now();
@@ -249,6 +253,12 @@ export default async function DashboardOverview() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      {searchParams?.denied && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          You don&apos;t have access to that section. Ask an owner to grant it on the
+          Members page.
+        </div>
+      )}
       {/* Galaxy hero */}
       <section className="galaxy relative overflow-hidden rounded-2xl border border-surface-border p-6 sm:p-8">
         <div className="galaxy-stars" aria-hidden />

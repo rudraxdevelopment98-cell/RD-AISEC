@@ -188,12 +188,17 @@ model Member {
 // A saved bug-bounty platform account (handle/profile link). No secrets stored
 // by default — it's a convenience pointer to where the programs live.
 model BugAccount {
-  id         String   @id @default(cuid())
-  platform   String   @default("hackerone") // hackerone | bugcrowd | intigriti | yeswehack | other
-  handle     String   @default("")
-  url        String   @default("") // profile / dashboard link
-  ownerEmail String   @default("")
-  createdAt  DateTime @default(now())
+  id             String    @id @default(cuid())
+  platform       String    @default("hackerone") // hackerone | bugcrowd | intigriti | yeswehack | other
+  handle         String    @default("")
+  url            String    @default("") // profile / dashboard link
+  // HackerOne API sync (token stored encrypted at rest; never returned to client).
+  apiUser        String    @default("") // HackerOne API username
+  apiToken       String    @default("") // encrypted API token
+  lastSyncAt     DateTime?
+  lastSyncStatus String    @default("")
+  ownerEmail     String    @default("")
+  createdAt      DateTime  @default(now())
 }
 
 // A bug-bounty program the user is working: its scope (pasted or linked) and an
