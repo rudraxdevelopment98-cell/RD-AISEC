@@ -17,6 +17,7 @@ const NAV: NavGroup[] = [
     section: "Engagements",
     items: [
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
+      { href: "/dashboard/findings", label: "Findings", icon: "alert" },
       { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
       { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
       { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
