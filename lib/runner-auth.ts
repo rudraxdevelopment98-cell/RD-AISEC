@@ -32,6 +32,8 @@ export async function authenticateRunner(req: Request) {
   // Tor exit IP it reports while anonymity is on (only persist when anonymity is on).
   const exitHeader = (req.headers.get("x-runner-exit-ip") ?? "").slice(0, 64);
   const exitIp = runner.anonymity ? exitHeader : "";
+  // Local subnets the runner detected (for one-click "scan this network").
+  const subnets = (req.headers.get("x-runner-subnets") ?? "").slice(0, 512);
 
   await prisma.runner
     .update({
@@ -41,6 +43,7 @@ export async function authenticateRunner(req: Request) {
         ...(version ? { version } : {}),
         toolCount,
         ...(runner.anonymity ? { exitIp } : {}),
+        ...(subnets ? { subnets } : {}),
       },
     })
     .catch(() => {});

@@ -105,6 +105,7 @@ export function NetworkGraph({
             if (!p) return null;
             const r = Math.max(6, Math.min(20, 6 + h.ports.length * 1.6));
             const active = selected === i;
+            const isGw = (h.ip ?? "").endsWith(".1");
             return (
               <g
                 key={`h${i}`}
@@ -116,9 +117,20 @@ export function NetworkGraph({
                   cy={p.y}
                   r={active ? r + 4 : r}
                   fill={hostColor(h)}
-                  stroke={active ? "#fff" : "rgba(0,0,0,0.4)"}
-                  strokeWidth={active ? 2 : 1}
+                  stroke={active ? "#fff" : isGw ? "#34d399" : "rgba(0,0,0,0.4)"}
+                  strokeWidth={active ? 2 : isGw ? 2 : 1}
                 />
+                {isGw && (
+                  <text
+                    x={p.x}
+                    y={p.y + r + 12}
+                    textAnchor="middle"
+                    fontSize="9"
+                    className="fill-emerald-300"
+                  >
+                    gateway
+                  </text>
+                )}
                 {h.ports.length > 0 && (
                   <text
                     x={p.x}
