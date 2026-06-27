@@ -46,6 +46,33 @@ export async function notifyFindings(findings: NewFinding[], context: string): P
   }
 }
 
+/**
+ * Notify that a finding was confirmed exploitable (auto-validated or verified by
+ * hand). Best-effort. Ignores the severity threshold — a confirmed exploit is
+ * always worth a ping.
+ */
+export async function notifyConfirmed(
+  finding: { title: string; severity: string },
+  context: string,
+  how: "auto" | "manual",
+): Promise<void> {
+  try {
+    const cfg = await getNotifySetting();
+    if (!cfg?.enabled || !cfg.discordWebhook) return;
+    const content =
+      `🔴 **RD-AISEC** — finding CONFIRMED exploitable (${how === "manual" ? "verified by hand" : "auto-validated"})\n` +
+      `• [${finding.severity.toUpperCase()}] ${finding.title}\n` +
+      `Engagement: ${context}`;
+    await fetch(cfg.discordWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, text: content }),
+    });
+  } catch {
+    /* swallow — notifications are best-effort */
+  }
+}
+
 /** Send a one-off test message to verify the webhook. */
 export async function sendTestNotification(webhook: string): Promise<boolean> {
   try {
