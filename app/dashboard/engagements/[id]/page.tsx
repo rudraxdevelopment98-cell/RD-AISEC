@@ -28,7 +28,7 @@ import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { prisma } from "@/lib/db";
 import { stageProgressMap } from "@/lib/pipeline-engine";
-import { runScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
+import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -75,13 +75,15 @@ export default async function EngagementDetail({
     locked?: boolean;
     href?: string;
     action?: (formData: FormData) => Promise<void>;
+    deepAction?: (formData: FormData) => Promise<void>;
   };
   const commandTiles: Tile[] = [
     {
       action: runScanNow,
+      deepAction: runDeepScanNow,
       icon: "radar",
       title: "Scan & recon",
-      desc: "Run httpx + nuclei + nmap now",
+      desc: "httpx + nuclei + nmap now",
       accent: "text-sky-300",
       locked: !e.authorized,
     },
@@ -275,17 +277,39 @@ export default async function EngagementDetail({
               </>
             );
             const cls = "card-hover group flex flex-col gap-1 p-3 text-left";
-            return t.action ? (
-              <form key={t.title} action={t.action}>
-                <input type="hidden" name="engagementId" value={e.id} />
-                <button type="submit" disabled={t.locked} className={`${cls} w-full disabled:cursor-not-allowed disabled:opacity-60`}>
+            if (t.href) {
+              return (
+                <Link key={t.title} href={t.href} className={cls}>
                   {inner}
-                </button>
-              </form>
-            ) : (
-              <Link key={t.title} href={t.href!} className={cls}>
-                {inner}
-              </Link>
+                </Link>
+              );
+            }
+            return (
+              <div key={t.title} className={`${cls} relative`}>
+                <form action={t.action}>
+                  <input type="hidden" name="engagementId" value={e.id} />
+                  <button
+                    type="submit"
+                    disabled={t.locked}
+                    className="flex w-full flex-col gap-1 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {inner}
+                  </button>
+                </form>
+                {t.deepAction && (
+                  <form action={t.deepAction}>
+                    <input type="hidden" name="engagementId" value={e.id} />
+                    <button
+                      type="submit"
+                      disabled={t.locked}
+                      className="text-[10px] font-medium text-amber-300/90 hover:text-amber-200 disabled:opacity-50"
+                      title="All ports + vuln scripts + bigger wordlist"
+                    >
+                      ⚡ Deep scan
+                    </button>
+                  </form>
+                )}
+              </div>
             );
           })}
         </div>

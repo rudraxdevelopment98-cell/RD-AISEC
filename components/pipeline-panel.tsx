@@ -4,6 +4,7 @@ import { stageDef } from "@/lib/pipeline-core";
 import {
   startAssessment,
   approveStage,
+  rerunStageDeep,
   pauseAssessment,
   resumeAssessment,
   cancelAssessment,
@@ -193,14 +194,29 @@ export function PipelinePanel({
                           />
                         </div>
                       )}
-                      {awaiting && (
-                        <form action={approveStage} className="mt-2">
-                          <input type="hidden" name="engagementId" value={engagementId} />
-                          <button className="btn-primary px-3 py-1 text-xs">
-                            Approve &amp; continue →
-                          </button>
-                        </form>
-                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        {awaiting && (
+                          <form action={approveStage}>
+                            <input type="hidden" name="engagementId" value={engagementId} />
+                            <button className="btn-primary px-3 py-1 text-xs">
+                              Approve &amp; continue →
+                            </button>
+                          </form>
+                        )}
+                        {/* Escalate a single stage to deep without restarting. */}
+                        {def?.jobs && !(isCurrent && pipeline.status === "running") && (
+                          <form action={rerunStageDeep}>
+                            <input type="hidden" name="engagementId" value={engagementId} />
+                            <input type="hidden" name="stage" value={s.key} />
+                            <button
+                              className="text-xs text-amber-300/90 hover:text-amber-200"
+                              title="All ports + vuln scripts + bigger wordlist, then continue"
+                            >
+                              ↻ Re-run deeper
+                            </button>
+                          </form>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );

@@ -287,6 +287,45 @@ export async function startPipeline(
   }
 }
 
+/**
+ * Re-run a single stage (optionally deep) without restarting the whole pipeline.
+ * Sets that stage back to running and makes it the current stage, so completion
+ * detection / approval resumes from here and cascades onward.
+ */
+export async function rerunStage(engagementId: string, stageKey: string, deep: boolean): Promise<void> {
+  const p = await prisma.pipeline.findUnique({ where: { engagementId } });
+  if (!p) return;
+  const def = stageDef(stageKey);
+  if (!def) return;
+
+  await setStage(p.id, stageKey, {
+    status: "running",
+    startedAt: new Date(),
+    finishedAt: null,
+    summary: deep ? "re-running (deep)…" : "re-running…",
+  });
+  await prisma.pipeline.update({ where: { id: p.id }, data: { currentKey: stageKey, status: "running" } });
+
+  let immediate = true;
+  if (def.jobs) {
+    const n = await queueStageJobs(p.engagementId, p.runnerId, stageKey, p.ownerEmail, deep);
+    immediate = n === 0;
+    await setStage(p.id, stageKey, {
+      summary: n === 0 ? "Nothing new to run" : `${deep ? "deep re-run" : "re-run"} · ${n} job(s) queued`,
+    });
+  } else if (stageKey === "triage") {
+    await setStage(p.id, stageKey, { summary: await runTriage(p.engagementId) });
+  } else {
+    const cnt = await prisma.finding.count({ where: { engagementId: p.engagementId } });
+    await setStage(p.id, stageKey, { summary: `Report ready · ${cnt} finding(s) compiled` });
+  }
+
+  if (immediate) {
+    if (p.autoApprove) await advancePipeline(p.id);
+    else await prisma.pipeline.update({ where: { id: p.id }, data: { status: "awaiting_approval" } });
+  }
+}
+
 /** Approve the current (awaiting) stage and move on. */
 export async function approveCurrentStage(engagementId: string): Promise<void> {
   const p = await prisma.pipeline.findUnique({ where: { engagementId } });

@@ -37,6 +37,17 @@ const PIPELINE: Step[] = [
   }, // content discovery
 ];
 
+// Deep variant: maximum coverage (all TCP ports + vuln NSE, bigger wordlist,
+// plus web-server and TLS scanners). Slower; used by "Deep scan now".
+const PIPELINE_DEEP: Step[] = [
+  { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
+  { tool: "nuclei", args: "-jsonl", mode: "url" },
+  { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4", mode: "host" },
+  { tool: "gobuster", args: "dir -q -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", mode: "url" },
+  { tool: "nikto", args: "", mode: "url" },
+  { tool: "sslscan", args: "", mode: "host" },
+];
+
 /** Bare host from any host/URL value. */
 function bareHost(v: string): string {
   return v.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split("/")[0];
@@ -149,6 +160,7 @@ export async function queueHostScans(
   hosts: string[],
   queuedBy: string,
   cap = 15,
+  deep = false,
 ): Promise<number> {
   const picked = hosts.map(bareHost).filter(Boolean).slice(0, cap);
   if (picked.length === 0) return 0;
@@ -159,9 +171,10 @@ export async function queueHostScans(
   });
   const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
 
+  const steps = deep ? PIPELINE_DEEP : PIPELINE;
   const data = [];
   for (const host of picked) {
-    for (const step of PIPELINE) {
+    for (const step of steps) {
       const target = stepTarget(host, step);
       if (!target || pendingKey.has(`${step.tool}|${target}`)) continue;
       data.push({

@@ -261,6 +261,12 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Nuclei template auto-update** in the runner (v20): refreshes templates on
       startup and daily in the background, so scans always run the latest CVE/
       exposure checks — no manual `nuclei -update-templates` needed.
+- ✅ **Deep scan now** (command center): a second "⚡ Deep scan" button on the
+      Scan & recon tile runs the heavy set (all ports + vuln NSE + nikto/sslscan
+      + bigger wordlist) immediately, alongside the quick scan.
+- ✅ **Re-run a stage deeper** (pipeline): each recon/scan/exploit stage has a
+      "↻ Re-run deeper" action to escalate just that stage to deep settings and
+      continue from there — no need to restart the whole assessment.
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit

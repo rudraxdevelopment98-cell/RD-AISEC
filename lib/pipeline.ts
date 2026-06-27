@@ -9,12 +9,14 @@ import { queueHostScans, queueExploitJobs } from "@/lib/bug-pipeline";
 import {
   startPipeline,
   approveCurrentStage,
+  rerunStage,
   setPipelineStatus,
   setPipelineAutoApprove,
   recheckPipeline,
   runTriage,
   pickRunnerId,
 } from "@/lib/pipeline-engine";
+import { STAGE_ORDER } from "@/lib/pipeline-core";
 
 async function requireUser() {
   const session = await auth();
@@ -105,6 +107,30 @@ export async function runScanNow(formData: FormData) {
   const n = await queueHostScans(id, runnerId, hosts, email, 15);
   if (n === 0) redirect(back(id, "error=" + encodeURIComponent("Everything is already queued.")));
   redirect(`/dashboard/jobs?engagement=${id}`);
+}
+
+/** Deep scan now: heavier recon+scan (all ports + vuln scripts + nikto/sslscan). */
+export async function runDeepScanNow(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("engagementId") ?? "");
+  const runnerId = await readyRunner(id);
+  const eng = await prisma.engagement.findUnique({ where: { id }, select: { scope: true } });
+  const hosts = parseScopeTargets(eng?.scope ?? "");
+  if (hosts.length === 0) redirect(back(id, "error=" + encodeURIComponent("No scannable targets in scope.")));
+  const n = await queueHostScans(id, runnerId, hosts, email, 15, true);
+  if (n === 0) redirect(back(id, "error=" + encodeURIComponent("Everything is already queued.")));
+  redirect(`/dashboard/jobs?engagement=${id}`);
+}
+
+/** Re-run a single pipeline stage with deep settings (escalate one stage). */
+export async function rerunStageDeep(formData: FormData) {
+  await requireUser();
+  const id = String(formData.get("engagementId") ?? "");
+  const stage = String(formData.get("stage") ?? "");
+  if (!STAGE_ORDER.includes(stage)) redirect(back(id, "error=" + encodeURIComponent("Unknown stage.")));
+  await rerunStage(id, stage, true);
+  revalidatePath(`/dashboard/engagements/${id}`);
+  redirect(back(id, "ok=" + encodeURIComponent(`Re-running ${stage} (deep)`)));
 }
 
 /** Exploit & validate now: queue exploit-validation jobs from current findings. */
