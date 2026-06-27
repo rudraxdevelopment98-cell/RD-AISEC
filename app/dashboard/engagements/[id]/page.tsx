@@ -438,6 +438,12 @@ export default async function EngagementDetail({
                   Save
                 </button>
               </form>
+              <Link
+                href={`/dashboard/findings/${f.id}/exploit`}
+                className="px-2 py-1 text-xs font-medium text-red-300 hover:text-red-200"
+              >
+                ⚔ Exploit it
+              </Link>
               <form action={deleteFinding}>
                 <input type="hidden" name="id" value={f.id} />
                 <input type="hidden" name="engagementId" value={e.id} />
