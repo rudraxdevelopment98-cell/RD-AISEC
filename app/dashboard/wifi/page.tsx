@@ -4,10 +4,27 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, saveWifiFindings } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
+import { wifiSecurityAdvice, wifiAdviceText } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
+import { CopyText } from "@/components/copy-text";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+
+const RISK_TONE: Record<string, string> = {
+  critical: "border-red-500/50 text-red-300",
+  high: "border-orange-500/50 text-orange-300",
+  medium: "border-amber-500/40 text-amber-300",
+  low: "border-sky-500/40 text-sky-300",
+  good: "border-emerald-500/40 text-emerald-300",
+};
+const ISSUE_TONE: Record<string, string> = {
+  critical: "text-red-300",
+  high: "text-orange-300",
+  medium: "text-amber-300",
+  low: "text-sky-300",
+  info: "text-gray-400",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +41,14 @@ export default async function WifiPage({
 }: {
   searchParams: { error?: string; scanned?: string; inspected?: string };
 }) {
-  const runners = await prisma.runner.findMany({ orderBy: { createdAt: "desc" } });
+  const [runners, engagements] = await Promise.all([
+    prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.engagement.findMany({
+      where: { authorized: true },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   const now = Date.now();
 
   // Latest WiFi-scan + inspect jobs per runner (most recent first).
@@ -208,12 +232,14 @@ export default async function WifiPage({
                               <th className="py-1 pr-3">Signal</th>
                               <th className="py-1 pr-3">Dist</th>
                               <th className="py-1 pr-3">Security</th>
+                              <th className="py-1 pr-3">Risk</th>
                               <th className="py-1"></th>
                             </tr>
                           </thead>
                           <tbody>
                             {networks.map((n) => {
                               const vendor = lookupVendor(n.bssid);
+                              const risk = wifiSecurityAdvice({ security: n.security, cipher: n.cipher, auth: n.auth }).risk;
                               return (
                               <tr key={n.bssid} className="border-t border-surface-border/60">
                                 <td className="py-1 pr-3 text-white">{n.ssid}</td>
@@ -226,6 +252,9 @@ export default async function WifiPage({
                                   <span className={`tag ${SEC_TONE[n.security] ?? "border-gray-500/40 text-gray-400"}`}>
                                     {n.security}
                                   </span>
+                                </td>
+                                <td className="py-1 pr-3">
+                                  <span className={`tag ${RISK_TONE[risk] ?? "border-gray-500/40 text-gray-400"}`}>{risk}</span>
                                 </td>
                                 <td className="py-1">
                                   <form action={inspectNetwork}>
@@ -281,12 +310,20 @@ export default async function WifiPage({
                               )}
                               {/* Attack actions for the inspected AP (authorized only). */}
                               <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <form action={autoHandshake}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <input type="hidden" name="channel" value={apChan} />
+                                  <button className="btn-primary px-2 py-1" title="Deauth + capture in one go, then handshake check">
+                                    🤝 Auto handshake
+                                  </button>
+                                </form>
                                 <form action={captureHandshake}>
                                   <input type="hidden" name="runnerId" value={r.id} />
                                   <input type="hidden" name="bssid" value={target} />
                                   <input type="hidden" name="channel" value={apChan} />
-                                  <button className="btn-ghost px-2 py-1" title="120s targeted capture, then handshake check">
-                                    🤝 Capture handshake
+                                  <button className="btn-ghost px-2 py-1" title="120s passive capture, then handshake check">
+                                    Capture (passive)
                                   </button>
                                 </form>
                                 <form action={deauthClient}>
@@ -297,6 +334,58 @@ export default async function WifiPage({
                                   </button>
                                 </form>
                               </div>
+
+                              {/* Security assessment & suggestions */}
+                              {ap && (() => {
+                                const assess = wifiSecurityAdvice({
+                                  ssid: ap.ssid, security: ap.security, cipher: ap.cipher,
+                                  auth: ap.auth, clients: data.clients.length,
+                                });
+                                const text = wifiAdviceText(
+                                  { ssid: ap.ssid, security: ap.security, cipher: ap.cipher, auth: ap.auth, clients: data.clients.length },
+                                  assess,
+                                );
+                                return (
+                                  <div className="mt-3 rounded-lg border border-surface-border bg-black/20 p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-semibold text-gray-300">
+                                        🛡 Security assessment{" "}
+                                        <span className={`tag ${RISK_TONE[assess.risk] ?? ""}`}>{assess.risk} risk</span>
+                                      </p>
+                                      <CopyText text={text} label="Copy suggestions" />
+                                    </div>
+                                    <ul className="mt-2 space-y-2">
+                                      {assess.issues.map((i, idx) => (
+                                        <li key={idx} className="text-xs">
+                                          <span className={`font-semibold ${ISSUE_TONE[i.severity] ?? "text-gray-300"}`}>
+                                            [{i.severity}] {i.title}
+                                          </span>
+                                          <p className="text-gray-500">{i.detail}</p>
+                                          <p className="text-gray-400"><span className="text-gray-500">Fix:</span> {i.fix}</p>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                    {/* Save the review into an engagement's findings (report-ready). */}
+                                    {engagements.length > 0 && (
+                                      <form action={saveWifiFindings} className="mt-3 flex flex-wrap items-center gap-2 border-t border-surface-border pt-2">
+                                        <input type="hidden" name="ssid" value={ap.ssid} />
+                                        <input type="hidden" name="bssid" value={target} />
+                                        <input type="hidden" name="security" value={ap.security} />
+                                        <input type="hidden" name="cipher" value={ap.cipher ?? ""} />
+                                        <input type="hidden" name="auth" value={ap.auth ?? ""} />
+                                        <input type="hidden" name="clients" value={data.clients.length} />
+                                        <span className="text-[11px] text-gray-500">Save to engagement:</span>
+                                        <select name="engagementId" className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand">
+                                          {engagements.map((e) => (
+                                            <option key={e.id} value={e.id}>{e.name}</option>
+                                          ))}
+                                        </select>
+                                        <button className="btn-ghost px-2 py-1 text-xs">Save as findings</button>
+                                      </form>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               {data.clients.length === 0 ? (
                                 <p className="mt-2 text-xs text-gray-500">No connected devices seen yet — capture again at peak time, or the AP may be idle.</p>
                               ) : (
