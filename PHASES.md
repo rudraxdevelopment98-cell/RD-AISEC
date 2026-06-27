@@ -298,6 +298,11 @@ build that item, verify, commit, and merge to `main`.
       need to jump to Jobs.
 - ✅ **Auto "✅ Confirmed exploitable" banner** appears the moment a check comes
       back vulnerable; a "🎯 Public exploit available" banner when Exploit-DB matches.
+- ✅ **Verify & confirm it yourself**: after running the real test and watching
+      the live output, a one-click "✅ I tested it — mark confirmed" (and withdraw)
+      records who/when in the finding and glows it red. For your own satisfaction.
+- ✅ **Notify on confirm**: a webhook ping (Discord/Slack) fires when a finding is
+      confirmed — auto-validated or verified by hand — so you don't have to watch.
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
