@@ -43,6 +43,43 @@ export async function scanWifi(formData: FormData) {
   redirect(`${BACK}?scanned=1`);
 }
 
+/**
+ * Inspect one access point: a targeted airodump capture on its channel + BSSID
+ * (~30s) that lists the devices connected to it, their signal/packets/probes,
+ * and (via the parser) a rough distance. Requires a monitor-mode interface.
+ */
+export async function inspectNetwork(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const channel = String(formData.get("channel") ?? "").trim();
+  if (!runnerId) redirect(`${BACK}?error=${encodeURIComponent("Pick a machine.")}`);
+  if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Invalid BSSID.")}`);
+  }
+  // airodump accepts a channel number; default to all channels if unknown.
+  const chArg = /^\d{1,3}$/.test(channel) ? `-c ${channel} ` : "";
+
+  const cmd =
+    `bash -lc 'M=$(for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+    `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && echo "$n" && break; done); ` +
+    `if [ -z "$M" ]; then echo NO_MONITOR; exit 0; fi; rm -f /tmp/rdtgt-*.csv; ` +
+    `timeout 30 airodump-ng ${chArg}--bssid ${bssid} -w /tmp/rdtgt --output-format csv "$M" >/dev/null 2>&1; ` +
+    `cat /tmp/rdtgt-01.csv 2>/dev/null'`;
+
+  await prisma.job.create({
+    data: {
+      runnerId,
+      tool: "custom",
+      target: `wifi-inspect:${bssid}`,
+      args: cmd,
+      queuedBy: email,
+    },
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?inspected=1`);
+}
+
 /** Run a wireless command (monitor mode, capture, etc.) on a runner directly. */
 export async function runWifiCommand(formData: FormData) {
   const email = await requireUser();

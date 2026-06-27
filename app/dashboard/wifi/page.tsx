@@ -4,8 +4,8 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand } from "@/lib/wifi";
-import { parseWifiNetworks } from "@/lib/network";
+import { scanWifi, runWifiCommand, inspectNetwork } from "@/lib/wifi";
+import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -21,21 +21,24 @@ const SEC_TONE: Record<string, string> = {
 export default async function WifiPage({
   searchParams,
 }: {
-  searchParams: { error?: string; scanned?: string };
+  searchParams: { error?: string; scanned?: string; inspected?: string };
 }) {
   const runners = await prisma.runner.findMany({ orderBy: { createdAt: "desc" } });
   const now = Date.now();
 
-  // Latest WiFi-scan job per runner (most recent first).
+  // Latest WiFi-scan + inspect jobs per runner (most recent first).
   const wifiJobs = await prisma.job.findMany({
-    where: { tool: "custom", target: "wifi-scan" },
+    where: { tool: "custom", target: { startsWith: "wifi-" } },
     orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { id: true, runnerId: true, status: true, output: true, createdAt: true },
+    take: 80,
+    select: { id: true, runnerId: true, status: true, output: true, target: true, createdAt: true },
   });
   const latestByRunner = new Map<string, (typeof wifiJobs)[number]>();
+  const inspectByRunner = new Map<string, (typeof wifiJobs)[number]>();
   for (const j of wifiJobs) {
-    if (j.runnerId && !latestByRunner.has(j.runnerId)) latestByRunner.set(j.runnerId, j);
+    if (!j.runnerId) continue;
+    if (j.target === "wifi-scan" && !latestByRunner.has(j.runnerId)) latestByRunner.set(j.runnerId, j);
+    if (j.target.startsWith("wifi-inspect") && !inspectByRunner.has(j.runnerId)) inspectByRunner.set(j.runnerId, j);
   }
 
   const anyActive = wifiJobs.some((j) => j.status === "queued" || j.status === "running");
@@ -72,6 +75,11 @@ export default async function WifiPage({
       {searchParams.scanned && (
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
           ✓ Scan queued — networks appear below in a few seconds.
+        </div>
+      )}
+      {searchParams.inspected && (
+        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+          ✓ Inspecting the network (~30s capture) — connected devices appear below.
         </div>
       )}
 
@@ -196,7 +204,9 @@ export default async function WifiPage({
                               <th className="py-1 pr-3">BSSID</th>
                               <th className="py-1 pr-3">Ch</th>
                               <th className="py-1 pr-3">Signal</th>
-                              <th className="py-1">Security</th>
+                              <th className="py-1 pr-3">Dist</th>
+                              <th className="py-1 pr-3">Security</th>
+                              <th className="py-1"></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -206,17 +216,98 @@ export default async function WifiPage({
                                 <td className="py-1 pr-3 font-mono text-gray-400">{n.bssid}</td>
                                 <td className="py-1 pr-3 text-gray-400">{n.chan}</td>
                                 <td className="py-1 pr-3 text-gray-400">{n.signal}</td>
-                                <td className="py-1">
+                                <td className="py-1 pr-3 text-gray-400">{estimateDistance(n.signal) || "—"}</td>
+                                <td className="py-1 pr-3">
                                   <span className={`tag ${SEC_TONE[n.security] ?? "border-gray-500/40 text-gray-400"}`}>
                                     {n.security}
                                   </span>
+                                </td>
+                                <td className="py-1">
+                                  <form action={inspectNetwork}>
+                                    <input type="hidden" name="runnerId" value={r.id} />
+                                    <input type="hidden" name="bssid" value={n.bssid} />
+                                    <input type="hidden" name="channel" value={n.chan} />
+                                    <button className="text-brand hover:underline" title="See connected devices + activity (needs monitor mode)">
+                                      🔍 Inspect
+                                    </button>
+                                  </form>
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                        <p className="mt-1 text-[10px] text-gray-600">
+                          Distance is a rough signal estimate. Inspect runs a 30s targeted
+                          capture (needs a monitor-mode adapter).
+                        </p>
                       </div>
                     )}
+
+                    {/* Inspect results — devices connected to the chosen AP */}
+                    {(() => {
+                      const insp = inspectByRunner.get(r.id);
+                      if (!insp) return null;
+                      const target = insp.target.split(":").slice(1).join(":");
+                      const busy = insp.status === "queued" || insp.status === "running";
+                      const noMon = /NO_MONITOR/.test(insp.output || "");
+                      const data = insp.status === "done" && !noMon ? parseWifiInspect(insp.output) : { aps: [], clients: [] };
+                      return (
+                        <div className="mt-4 rounded-lg border border-brand/30 bg-brand/5 p-3">
+                          <p className="text-xs font-semibold text-brand-glow">
+                            🔍 Inspecting {target || "AP"} {busy && <span className="text-sky-300">· capturing…</span>}
+                          </p>
+                          {noMon && (
+                            <p className="mt-2 text-xs text-amber-300">
+                              Needs a monitor-mode adapter. Enable monitor mode below, then Inspect again.
+                            </p>
+                          )}
+                          {insp.status === "done" && !noMon && (
+                            <>
+                              {data.aps[0] && (
+                                <p className="mt-1 text-xs text-gray-400">
+                                  {data.aps[0].ssid} · ch {data.aps[0].chan} · {data.aps[0].security} ·{" "}
+                                  {data.aps[0].signal} dBm {estimateDistance(data.aps[0].signal) && `(${estimateDistance(data.aps[0].signal)})`}
+                                </p>
+                              )}
+                              {data.clients.length === 0 ? (
+                                <p className="mt-2 text-xs text-gray-500">No connected devices seen yet — capture again at peak time, or the AP may be idle.</p>
+                              ) : (
+                                <div className="mt-2 overflow-x-auto">
+                                  <p className="mb-1 text-xs font-semibold text-gray-400">{data.clients.length} device(s) connected / nearby</p>
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="text-gray-500">
+                                      <tr>
+                                        <th className="py-1 pr-3">Device (MAC)</th>
+                                        <th className="py-1 pr-3">Connected to</th>
+                                        <th className="py-1 pr-3">Signal</th>
+                                        <th className="py-1 pr-3">Dist</th>
+                                        <th className="py-1 pr-3">Packets</th>
+                                        <th className="py-1">Probing for</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {data.clients.map((c) => (
+                                        <tr key={c.mac} className="border-t border-surface-border/60">
+                                          <td className="py-1 pr-3 font-mono text-white">{c.mac}</td>
+                                          <td className="py-1 pr-3 font-mono text-gray-400">{c.assoc}</td>
+                                          <td className="py-1 pr-3 text-gray-400">{c.power}</td>
+                                          <td className="py-1 pr-3 text-gray-400">{estimateDistance(c.power) || "—"}</td>
+                                          <td className="py-1 pr-3 text-gray-400">{c.packets}</td>
+                                          <td className="py-1 text-gray-500">{c.probes || "—"}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {insp.status === "failed" && (
+                            <p className="mt-2 text-xs text-red-300">Capture failed — ensure aircrack-ng is installed and the runner runs as root.</p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Install aircrack (for capture) */}
                     {!hasAircrack && (
