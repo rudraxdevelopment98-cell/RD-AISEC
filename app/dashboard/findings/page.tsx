@@ -3,11 +3,10 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { EmptyState } from "@/components/empty-state";
-import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
-import { FrameworkBadges } from "@/components/framework-badges";
-import { attackLabel, owaspLabel } from "@/lib/finding-map";
+import { FindingsBulk } from "@/components/findings-bulk";
 import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 import { SEVERITY_ORDER } from "@/lib/report";
+import { importFindingsCsv } from "@/lib/finding-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,10 @@ type SP = {
   owasp?: string;
   severity?: string;
   status?: string;
+  category?: string;
   q?: string;
+  ok?: string;
+  error?: string;
 };
 
 // Build a /dashboard/findings URL with one filter toggled (or cleared).
@@ -62,28 +64,32 @@ export default async function FindingsPage({
   if (sp.owasp) where.owasp = sp.owasp;
   if (sp.severity) where.severity = sp.severity;
   if (sp.status) where.status = sp.status;
+  if (sp.category) where.category = sp.category;
   if (sp.q) where.title = { contains: sp.q, mode: "insensitive" };
 
-  const findings = await prisma.finding.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 300,
-    include: { engagement: { select: { id: true, name: true } } },
-  });
+  const [findings, present, cats, engagements] = await Promise.all([
+    prisma.finding.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 300,
+      include: { engagement: { select: { id: true, name: true } } },
+    }),
+    prisma.finding.groupBy({ by: ["attack", "owasp"], _count: true }),
+    prisma.finding.groupBy({ by: ["category"], _count: true }),
+    prisma.engagement.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, name: true } }),
+  ]);
 
-  // Which framework values actually occur, so we only show useful filter chips.
-  const present = await prisma.finding.groupBy({
-    by: ["attack", "owasp"],
-    _count: true,
-  });
   const attacksInUse = new Set(present.map((p) => p.attack).filter(Boolean));
   const owaspInUse = new Set(present.map((p) => p.owasp).filter(Boolean));
+  const categoriesInUse = cats.map((c) => c.category).filter(Boolean);
 
-  const anyFilter = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.q);
+  const anyFilter = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.category || sp.q);
 
-  // CSV export honors the current filters.
+  // CSV export honors the current filters (real filter keys only).
   const exportQs = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) if (v) exportQs.set(k, v);
+  for (const k of ["attack", "owasp", "severity", "status", "q"] as const) {
+    if (sp[k]) exportQs.set(k, sp[k]!);
+  }
   const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
 
   return (
@@ -96,18 +102,51 @@ export default async function FindingsPage({
             or status to triage.
           </p>
         </div>
-        {findings.length > 0 && (
-          <a href={exportHref} className="btn-ghost shrink-0 text-sm" download>
-            <Icon name="copy" className="mr-1 inline h-4 w-4" />
-            Export CSV
-          </a>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {findings.length > 0 && (
+            <a href={exportHref} className="btn-ghost text-sm" download>
+              <Icon name="copy" className="mr-1 inline h-4 w-4" />
+              Export CSV
+            </a>
+          )}
+          {engagements.length > 0 && (
+            <details className="relative">
+              <summary className="btn-ghost cursor-pointer list-none text-sm">
+                <Icon name="arrow" className="mr-1 inline h-4 w-4" /> Import
+              </summary>
+              <form
+                action={importFindingsCsv}
+                encType="multipart/form-data"
+                className="glass-panel absolute right-0 z-30 mt-2 w-72 space-y-2 rounded-lg border border-surface-border p-3"
+              >
+                <p className="text-xs text-gray-400">Import findings from CSV into:</p>
+                <select name="engagementId" required className="w-full rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand">
+                  {engagements.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+                <input type="file" name="file" accept=".csv,text/csv" required className="w-full text-xs text-gray-400 file:mr-2 file:rounded file:border-0 file:bg-brand file:px-2 file:py-1 file:text-black" />
+                <p className="text-[10px] text-gray-600">Columns: Title (required), Severity, Status, Category, Description, Recommendation.</p>
+                <button className="btn-primary w-full text-xs">Import CSV</button>
+              </form>
+            </details>
+          )}
+        </div>
       </div>
 
+      {sp.ok && (
+        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">✓ {sp.ok}</div>
+      )}
+      {sp.error && (
+        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          <Icon name="alert" className="mr-1 inline h-4 w-4" />{sp.error}
+        </div>
+      )}
+
       <HelpBanner>
-        <p>• Click a framework / severity chip to filter; click again to clear.</p>
-        <p>• Export CSV respects the current filters (includes ATT&amp;CK/OWASP columns).</p>
-        <p>• Click a finding to open its engagement; work exploits on the Exploitation page.</p>
+        <p>• Click a framework / severity / category chip to filter; click again to clear.</p>
+        <p>• Select findings to bulk delete, set status, or tag a category.</p>
+        <p>• Export/Import findings as CSV. Confirmed-exploitable findings glow red.</p>
       </HelpBanner>
 
       {/* Search */}
@@ -170,6 +209,20 @@ export default async function FindingsPage({
             </Chip>
           ))}
         </div>
+        {categoriesInUse.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-xs font-semibold text-gray-500">Category</span>
+            {categoriesInUse.map((c) => (
+              <Chip
+                key={c}
+                active={sp.category === c}
+                href={withParam(sp, "category", sp.category === c ? undefined : c)}
+              >
+                {c}
+              </Chip>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Active-filter summary + clear */}
@@ -187,9 +240,9 @@ export default async function FindingsPage({
       </div>
 
       {/* Results */}
-      <div className="mt-4 space-y-3">
-        {findings.length === 0 ? (
-          anyFilter ? (
+      {findings.length === 0 ? (
+        <div className="mt-4">
+          {anyFilter ? (
             <EmptyState icon="search" title="No findings match these filters">
               Try clearing a filter, or broaden your search.
             </EmptyState>
@@ -203,39 +256,24 @@ export default async function FindingsPage({
               Findings appear here as you run scans, import Burp issues, or log them
               on an engagement. They&apos;re auto-tagged to ATT&amp;CK / OWASP.
             </EmptyState>
-          )
-        ) : (
-          findings.map((f) => (
-            <div key={f.id} className={`card ${f.confirmed ? "glow-danger" : ""}`}>
-              <div className="flex items-start justify-between gap-3">
-                <Link
-                  href={`/dashboard/engagements/${f.engagementId}`}
-                  className="font-semibold text-white hover:text-brand"
-                >
-                  {f.title}
-                </Link>
-                <div className="flex shrink-0 items-center gap-2">
-                  {f.confirmed && (
-                    <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>
-                  )}
-                  <SeverityBadge value={f.severity} />
-                  <FindingStatusBadge value={f.status} />
-                </div>
-              </div>
-              <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2" linked />
-              <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-                <Icon name="briefcase" className="h-3 w-3" />
-                <Link
-                  href={`/dashboard/engagements/${f.engagementId}`}
-                  className="hover:text-gray-300"
-                >
-                  {f.engagement?.name ?? "Unknown engagement"}
-                </Link>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <FindingsBulk
+          findings={findings.map((f) => ({
+            id: f.id,
+            title: f.title,
+            severity: f.severity,
+            status: f.status,
+            attack: f.attack,
+            owasp: f.owasp,
+            confirmed: f.confirmed,
+            category: f.category,
+            engagementId: f.engagementId,
+            engagementName: f.engagement?.name ?? null,
+          }))}
+        />
+      )}
     </div>
   );
 }

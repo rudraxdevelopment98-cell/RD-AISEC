@@ -78,17 +78,29 @@ export async function setBugAuto(formData: FormData) {
   redirect(`${BACK}?ok=${encodeURIComponent(auto ? "Automation enabled" : "Automation paused")}`);
 }
 
-/** One click: turn on daily automation for every active program, on one machine. */
+/** One click: turn on daily automation for every ENGAGED program, on one machine. */
 export async function automateAllPrograms(formData: FormData) {
   await requireUser();
   const runnerId = String(formData.get("runnerId") ?? "");
   if (!runnerId) redirect(`${BACK}?error=${encodeURIComponent("Pick a machine first.")}`);
+  // Only programs you've engaged (created an engagement for) get automated.
   const res = await prisma.bugProgram.updateMany({
-    where: { status: "active" },
+    where: { status: "active", engagementId: { not: null } },
     data: { auto: true, autoRunnerId: runnerId },
   });
+  if (res.count === 0) {
+    redirect(`${BACK}?error=${encodeURIComponent("No engaged programs yet — 'Create engagement' on a program first.")}`);
+  }
   revalidatePath(BACK);
-  redirect(`${BACK}?ok=${encodeURIComponent(`Automation enabled on ${res.count} program(s)`)}`);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Automation enabled on ${res.count} engaged program(s)`)}`);
+}
+
+/** Pause automation on every program. */
+export async function pauseAllPrograms() {
+  await requireUser();
+  await prisma.bugProgram.updateMany({ where: { auto: true }, data: { auto: false } });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent("Automation paused on all programs")}`);
 }
 
 /** Run the recon/vuln pipeline for a program now (manual trigger). */
@@ -138,6 +150,7 @@ export async function addBugProgram(formData: FormData) {
       scope: String(formData.get("scope") ?? "").trim(),
       outScope: String(formData.get("outScope") ?? "").trim(),
       reward: String(formData.get("reward") ?? "").trim(),
+      category: String(formData.get("category") ?? "").trim().slice(0, 60),
       notes: String(formData.get("notes") ?? "").trim(),
       ownerEmail: email,
     },
@@ -155,6 +168,7 @@ export async function updateBugProgram(formData: FormData) {
       scope: String(formData.get("scope") ?? "").trim(),
       outScope: String(formData.get("outScope") ?? "").trim(),
       url: String(formData.get("url") ?? "").trim(),
+      category: String(formData.get("category") ?? "").trim().slice(0, 60),
       status: String(formData.get("status") ?? "active"),
     },
   });
@@ -168,6 +182,41 @@ export async function deleteBugProgram(formData: FormData) {
   await prisma.bugProgram.delete({ where: { id } });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent("Program removed")}`);
+}
+
+const PROGRAM_STATUSES = ["active", "paused", "archived"];
+
+/** Bulk delete selected programs. */
+export async function bulkDeletePrograms(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length) await prisma.bugProgram.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Removed ${ids.length} program(s)`)}`);
+}
+
+/** Bulk set category/tag on selected programs. */
+export async function bulkSetProgramCategory(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const category = String(formData.get("category") ?? "").trim().slice(0, 60);
+  if (ids.length) {
+    await prisma.bugProgram.updateMany({ where: { id: { in: ids } }, data: { category } });
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Tagged ${ids.length} program(s)`)}`);
+}
+
+/** Bulk set status on selected programs. */
+export async function bulkSetProgramStatus(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const status = String(formData.get("status") ?? "");
+  if (ids.length && PROGRAM_STATUSES.includes(status)) {
+    await prisma.bugProgram.updateMany({ where: { id: { in: ids } }, data: { status } });
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Updated ${ids.length} program(s)`)}`);
 }
 
 /** Create an authorized engagement from a program's scope and link them. */
