@@ -326,6 +326,10 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   tor: "tor", // for anonymity
   torsocks: "torsocks", // for anonymity
   aircrack: "aircrack-ng", // WiFi suite (airodump-ng, airmon-ng, aireplay-ng)
+  hashcat: "hashcat", // GPU/CPU password cracking (WPA mode 22000)
+  hcxtools: "hcxtools", // convert captures to hashcat 22000 (hcxpcapngtool)
+  hcxdumptool: "hcxdumptool", // clientless PMKID capture
+  wifiphisher: "wifiphisher", // evil-twin + captive-portal (authorized testing)
 };
 
 /** Serialize the tool specs for the runner (incl. apt package for installs). */

@@ -4,9 +4,9 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, crackHandshake, saveWifiFindings } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, crackHandshake, crackHashcat, capturePmkid, saveWifiFindings } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
-import { wifiSecurityAdvice, wifiAdviceText } from "@/lib/wifi-advice";
+import { wifiSecurityAdvice, wifiAdviceText, extractCrackedKey } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
 import { CopyText } from "@/components/copy-text";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -60,10 +60,12 @@ export default async function WifiPage({
   });
   const latestByRunner = new Map<string, (typeof wifiJobs)[number]>();
   const inspectByRunner = new Map<string, (typeof wifiJobs)[number]>();
+  const crackByRunner = new Map<string, (typeof wifiJobs)[number]>();
   for (const j of wifiJobs) {
     if (!j.runnerId) continue;
     if (j.target === "wifi-scan" && !latestByRunner.has(j.runnerId)) latestByRunner.set(j.runnerId, j);
     if (j.target.startsWith("wifi-inspect") && !inspectByRunner.has(j.runnerId)) inspectByRunner.set(j.runnerId, j);
+    if (j.target.startsWith("wifi-crack") && !crackByRunner.has(j.runnerId)) crackByRunner.set(j.runnerId, j);
   }
 
   const anyActive = wifiJobs.some((j) => j.status === "queued" || j.status === "running");
@@ -132,6 +134,14 @@ export default async function WifiPage({
               { label: "Deauth (authorized!)", cmd: `aireplay-ng --deauth 5 -a AA:BB:CC:DD:EE:FF ${mon}` },
               { label: "Read capture CSV", cmd: "cat /tmp/capture-01.csv" },
             ];
+
+            const installedSet = new Set((r.installed ?? "").split(",").map((s) => s.trim()));
+            const wifiTools = [
+              { id: "hcxdumptool", label: "hcxdumptool (PMKID)" },
+              { id: "hcxtools", label: "hcxtools (convert)" },
+              { id: "hashcat", label: "hashcat (GPU crack)" },
+              { id: "wifiphisher", label: "wifiphisher (evil twin)" },
+            ].filter((t) => !installedSet.has(t.id));
 
             return (
               <div key={r.id} className="card">
@@ -288,6 +298,12 @@ export default async function WifiPage({
                       const ap = data.aps[0];
                       const apChan = ap?.chan ?? "";
                       const apVendor = lookupVendor(target);
+                      // A passphrase cracked from a recent crack job for this AP.
+                      const crackJob = crackByRunner.get(r.id);
+                      const crackedKey =
+                        crackJob && crackJob.target.includes(target) && crackJob.status === "done"
+                          ? extractCrackedKey(crackJob.output)
+                          : "";
                       return (
                         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/5 p-3">
                           <p className="text-xs font-semibold text-brand-glow">
@@ -335,31 +351,79 @@ export default async function WifiPage({
                                 </form>
                               </div>
 
-                              {/* Crack a captured handshake with a wordlist (dictionary attack). */}
-                              <form action={crackHandshake} className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                <input type="hidden" name="runnerId" value={r.id} />
-                                <input type="hidden" name="bssid" value={target} />
-                                <input
-                                  name="wordlist"
-                                  placeholder="wordlist path (blank = rockyou)"
-                                  className="w-56 rounded-md border border-surface-border bg-surface px-2 py-1 font-mono outline-none focus:border-brand"
-                                />
-                                <button className="btn-ghost px-2 py-1" title="Dictionary attack on the captured handshake">
-                                  🔓 Crack handshake
-                                </button>
-                                <span className="text-[10px] text-gray-600">runs after a capture; weak passphrases fall fast</span>
-                              </form>
+                              {/* Other capture methods. */}
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <form action={capturePmkid}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <button className="btn-ghost px-2 py-1" title="Clientless PMKID capture (hcxdumptool) — no connected device needed">
+                                    📡 PMKID capture
+                                  </button>
+                                </form>
+                              </div>
+
+                              {/* Crack a captured handshake/PMKID. */}
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                <form action={crackHandshake} className="flex flex-wrap items-center gap-2">
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <input
+                                    name="wordlist"
+                                    placeholder="wordlist path (blank = rockyou)"
+                                    className="w-52 rounded-md border border-surface-border bg-surface px-2 py-1 font-mono outline-none focus:border-brand"
+                                  />
+                                  <button className="btn-ghost px-2 py-1" title="CPU dictionary attack (aircrack-ng)">
+                                    🔓 Crack (CPU)
+                                  </button>
+                                </form>
+                                <form action={crackHashcat}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <button className="btn-ghost px-2 py-1" title="GPU/CPU crack via hashcat (mode 22000) — much faster on a GPU">
+                                    ⚡ Crack (hashcat)
+                                  </button>
+                                </form>
+                              </div>
+
+                              {/* Cracked passphrase banner. */}
+                              {crackedKey && (
+                                <div className="mt-2 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                                  🔓 <b>Passphrase cracked:</b> <span className="font-mono">{crackedKey}</span> — weak/guessable. Recommend a long random passphrase or WPA3.
+                                </div>
+                              )}
+
+                              {/* Evil Twin — aggressive; run in your Kali terminal. */}
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-semibold text-amber-300 hover:text-amber-200">
+                                  🪤 Evil Twin / captive portal (advanced)
+                                </summary>
+                                <div className="mt-2 space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2">
+                                  <p className="text-[11px] text-red-200">
+                                    Spins up a fake AP with this SSID + a captive portal that asks the
+                                    victim for the WiFi password, then validates it against a captured
+                                    handshake. Very intrusive — <b>only on networks you own / are explicitly authorized to test</b>.
+                                    Interactive: run it in the runner&apos;s Kali terminal and watch it.
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <code className="flex-1 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
+                                      sudo wifiphisher -e &quot;{ap?.ssid || "SSID"}&quot; -p firmware-upgrade
+                                    </code>
+                                    <CopyText text={`sudo wifiphisher -e "${ap?.ssid || "SSID"}" -p firmware-upgrade`} label="Copy" />
+                                  </div>
+                                  <p className="text-[11px] text-gray-500">
+                                    All-in-one alternative: <code className="font-mono">sudo airgeddon</code> (menu-driven evil twin + handshake + crack).
+                                  </p>
+                                </div>
+                              </details>
 
                               {/* Security assessment & suggestions */}
                               {ap && (() => {
-                                const assess = wifiSecurityAdvice({
+                                const apIn = {
                                   ssid: ap.ssid, security: ap.security, cipher: ap.cipher,
-                                  auth: ap.auth, clients: data.clients.length,
-                                });
-                                const text = wifiAdviceText(
-                                  { ssid: ap.ssid, security: ap.security, cipher: ap.cipher, auth: ap.auth, clients: data.clients.length },
-                                  assess,
-                                );
+                                  auth: ap.auth, clients: data.clients.length, crackedKey,
+                                };
+                                const assess = wifiSecurityAdvice(apIn);
+                                const text = wifiAdviceText(apIn, assess);
                                 return (
                                   <div className="mt-3 rounded-lg border border-surface-border bg-black/20 p-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -389,6 +453,7 @@ export default async function WifiPage({
                                         <input type="hidden" name="cipher" value={ap.cipher ?? ""} />
                                         <input type="hidden" name="auth" value={ap.auth ?? ""} />
                                         <input type="hidden" name="clients" value={data.clients.length} />
+                                        <input type="hidden" name="crackedKey" value={crackedKey} />
                                         <span className="text-[11px] text-gray-500">Save to engagement:</span>
                                         <select name="engagementId" className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand">
                                           {engagements.map((e) => (
@@ -458,14 +523,26 @@ export default async function WifiPage({
                       );
                     })()}
 
-                    {/* Install aircrack (for capture) */}
-                    {!hasAircrack && (
-                      <form action={requestInstall} className="mt-3">
-                        <input type="hidden" name="runnerId" value={r.id} />
-                        <input type="hidden" name="tool" value="aircrack" />
-                        <input type="hidden" name="confirm" value="true" />
-                        <button className="btn-ghost text-xs">Install aircrack-ng suite (for capture)</button>
-                      </form>
+                    {/* Install WiFi tooling (capture/crack/evil-twin) */}
+                    {(!hasAircrack || wifiTools.length > 0) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {!hasAircrack && (
+                          <form action={requestInstall}>
+                            <input type="hidden" name="runnerId" value={r.id} />
+                            <input type="hidden" name="tool" value="aircrack" />
+                            <input type="hidden" name="confirm" value="true" />
+                            <button className="btn-ghost text-xs">Install aircrack-ng</button>
+                          </form>
+                        )}
+                        {wifiTools.map((t) => (
+                          <form key={t.id} action={requestInstall}>
+                            <input type="hidden" name="runnerId" value={r.id} />
+                            <input type="hidden" name="tool" value={t.id} />
+                            <input type="hidden" name="confirm" value="true" />
+                            <button className="btn-ghost text-xs">Install {t.label}</button>
+                          </form>
+                        ))}
+                      </div>
                     )}
 
                     {/* Monitor / capture (collapsible — advanced) */}

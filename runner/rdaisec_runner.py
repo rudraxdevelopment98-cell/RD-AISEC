@@ -245,6 +245,10 @@ INSTALL_PKGS = {
     "katana": "katana",
     "dalfox": "dalfox",
     "metasploit": "metasploit-framework",
+    "hashcat": "hashcat",
+    "hcxtools": "hcxtools",
+    "hcxdumptool": "hcxdumptool",
+    "wifiphisher": "wifiphisher",
 }
 
 
@@ -256,6 +260,10 @@ EXTRA_INSTALL_BINS = {
     "tor": "tor",
     "torsocks": "torsocks",
     "aircrack": "aircrack-ng",
+    "hashcat": "hashcat",
+    "hcxtools": "hcxpcapngtool",
+    "hcxdumptool": "hcxdumptool",
+    "wifiphisher": "wifiphisher",
 }
 
 
@@ -596,8 +604,9 @@ def run_job(job):
     # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
     to = job_timeout(job.get("tool", ""))
-    # Password cracking (aircrack-ng) needs much longer than a normal custom job.
-    if "aircrack-ng" in (job.get("args") or "") and "-w" in (job.get("args") or ""):
+    # Password cracking (aircrack-ng / hashcat) needs much longer than a normal job.
+    _a = job.get("args") or ""
+    if ("aircrack-ng" in _a and "-w" in _a) or "hashcat" in _a:
         to = 2400
 
     def _kill():

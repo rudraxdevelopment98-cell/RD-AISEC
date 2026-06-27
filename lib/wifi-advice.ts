@@ -22,13 +22,43 @@ export type WifiApInput = {
   cipher?: string; // CCMP | TKIP
   auth?: string; // PSK | MGT
   clients?: number;
+  crackedKey?: string; // passphrase recovered from a handshake/PMKID (proof of weak PSK)
 };
+
+/** Pull a recovered passphrase from aircrack-ng / hashcat output, if any. */
+export function extractCrackedKey(output: string): string {
+  if (!output) return "";
+  // aircrack-ng: "KEY FOUND! [ password ]"
+  const ak = output.match(/KEY FOUND!\s*\[\s*(.+?)\s*\]/);
+  if (ak) return ak[1];
+  // hashcat --show: "<hash>:...:PASSWORD" on a result line (after the marker).
+  const idx = output.indexOf("== result ==");
+  const tail = idx >= 0 ? output.slice(idx) : output;
+  for (const raw of tail.split("\n")) {
+    const line = raw.trim();
+    // 22000 lines have several ':'-separated fields ending in the password.
+    if (/^[0-9a-f]{8,}.*:/i.test(line) && line.split(":").length >= 4) {
+      const pw = line.split(":").pop() ?? "";
+      if (pw && pw.length >= 8) return pw;
+    }
+  }
+  return "";
+}
 
 export function wifiSecurityAdvice(ap: WifiApInput): WifiAssessment {
   const sec = (ap.security || "").toUpperCase();
   const cipher = (ap.cipher || "").toUpperCase();
   const auth = (ap.auth || "").toUpperCase();
   const issues: WifiIssue[] = [];
+
+  if (ap.crackedKey) {
+    issues.push({
+      title: "Passphrase recovered from captured handshake",
+      severity: "critical",
+      detail: `The WiFi passphrase was cracked from a captured handshake/PMKID ("${ap.crackedKey}"), proving it is weak and guessable.`,
+      fix: "Set a long (15+ char) random passphrase or move to WPA3-SAE / 802.1X. Treat the current key as compromised and rotate it everywhere.",
+    });
+  }
 
   if (sec === "OPEN") {
     issues.push({
