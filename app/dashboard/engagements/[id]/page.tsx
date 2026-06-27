@@ -24,10 +24,12 @@ import { getPillar } from "@/data/portal";
 import { EngagementWorkbench } from "@/components/engagement-workbench";
 import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
 import { PipelinePanel } from "@/components/pipeline-panel";
+import { EngagementDiagnostics } from "@/components/engagement-diagnostics";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { prisma } from "@/lib/db";
 import { stageProgressMap } from "@/lib/pipeline-engine";
+import { engagementReadiness } from "@/lib/diagnostics";
 import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
@@ -55,14 +57,16 @@ export default async function EngagementDetail({
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
 
-  // Guided-assessment pipeline state + how many runner machines exist.
-  const [pipeline, progress, runnerCount] = await Promise.all([
+  // Guided-assessment pipeline state, how many runner machines exist, and a
+  // readiness diagnostic (why bug-finding might be producing nothing).
+  const [pipeline, progress, runnerCount, readiness] = await Promise.all([
     prisma.pipeline.findUnique({
       where: { engagementId: e.id },
       include: { stages: true },
     }),
     stageProgressMap(e.id),
     prisma.runner.count(),
+    engagementReadiness({ id: e.id, authorized: e.authorized, scope: e.scope }),
   ]);
 
   // Engagement command center — one hub to drive every workflow for this case.
@@ -249,6 +253,9 @@ export default async function EngagementDetail({
           </button>
         </form>
       </section>
+
+      {/* Readiness — why bug-finding might be producing nothing */}
+      <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
 
       {/* Command center — drive every workflow for this engagement */}
       <section className="mt-6">

@@ -267,6 +267,12 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Re-run a stage deeper** (pipeline): each recon/scan/exploit stage has a
       "↻ Re-run deeper" action to escalate just that stage to deep settings and
       continue from there — no need to restart the whole assessment.
+- ✅ **Readiness check** (per engagement): a diagnostic that explains *why*
+      bug-finding may be producing nothing — runner online?, scan/exploit tools
+      installed?, authorized?, scannable scope?, recent job failures (with the
+      actual error text). Each problem links to its fix.
+- ✅ **Install all required tools** (one click): from the readiness panel, queue
+      apt installs for every missing scan/exploit tool on the online runner(s).
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit

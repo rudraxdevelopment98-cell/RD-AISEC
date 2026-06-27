@@ -11,9 +11,11 @@ import {
   normalizeTarget,
   validateTarget,
   INSTALLABLE_PKGS,
+  RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
+import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
 
 /** Hash a runner token for storage/lookup (never store the plaintext). */
 export async function hashToken(token: string): Promise<string> {
@@ -93,6 +95,53 @@ export async function requestInstall(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/runners");
+}
+
+/**
+ * One-click: install every required scan/exploit tool that's missing on the
+ * online runner(s). Recomputes the missing set server-side; only allowlisted
+ * apt packages are ever requested. Returns the user to the engagement.
+ */
+export async function installRequiredTools(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const engagementId = String(formData.get("engagementId") ?? "");
+  const backTo = engagementId ? `/dashboard/engagements/${engagementId}` : "/dashboard/runners";
+
+  const now = Date.now();
+  const runners = await prisma.runner.findMany({
+    select: { id: true, lastSeenAt: true, installed: true },
+  });
+  const online = runners.filter(
+    (r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
+  );
+  if (online.length === 0) {
+    redirect(`${backTo}?error=${encodeURIComponent("No runner online to install on.")}`);
+  }
+
+  let queued = 0;
+  for (const r of online) {
+    const have = new Set((r.installed || "").split(",").map((s) => s.trim()).filter(Boolean));
+    for (const tool of REQUIRED_TOOL_IDS) {
+      if (have.has(tool) || !INSTALLABLE_PKGS[tool]) continue;
+      const existing = await prisma.install.findFirst({
+        where: { runnerId: r.id, tool, status: { in: ["pending", "installing"] } },
+      });
+      if (!existing) {
+        await prisma.install.create({
+          data: { runnerId: r.id, tool, requestedBy: session.user.email ?? "" },
+        });
+        queued += 1;
+      }
+    }
+  }
+  revalidatePath("/dashboard/runners");
+  revalidatePath(backTo);
+  redirect(
+    `${backTo}?ok=${encodeURIComponent(
+      queued > 0 ? `Queued ${queued} tool install(s) — watch progress on Machines` : "Nothing to install — tools already present or queued",
+    )}`,
+  );
 }
 
 export async function deleteRunner(formData: FormData) {
