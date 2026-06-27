@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "20"
+RUNNER_VERSION = "21"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -155,7 +155,29 @@ _load_env_files()
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
-JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # 15 min per job
+JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # default per job
+# Per-tool timeout overrides (seconds). Thorough scanners (nmap -p-, full nuclei,
+# nikto, sqlmap) routinely need more than 15 min — without this they get killed
+# mid-scan and report nothing. Each tool is ALSO bounded by its own args
+# (--host-timeout / -maxtime / rate limits) so it returns partial results in time.
+TOOL_TIMEOUTS = {
+    "nmap": 2400,
+    "nuclei": 1800,
+    "nikto": 1500,
+    "gobuster": 1200,
+    "wpscan": 1200,
+    "sqlmap": 1800,
+    "amass": 1200,
+    "dnsenum": 900,
+    "masscan": 900,
+    "enum4linux": 900,
+}
+
+
+def job_timeout(tool: str) -> int:
+    return TOOL_TIMEOUTS.get(tool, JOB_TIMEOUT)
+
+
 MAX_OUTPUT = 200_000  # keep in sync with MAX_OUTPUT_CHARS in the portal
 # How often to stream partial output of a running job back to the portal (live
 # verbose). Set PROGRESS_SECONDS=0 to disable streaming.
@@ -559,8 +581,9 @@ def run_job(job):
     except FileNotFoundError:
         return f"'{argv[0]}' is not installed on this runner.", 127
 
-    # Watchdog kills the process if it runs past the timeout.
+    # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
+    to = job_timeout(job.get("tool", ""))
 
     def _kill():
         killed["v"] = True
@@ -569,7 +592,7 @@ def run_job(job):
         except Exception:  # noqa: BLE001
             pass
 
-    timer = threading.Timer(JOB_TIMEOUT, _kill)
+    timer = threading.Timer(to, _kill)
     timer.start()
 
     buf: list[str] = []
@@ -595,7 +618,7 @@ def run_job(job):
 
     out = "".join(buf)[:MAX_OUTPUT]
     if killed["v"]:
-        return out + f"\n\nJob timed out after {JOB_TIMEOUT}s and was stopped.", 124
+        return out + f"\n\nJob timed out after {to}s and was stopped.", 124
     return out, proc.returncode if proc.returncode is not None else 0
 
 

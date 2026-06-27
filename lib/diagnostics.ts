@@ -173,16 +173,23 @@ export async function engagementReadiness(eng: {
   if (failed.length > 0) {
     const last = failed[0];
     const snippet = (last.output || "").split("\n").map((l) => l.trim()).filter(Boolean).slice(-2).join(" ").slice(0, 180);
+    const out = last.output || "";
+    const timedOut = /timed out/i.test(out);
+    let hint = "";
+    if (/not found|no such file|command not|not installed/i.test(out)) {
+      hint = " — looks like the tool isn't installed.";
+    } else if (timedOut) {
+      hint =
+        " — the scan timed out. Update the runner to v21+ (longer, self-bounded scans), and note that CDN/cloud-fronted hosts (Cloudflare/Fastly) make full port scans slow with few real ports — web scans (nuclei/nikto) are the high-value path there.";
+    }
     checks.push({
       id: "failures",
-      label: `${failed.length} recent job failure(s)`,
+      label: `${failed.length} recent job failure(s)${timedOut ? " — timeouts" : ""}`,
       level: "warn",
       detail:
         `Most recent: ${last.tool} on ${last.target}. ` +
         (snippet ? `Output: "${snippet}"` : "Open the job to see the error.") +
-        (/not found|no such file|command not|not installed/i.test(last.output || "")
-          ? " — looks like the tool isn't installed."
-          : ""),
+        hint,
       fixHref: `/dashboard/jobs?engagement=${eng.id}`,
       fixLabel: "View jobs",
     });
