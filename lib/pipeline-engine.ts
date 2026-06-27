@@ -43,20 +43,25 @@ function stageSteps(stage: string, deep: boolean): Step[] {
   }
   if (stage === "scan") {
     return [
-      { tool: "nuclei", args: deep ? "-jsonl" : "-jsonl", mode: "url" },
+      // Rate-limited + bounded so a full template run completes in the window.
+      { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
       {
         tool: "nmap",
-        args: deep ? "-Pn -sV -T4 -p- --script vuln" : "-Pn -sV -T4 --top-ports 200",
+        // --host-timeout caps per-host time so a CDN/filtered host can't hang the
+        // whole job; deep adds all ports + vuln NSE but stays bounded.
+        args: deep
+          ? "-Pn -sV -T4 -p- --script vuln --host-timeout 30m --min-rate 800 --max-retries 2"
+          : "-Pn -sV -T4 --top-ports 200 --host-timeout 15m --max-retries 2",
         mode: "host",
       },
       {
         tool: "gobuster",
         args: deep
-          ? "dir -q -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
-          : "dir -q -w /usr/share/wordlists/dirb/common.txt",
+          ? "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+          : "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
         mode: "url",
       },
-      { tool: "nikto", args: "", mode: "url" },
+      { tool: "nikto", args: "-maxtime 1200", mode: "url" },
       { tool: "sslscan", args: "", mode: "host" },
     ];
   }

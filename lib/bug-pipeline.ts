@@ -28,23 +28,24 @@ export const RECON_TOOLS = new Set([
 type Step = { tool: string; args: string; mode: "url" | "host" };
 const PIPELINE: Step[] = [
   { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" }, // alive + tech
-  { tool: "nuclei", args: "-jsonl", mode: "url" }, // templated vulnerabilities
-  { tool: "nmap", args: "-Pn -F -T4", mode: "host" }, // top-100 ports + services
+  { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" }, // bounded vuln templates
+  { tool: "nmap", args: "-Pn -F -T4 --host-timeout 10m", mode: "host" }, // top-100 ports + services, bounded
   {
     tool: "gobuster",
-    args: "dir -q -w /usr/share/wordlists/dirb/common.txt",
+    args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
     mode: "url",
   }, // content discovery
 ];
 
 // Deep variant: maximum coverage (all TCP ports + vuln NSE, bigger wordlist,
-// plus web-server and TLS scanners). Slower; used by "Deep scan now".
+// plus web-server and TLS scanners). Slower; used by "Deep scan now". Every tool
+// is self-bounded (--host-timeout / -maxtime / rate limits) so it returns in time.
 const PIPELINE_DEEP: Step[] = [
   { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
-  { tool: "nuclei", args: "-jsonl", mode: "url" },
-  { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4", mode: "host" },
-  { tool: "gobuster", args: "dir -q -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", mode: "url" },
-  { tool: "nikto", args: "", mode: "url" },
+  { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
+  { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4 --host-timeout 30m --min-rate 800 --max-retries 2", mode: "host" },
+  { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", mode: "url" },
+  { tool: "nikto", args: "-maxtime 1200", mode: "url" },
   { tool: "sslscan", args: "", mode: "host" },
 ];
 

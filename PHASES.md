@@ -273,6 +273,12 @@ build that item, verify, commit, and merge to `main`.
       actual error text). Each problem links to its fix.
 - ✅ **Install all required tools** (one click): from the readiness panel, queue
       apt installs for every missing scan/exploit tool on the online runner(s).
+- ✅ **Fixed scan timeouts** (runner v21): per-tool timeouts (nmap 40m, nuclei/
+      sqlmap 30m, nikto 25m, …) instead of a flat 15 min, and every tool is now
+      self-bounded (nmap --host-timeout/--min-rate, nuclei rate-limit, nikto
+      -maxtime, gobuster threads) so it returns results instead of being killed.
+      Portal stale-job cutoff raised to 45 min to match. Readiness check now
+      explains timeout failures (and that CDN-fronted hosts favour web scans).
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit

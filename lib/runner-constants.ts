@@ -34,9 +34,9 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     // -Pn skips host discovery: most hosts block nmap's ping probes, which would
     // otherwise make nmap report "host seems down" and find 0 ports.
     presets: [
-      { id: "quick", label: "Quick (top 100 ports)", args: ["-Pn", "-F", "-T4"] },
-      { id: "service", label: "Service + version", args: ["-Pn", "-sV", "-T4"] },
-      { id: "full", label: "Full TCP (all ports)", args: ["-Pn", "-p-", "-T4"] },
+      { id: "quick", label: "Quick (top 100 ports)", args: ["-Pn", "-F", "-T4", "--host-timeout", "10m"] },
+      { id: "service", label: "Service + version", args: ["-Pn", "-sV", "-T4", "--host-timeout", "20m"] },
+      { id: "full", label: "Full TCP (all ports)", args: ["-Pn", "-p-", "-T4", "--host-timeout", "30m", "--min-rate", "800"] },
       {
         id: "discovery",
         label: "Network discovery (ping sweep — give a CIDR)",
@@ -45,7 +45,7 @@ export const RUNNER_TOOLS: RunnerTool[] = [
       {
         id: "network",
         label: "Network scan (top ports — give a CIDR)",
-        args: ["-Pn", "-T4", "--top-ports", "100"],
+        args: ["-Pn", "-T4", "--top-ports", "100", "--host-timeout", "10m"],
       },
     ],
   },
@@ -64,8 +64,8 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     description: "Run community vulnerability/exposure templates against a target.",
     active: true,
     presets: [
-      { id: "info", label: "Info & misconfig (low impact)", args: ["-severity", "info,low", "-jsonl"] },
-      { id: "default", label: "Default templates", args: ["-jsonl"] },
+      { id: "info", label: "Info & misconfig (low impact)", args: ["-severity", "info,low", "-jsonl", "-rl", "150", "-timeout", "8", "-retries", "1"] },
+      { id: "default", label: "Default templates", args: ["-jsonl", "-rl", "150", "-timeout", "8", "-retries", "1", "-c", "50"] },
     ],
   },
   {
@@ -343,15 +343,16 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "20";
+export const RUNNER_VERSION = "21";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;
 
 // A job stuck in "running" longer than this is treated as dead (runner crashed,
 // lost connection, or the tool hung) and auto-failed. Must exceed the runner's
-// per-job timeout (JOB_TIMEOUT, default 900s) with margin.
-export const JOB_STALE_MS = 20 * 60_000;
+// LONGEST per-tool timeout (nmap = 2400s) with margin, or the portal would fail
+// a legitimately long scan while the runner is still working on it.
+export const JOB_STALE_MS = 45 * 60_000;
 
 // Cap stored tool output so a chatty tool can't bloat the database.
 export const MAX_OUTPUT_CHARS = 200_000;
