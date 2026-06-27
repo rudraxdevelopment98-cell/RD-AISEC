@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
-import { parseNmapNetwork } from "@/lib/network";
+import { parseNmapNetwork, mergeNetworkHosts } from "@/lib/network";
 import { NetworkGraph } from "@/components/network-graph";
 import { LocalScanForm } from "@/components/local-scan-form";
 import { ScanSelect } from "@/components/scan-select";
@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
 export default async function NetworkPage({
   searchParams,
 }: {
-  searchParams: { job?: string; error?: string; queued?: string };
+  searchParams: { job?: string; error?: string; queued?: string; engagement?: string };
 }) {
-  const [jobs, runnerRows, engagementRows] = await Promise.all([
+  const engId = searchParams.engagement || "";
+  const [jobs, runnerRows, engagementRows, engJobs] = await Promise.all([
     prisma.job.findMany({
       where: { tool: "nmap", status: "done" },
       orderBy: { createdAt: "desc" },
@@ -28,6 +29,15 @@ export default async function NetworkPage({
       orderBy: { updatedAt: "desc" },
       select: { id: true, name: true },
     }),
+    // All nmap scans for the chosen engagement (for the merged, full-engagement map).
+    engId
+      ? prisma.job.findMany({
+          where: { engagementId: engId, tool: "nmap", status: "done" },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          select: { id: true, output: true, target: true },
+        })
+      : Promise.resolve([] as { id: string; output: string; target: string }[]),
   ]);
 
   const now = Date.now();
@@ -40,8 +50,15 @@ export default async function NetworkPage({
     }))
     .filter((r) => r.subnets.length > 0);
 
-  const selected = jobs.find((j) => j.id === searchParams.job) ?? jobs[0] ?? null;
-  const hosts = selected ? parseNmapNetwork(selected.output) : [];
+  // Engagement mode merges every nmap scan in the engagement into one map;
+  // otherwise we show a single selected scan.
+  const engName = engagementRows.find((e) => e.id === engId)?.name ?? "";
+  const selected = engId ? null : jobs.find((j) => j.id === searchParams.job) ?? jobs[0] ?? null;
+  const hosts = engId
+    ? mergeNetworkHosts(engJobs.map((j) => parseNmapNetwork(j.output)))
+    : selected
+      ? parseNmapNetwork(selected.output)
+      : [];
   const withPorts = hosts.filter((h) => h.ports.length > 0).length;
   const totalPorts = hosts.reduce((n, h) => n + h.ports.length, 0);
 
@@ -116,7 +133,52 @@ export default async function NetworkPage({
         </p>
       </div>
 
-      {jobs.length === 0 ? (
+      {/* View switch: a single scan, or the merged map of a whole engagement. */}
+      {engagementRows.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-gray-500">View:</span>
+          <Link
+            href="/dashboard/network"
+            className={`tag ${!engId ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400 hover:text-gray-200"}`}
+          >
+            Single scan
+          </Link>
+          {engagementRows.map((e) => (
+            <Link
+              key={e.id}
+              href={`/dashboard/network?engagement=${e.id}`}
+              className={`tag ${engId === e.id ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400 hover:text-gray-200"}`}
+            >
+              {e.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {engId ? (
+        // ── Full-engagement map (all nmap scans merged) ──
+        <>
+          <h2 className="mt-4 flex items-center gap-2 text-lg font-semibold">
+            <Icon name="globe" className="h-4 w-4 text-brand" /> {engName} — full map
+            <span className="text-sm font-normal text-gray-500">({engJobs.length} scan{engJobs.length === 1 ? "" : "s"} merged)</span>
+          </h2>
+          <section className="mt-4 grid grid-cols-3 gap-4">
+            <Stat value={hosts.length} label="hosts up" />
+            <Stat value={withPorts} label="with open ports" accent="text-emerald-300" />
+            <Stat value={totalPorts} label="open ports" accent="text-amber-300" />
+          </section>
+          {hosts.length === 0 ? (
+            <div className="card mt-6 text-sm text-gray-500">
+              No nmap hosts in this engagement yet. Run a <strong>Scan &amp; recon</strong> (or an
+              nmap network scan) from the engagement, then refresh.
+            </div>
+          ) : (
+            <div className="mt-6">
+              <NetworkGraph hosts={hosts} subnet={engName} />
+            </div>
+          )}
+        </>
+      ) : jobs.length === 0 ? (
         <div className="card mt-6 text-center">
           <p className="text-gray-400">
             No nmap scans yet. Run one from{" "}
