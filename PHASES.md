@@ -280,6 +280,17 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ WiFi + Network map fixes
+- ✅ **WiFi now works on-page**: per machine, a **Scan networks now** button runs
+      the scan on the runner and the access points render in a table (SSID/BSSID/
+      channel/signal/security) — open & WEP flagged red — auto-refreshing while
+      it scans. Monitor-mode/handshake capture moved into a collapsible; enable/
+      stop monitor + airodump run with one click. (Was: bounced to Jobs, no
+      results shown.)
+- ✅ **Network map — full engagement view**: a View switch lets you pick an
+      engagement and see **every nmap scan merged into one map** (hosts deduped,
+      ports unioned), with summary stats — not just a single scan.
+
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,
       Engagements, Findings, Exploitation, Lab) · Scanning · Services · Insights
