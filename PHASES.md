@@ -290,6 +290,10 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Network map — full engagement view**: a View switch lets you pick an
       engagement and see **every nmap scan merged into one map** (hosts deduped,
       ports unioned), with summary stats — not just a single scan.
+- ✅ **Inspect a WiFi network**: each scanned AP has a 🔍 Inspect button that runs
+      a 30s targeted airodump capture on its channel/BSSID and lists the
+      **devices connected** (MAC, which AP, signal, packets, what they're probing
+      for), plus a **rough distance** from signal for the AP and each device.
 
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,
