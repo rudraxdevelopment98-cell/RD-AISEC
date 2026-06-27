@@ -76,6 +76,16 @@ export default async function EditEngagementPage({
         </label>
 
         <label className="sm:col-span-2">
+          <span className="text-sm font-medium text-gray-300">Category</span>
+          <input
+            name="category"
+            defaultValue={e.category}
+            placeholder="e.g. HackerOne, manual, internal"
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </label>
+
+        <label className="sm:col-span-2">
           <span className="text-sm font-medium text-gray-300">Status</span>
           <select
             name="status"

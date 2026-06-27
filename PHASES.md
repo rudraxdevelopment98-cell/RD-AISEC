@@ -222,6 +222,14 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Program management bar**: search programs (name/scope/category/platform),
       category filter chips, multi-select, bulk tag category, bulk set status,
       bulk delete. Add/Edit programs carry a category; ranked by opportunity.
+- ✅ **Engagement management bar**: search (name/client/category/scope), filter
+      chips by type / status / category, multi-select, bulk tag category, bulk
+      set status, bulk set type, bulk delete. Engagements carry a category —
+      auto-set to the platform for bug-bounty ones, manual otherwise.
+- ✅ **Engagement command center**: inside an engagement, a tile grid to drive
+      everything for that case — scan & recon, exploit & validate, fix & triage,
+      research & lab, bug finding, posture scan, check results, report. Scan/
+      exploit tiles show a lock until authorization is recorded.
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
