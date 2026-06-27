@@ -88,6 +88,7 @@ export default async function WifiPage({
             const iface = ifaces[0] ?? "wlan1";
             const mon = `${iface}mon`;
             const hasAircrack = (r.installed ?? "").split(",").map((s) => s.trim()).includes("aircrack");
+            const inMonitor = ifaces.some((i) => /mon$/i.test(i));
             const job = latestByRunner.get(r.id);
             const scanning = job?.status === "queued" || job?.status === "running";
             const networks = job?.status === "done" ? parseWifiNetworks(job.output) : [];
@@ -150,14 +151,28 @@ export default async function WifiPage({
                     )}
                     {job?.status === "done" && networks.length === 0 && (
                       <p className="mt-3 text-sm text-gray-500">
-                        No networks parsed. This machine may have no WiFi adapter, or nmcli/NetworkManager isn&apos;t available.
-                        Try <code className="font-mono">iw dev</code> via a custom job to check.
+                        No networks parsed.{" "}
+                        {inMonitor ? (
+                          <>
+                            This adapter is in <b>monitor mode</b> ({iface}) so the scan uses{" "}
+                            <code className="font-mono">airodump-ng</code> — make sure <b>aircrack-ng</b> is
+                            installed and the runner runs as <b>root</b>, then scan again (give it a few seconds to hear beacons).
+                          </>
+                        ) : (
+                          <>
+                            This machine may have no WiFi adapter, or nmcli/NetworkManager isn&apos;t available.
+                            Try <code className="font-mono">iw dev</code> via a custom job to check.
+                          </>
+                        )}
                       </p>
                     )}
                     {job?.status === "failed" && (
                       <p className="mt-3 text-sm text-red-300">
-                        Scan failed — nmcli may not be installed/usable here. Check the{" "}
-                        <Link href={`/dashboard/jobs`} className="text-brand hover:underline">job output</Link>.
+                        Scan failed —{" "}
+                        {inMonitor
+                          ? "airodump-ng may not be installed (install aircrack-ng below) or needs root."
+                          : "nmcli may not be installed/usable here."}{" "}
+                        Check the <Link href={`/dashboard/jobs`} className="text-brand hover:underline">job output</Link>.
                       </p>
                     )}
                     {networks.length > 0 && (
