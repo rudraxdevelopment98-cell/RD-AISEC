@@ -6,6 +6,7 @@ import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { onPipelineJobFinished } from "@/lib/pipeline-engine";
 import { notifyFindings } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -52,12 +53,16 @@ export async function POST(
     return NextResponse.json({ ok: true, alreadyFinished: true });
   }
 
-  // Bug-bounty automation (no human in the loop).
+  // Bug-bounty automation (no human in the loop). Pipeline-staged jobs
+  // (job.stage set) still auto-import findings, but their downstream chaining is
+  // driven by the pipeline's own approval gates — so the result-route chains
+  // (amass→scan, recon→auto-exploit) are suppressed for them.
+  const pipelineJob = !!job.stage;
   if (status === "done" && job.autoImport && job.engagementId) {
     if (job.tool === "amass") {
       // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
       const hosts = parseSubdomains(output);
-      if (hosts.length > 0) {
+      if (hosts.length > 0 && !pipelineJob) {
         await queueHostScans(
           job.engagementId,
           job.runnerId ?? runner.id,
@@ -90,12 +95,18 @@ export async function POST(
           // Auto-exploit: from fresh RECON findings, queue exploit-validation
           // jobs (searchsploit / nmap vuln) on the same runner. Their results
           // come back through this same route and become findings too.
-          if (RECON_TOOLS.has(job.tool) && job.runnerId) {
+          if (RECON_TOOLS.has(job.tool) && job.runnerId && !pipelineJob) {
             await queueExploitJobs(job.engagementId, job.runnerId, fresh, job.queuedBy);
           }
         }
       }
     }
+  }
+
+  // Guided-assessment pipeline: when a staged job reaches a terminal state, let
+  // the engine check whether the stage is complete and advance / await approval.
+  if (pipelineJob && job.engagementId) {
+    await onPipelineJobFinished({ engagementId: job.engagementId, stage: job.stage });
   }
 
   return NextResponse.json({ ok: true });

@@ -23,8 +23,12 @@ import {
 import { getPillar } from "@/data/portal";
 import { EngagementWorkbench } from "@/components/engagement-workbench";
 import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
+import { PipelinePanel } from "@/components/pipeline-panel";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
+import { prisma } from "@/lib/db";
+import { stageProgressMap } from "@/lib/pipeline-engine";
+import { runScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +43,10 @@ const SEV_GLOW: Record<string, string> = {
 
 export default async function EngagementDetail({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { ok?: string; error?: string };
 }) {
   const e = await getEngagement(params.id);
   if (!e) notFound();
@@ -49,36 +55,49 @@ export default async function EngagementDetail({
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
 
+  // Guided-assessment pipeline state + how many runner machines exist.
+  const [pipeline, progress, runnerCount] = await Promise.all([
+    prisma.pipeline.findUnique({
+      where: { engagementId: e.id },
+      include: { stages: true },
+    }),
+    stageProgressMap(e.id),
+    prisma.runner.count(),
+  ]);
+
   // Engagement command center — one hub to drive every workflow for this case.
-  const commandTiles: {
-    href: string;
+  // Tiles with `action` run immediately (one click); the rest navigate.
+  type Tile = {
     icon: string;
     title: string;
     desc: string;
     accent: string;
     locked?: boolean;
-  }[] = [
+    href?: string;
+    action?: (formData: FormData) => Promise<void>;
+  };
+  const commandTiles: Tile[] = [
     {
-      href: `/dashboard/jobs?engagement=${e.id}`,
+      action: runScanNow,
       icon: "radar",
       title: "Scan & recon",
-      desc: "Queue nmap / nuclei / httpx jobs",
+      desc: "Run httpx + nuclei + nmap now",
       accent: "text-sky-300",
       locked: !e.authorized,
     },
     {
-      href: "/dashboard/exploit",
+      action: runExploitNow,
       icon: "skull",
       title: "Exploit & validate",
-      desc: confirmedCount > 0 ? `${confirmedCount} confirmed to weaponize` : "Validate & weaponize",
+      desc: confirmedCount > 0 ? `${confirmedCount} confirmed · validate more` : "Validate exploitability now",
       accent: "text-red-300",
       locked: !e.authorized,
     },
     {
-      href: "#findings",
+      action: runTriageNow,
       icon: "check",
       title: "Fix & triage",
-      desc: `${openCount} open finding${openCount === 1 ? "" : "s"}`,
+      desc: `${openCount} open · add fix guidance`,
       accent: "text-emerald-300",
     },
     {
@@ -169,6 +188,18 @@ export default async function EngagementDetail({
         </form>
       </header>
 
+      {searchParams.ok && (
+        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+          ✓ {searchParams.ok}
+        </div>
+      )}
+      {searchParams.error && (
+        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          <Icon name="alert" className="mr-1 inline h-4 w-4" />
+          {searchParams.error}
+        </div>
+      )}
+
       {/* Authorization */}
       <section
         className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
@@ -228,24 +259,35 @@ export default async function EngagementDetail({
           research, hunt, check, and report.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {commandTiles.map((t) => (
-            <Link
-              key={t.title}
-              href={t.href}
-              className="card-hover group flex flex-col gap-1 p-3"
-            >
-              <span className={`flex items-center gap-2 ${t.accent}`}>
-                <Icon name={t.icon} className="h-4 w-4" />
-                <span className="text-sm font-semibold text-white group-hover:text-brand">
-                  {t.title}
+          {commandTiles.map((t) => {
+            const inner = (
+              <>
+                <span className={`flex items-center gap-2 ${t.accent}`}>
+                  <Icon name={t.icon} className="h-4 w-4" />
+                  <span className="text-sm font-semibold text-white group-hover:text-brand">
+                    {t.title}
+                  </span>
+                  {t.locked && (
+                    <Icon name="lock" className="ml-auto h-3 w-3 text-amber-400" />
+                  )}
                 </span>
-                {t.locked && (
-                  <Icon name="lock" className="ml-auto h-3 w-3 text-amber-400" />
-                )}
-              </span>
-              <span className="text-xs text-gray-500">{t.desc}</span>
-            </Link>
-          ))}
+                <span className="text-xs text-gray-500">{t.desc}</span>
+              </>
+            );
+            const cls = "card-hover group flex flex-col gap-1 p-3 text-left";
+            return t.action ? (
+              <form key={t.title} action={t.action}>
+                <input type="hidden" name="engagementId" value={e.id} />
+                <button type="submit" disabled={t.locked} className={`${cls} w-full disabled:cursor-not-allowed disabled:opacity-60`}>
+                  {inner}
+                </button>
+              </form>
+            ) : (
+              <Link key={t.title} href={t.href!} className={cls}>
+                {inner}
+              </Link>
+            );
+          })}
         </div>
         {!e.authorized && (
           <p className="mt-2 text-xs text-amber-400">
@@ -254,6 +296,15 @@ export default async function EngagementDetail({
           </p>
         )}
       </section>
+
+      {/* Guided assessment pipeline */}
+      <PipelinePanel
+        engagementId={e.id}
+        authorized={e.authorized}
+        hasRunner={runnerCount > 0}
+        pipeline={pipeline}
+        progress={progress}
+      />
 
       {/* Reconnaissance Scanner — for pentest engagements */}
       {e.type === "pentest" && e.authorized && (
