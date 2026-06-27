@@ -80,6 +80,55 @@ export async function inspectNetwork(formData: FormData) {
   redirect(`${BACK}?inspected=1`);
 }
 
+function findMonSh() {
+  // Shell snippet that sets $M to the first monitor-mode interface.
+  return `M=$(for d in /sys/class/net/*; do n=$(basename "$d"); iw dev "$n" info 2>/dev/null | grep -q "type monitor" && echo "$n" && break; done); if [ -z "$M" ]; then echo NO_MONITOR; exit 0; fi`;
+}
+
+/**
+ * Capture a WPA handshake for one AP (~120s targeted airodump), then report
+ * whether a handshake landed (via aircrack-ng). Authorized networks only.
+ */
+export async function captureHandshake(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const channel = String(formData.get("channel") ?? "").trim();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const chArg = /^\d{1,3}$/.test(channel) ? `-c ${channel} ` : "";
+  const cmd =
+    `bash -lc '${findMonSh()}; rm -f /tmp/rdhs-*; ` +
+    `timeout 120 airodump-ng ${chArg}--bssid ${bssid} -w /tmp/rdhs "$M" >/dev/null 2>&1; ` +
+    `echo "== handshake check =="; aircrack-ng /tmp/rdhs-01.cap 2>/dev/null'`;
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-capture:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
+/**
+ * Deauthenticate a device (or broadcast) on an AP to force it to reconnect — the
+ * fastest way to capture a handshake. Authorized networks only.
+ */
+export async function deauthClient(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const client = String(formData.get("client") ?? "").trim().toUpperCase();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const cArg = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(client) ? `-c ${client} ` : "";
+  const cmd =
+    `bash -lc '${findMonSh()}; aireplay-ng --deauth 5 -a ${bssid} ${cArg}"$M"'`;
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-deauth:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
 /** Run a wireless command (monitor mode, capture, etc.) on a runner directly. */
 export async function runWifiCommand(formData: FormData) {
   const email = await requireUser();

@@ -294,6 +294,10 @@ build that item, verify, commit, and merge to `main`.
       a 30s targeted airodump capture on its channel/BSSID and lists the
       **devices connected** (MAC, which AP, signal, packets, what they're probing
       for), plus a **rough distance** from signal for the AP and each device.
+- ✅ **More WiFi detail**: offline MAC→vendor + device-type guess (📱 phone /
+      💻 computer / 🔌 IoT / 📡 network gear, flags randomized MACs); AP cipher/
+      auth + traffic (data frames, beacons); one-click **🤝 capture handshake**
+      and **⚡ deauth** (all clients or a single device) — authorized only.
 
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,

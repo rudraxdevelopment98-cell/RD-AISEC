@@ -4,8 +4,9 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
+import { lookupVendor, deviceType } from "@/data/oui";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -202,6 +203,7 @@ export default async function WifiPage({
                             <tr>
                               <th className="py-1 pr-3">SSID</th>
                               <th className="py-1 pr-3">BSSID</th>
+                              <th className="py-1 pr-3">Vendor</th>
                               <th className="py-1 pr-3">Ch</th>
                               <th className="py-1 pr-3">Signal</th>
                               <th className="py-1 pr-3">Dist</th>
@@ -210,10 +212,13 @@ export default async function WifiPage({
                             </tr>
                           </thead>
                           <tbody>
-                            {networks.map((n) => (
+                            {networks.map((n) => {
+                              const vendor = lookupVendor(n.bssid);
+                              return (
                               <tr key={n.bssid} className="border-t border-surface-border/60">
                                 <td className="py-1 pr-3 text-white">{n.ssid}</td>
                                 <td className="py-1 pr-3 font-mono text-gray-400">{n.bssid}</td>
+                                <td className="py-1 pr-3 text-gray-400">{vendor && vendor !== "Unknown" ? vendor : "—"}</td>
                                 <td className="py-1 pr-3 text-gray-400">{n.chan}</td>
                                 <td className="py-1 pr-3 text-gray-400">{n.signal}</td>
                                 <td className="py-1 pr-3 text-gray-400">{estimateDistance(n.signal) || "—"}</td>
@@ -233,7 +238,7 @@ export default async function WifiPage({
                                   </form>
                                 </td>
                               </tr>
-                            ))}
+                            );})}
                           </tbody>
                         </table>
                         <p className="mt-1 text-[10px] text-gray-600">
@@ -251,10 +256,13 @@ export default async function WifiPage({
                       const busy = insp.status === "queued" || insp.status === "running";
                       const noMon = /NO_MONITOR/.test(insp.output || "");
                       const data = insp.status === "done" && !noMon ? parseWifiInspect(insp.output) : { aps: [], clients: [] };
+                      const ap = data.aps[0];
+                      const apChan = ap?.chan ?? "";
+                      const apVendor = lookupVendor(target);
                       return (
                         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/5 p-3">
                           <p className="text-xs font-semibold text-brand-glow">
-                            🔍 Inspecting {target || "AP"} {busy && <span className="text-sky-300">· capturing…</span>}
+                            🔍 Inspecting {target || "AP"}{apVendor && apVendor !== "Unknown" ? ` · ${apVendor}` : ""} {busy && <span className="text-sky-300">· capturing…</span>}
                           </p>
                           {noMon && (
                             <p className="mt-2 text-xs text-amber-300">
@@ -263,12 +271,32 @@ export default async function WifiPage({
                           )}
                           {insp.status === "done" && !noMon && (
                             <>
-                              {data.aps[0] && (
+                              {ap && (
                                 <p className="mt-1 text-xs text-gray-400">
-                                  {data.aps[0].ssid} · ch {data.aps[0].chan} · {data.aps[0].security} ·{" "}
-                                  {data.aps[0].signal} dBm {estimateDistance(data.aps[0].signal) && `(${estimateDistance(data.aps[0].signal)})`}
+                                  {ap.ssid} · ch {ap.chan} · {ap.security}
+                                  {ap.cipher ? `/${ap.cipher}` : ""}{ap.auth ? `/${ap.auth}` : ""} ·{" "}
+                                  {ap.signal} dBm {estimateDistance(ap.signal) && `(${estimateDistance(ap.signal)})`}
+                                  {ap.data ? ` · ${ap.data} data frames` : ""}{ap.beacons ? ` · ${ap.beacons} beacons` : ""}
                                 </p>
                               )}
+                              {/* Attack actions for the inspected AP (authorized only). */}
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <form action={captureHandshake}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <input type="hidden" name="channel" value={apChan} />
+                                  <button className="btn-ghost px-2 py-1" title="120s targeted capture, then handshake check">
+                                    🤝 Capture handshake
+                                  </button>
+                                </form>
+                                <form action={deauthClient}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <button className="px-2 py-1 text-amber-300 hover:text-amber-200" title="Deauth all clients to force reconnect (authorized!)">
+                                    ⚡ Deauth all
+                                  </button>
+                                </form>
+                              </div>
                               {data.clients.length === 0 ? (
                                 <p className="mt-2 text-xs text-gray-500">No connected devices seen yet — capture again at peak time, or the AP may be idle.</p>
                               ) : (
@@ -278,24 +306,41 @@ export default async function WifiPage({
                                     <thead className="text-gray-500">
                                       <tr>
                                         <th className="py-1 pr-3">Device (MAC)</th>
+                                        <th className="py-1 pr-3">Likely</th>
                                         <th className="py-1 pr-3">Connected to</th>
                                         <th className="py-1 pr-3">Signal</th>
                                         <th className="py-1 pr-3">Dist</th>
                                         <th className="py-1 pr-3">Packets</th>
-                                        <th className="py-1">Probing for</th>
+                                        <th className="py-1 pr-3">Probing for</th>
+                                        <th className="py-1"></th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {data.clients.map((c) => (
+                                      {data.clients.map((c) => {
+                                        const v = lookupVendor(c.mac);
+                                        const dt = deviceType(v);
+                                        return (
                                         <tr key={c.mac} className="border-t border-surface-border/60">
                                           <td className="py-1 pr-3 font-mono text-white">{c.mac}</td>
+                                          <td className="py-1 pr-3 text-gray-300">
+                                            {dt || (v && v !== "Unknown" ? v : "—")}
+                                            {dt && v && v !== "Unknown" && !/randomized/i.test(v) ? <span className="text-gray-500"> · {v}</span> : null}
+                                          </td>
                                           <td className="py-1 pr-3 font-mono text-gray-400">{c.assoc}</td>
                                           <td className="py-1 pr-3 text-gray-400">{c.power}</td>
                                           <td className="py-1 pr-3 text-gray-400">{estimateDistance(c.power) || "—"}</td>
                                           <td className="py-1 pr-3 text-gray-400">{c.packets}</td>
-                                          <td className="py-1 text-gray-500">{c.probes || "—"}</td>
+                                          <td className="py-1 pr-3 text-gray-500">{c.probes || "—"}</td>
+                                          <td className="py-1">
+                                            <form action={deauthClient}>
+                                              <input type="hidden" name="runnerId" value={r.id} />
+                                              <input type="hidden" name="bssid" value={target} />
+                                              <input type="hidden" name="client" value={c.mac} />
+                                              <button className="text-amber-300 hover:text-amber-200" title="Deauth this device (authorized!)">⚡ Deauth</button>
+                                            </form>
+                                          </td>
                                         </tr>
-                                      ))}
+                                      );})}
                                     </tbody>
                                   </table>
                                 </div>
