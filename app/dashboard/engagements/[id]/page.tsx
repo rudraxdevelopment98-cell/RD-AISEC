@@ -28,6 +28,15 @@ import { RESOURCE_TYPES } from "@/lib/resource-constants";
 
 export const dynamic = "force-dynamic";
 
+// Subtle tile glow keyed to a finding's risk level.
+const SEV_GLOW: Record<string, string> = {
+  critical: "sev-glow-critical",
+  high: "sev-glow-high",
+  medium: "sev-glow-medium",
+  low: "sev-glow-low",
+  info: "sev-glow-info",
+};
+
 export default async function EngagementDetail({
   params,
 }: {
@@ -299,14 +308,20 @@ export default async function EngagementDetail({
           <p className="card text-sm text-gray-500">No findings recorded yet.</p>
         )}
         {e.findings.map((f) => (
-          <div key={f.id} className={`card ${f.confirmed ? "glow-danger" : ""}`}>
+          <div
+            key={f.id}
+            className={`card ${f.confirmed ? "glow-danger" : SEV_GLOW[f.severity] ?? ""}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <h3 className="font-semibold text-white">{f.title}</h3>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 {f.confirmed && (
                   <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>
                 )}
-                <SeverityBadge value={f.severity} />
+                <span className="flex items-center gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
+                  <SeverityBadge value={f.severity} />
+                </span>
                 <FindingStatusBadge value={f.status} />
               </div>
             </div>
