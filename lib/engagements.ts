@@ -57,6 +57,7 @@ export async function createEngagement(formData: FormData) {
       name,
       client: String(formData.get("client") ?? "").trim(),
       type: oneOf(formData.get("type"), ENGAGEMENT_TYPES, "pentest"),
+      category: String(formData.get("category") ?? "").trim().slice(0, 60),
       scope: String(formData.get("scope") ?? "").trim(),
       authorized: formData.get("authorized") === "on",
       authorizedBy: String(formData.get("authorizedBy") ?? "").trim(),
@@ -108,6 +109,7 @@ export async function updateEngagement(formData: FormData) {
       client: String(formData.get("client") ?? "").trim(),
       type: oneOf(formData.get("type"), ENGAGEMENT_TYPES, "pentest"),
       status: oneOf(formData.get("status"), ENGAGEMENT_STATUSES, "planning"),
+      category: String(formData.get("category") ?? "").trim().slice(0, 60),
       scope: String(formData.get("scope") ?? "").trim(),
       authorized,
       authorizedBy: authorized ? authorizedBy || email : "",
@@ -125,6 +127,51 @@ export async function deleteEngagement(formData: FormData) {
   await prisma.engagement.delete({ where: { id } });
   revalidatePath("/dashboard/engagements");
   redirect("/dashboard/engagements");
+}
+
+/** Bulk delete selected engagements (and their findings, via cascade). */
+export async function bulkDeleteEngagements(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length) await prisma.engagement.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements?ok=${encodeURIComponent(`Deleted ${ids.length} engagement(s)`)}`);
+}
+
+/** Bulk set category/tag on selected engagements. */
+export async function bulkSetEngagementCategory(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const category = String(formData.get("category") ?? "").trim().slice(0, 60);
+  if (ids.length) {
+    await prisma.engagement.updateMany({ where: { id: { in: ids } }, data: { category } });
+  }
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements?ok=${encodeURIComponent(`Tagged ${ids.length} engagement(s)`)}`);
+}
+
+/** Bulk set status on selected engagements. */
+export async function bulkSetEngagementStatus(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const status = oneOf(formData.get("status"), ENGAGEMENT_STATUSES, "planning");
+  if (ids.length) {
+    await prisma.engagement.updateMany({ where: { id: { in: ids } }, data: { status } });
+  }
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements?ok=${encodeURIComponent(`Updated ${ids.length} engagement(s)`)}`);
+}
+
+/** Bulk set type on selected engagements. */
+export async function bulkSetEngagementType(formData: FormData) {
+  await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const type = oneOf(formData.get("type"), ENGAGEMENT_TYPES, "pentest");
+  if (ids.length) {
+    await prisma.engagement.updateMany({ where: { id: { in: ids } }, data: { type } });
+  }
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements?ok=${encodeURIComponent(`Updated ${ids.length} engagement(s)`)}`);
 }
 
 export async function addFinding(formData: FormData) {

@@ -37,7 +37,77 @@ export default async function EngagementDetail({
   if (!e) notFound();
 
   const openCount = e.findings.filter((f) => f.status === "open").length;
+  const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
+
+  // Engagement command center — one hub to drive every workflow for this case.
+  const commandTiles: {
+    href: string;
+    icon: string;
+    title: string;
+    desc: string;
+    accent: string;
+    locked?: boolean;
+  }[] = [
+    {
+      href: `/dashboard/jobs?engagement=${e.id}`,
+      icon: "radar",
+      title: "Scan & recon",
+      desc: "Queue nmap / nuclei / httpx jobs",
+      accent: "text-sky-300",
+      locked: !e.authorized,
+    },
+    {
+      href: "/dashboard/exploit",
+      icon: "skull",
+      title: "Exploit & validate",
+      desc: confirmedCount > 0 ? `${confirmedCount} confirmed to weaponize` : "Validate & weaponize",
+      accent: "text-red-300",
+      locked: !e.authorized,
+    },
+    {
+      href: "#findings",
+      icon: "check",
+      title: "Fix & triage",
+      desc: `${openCount} open finding${openCount === 1 ? "" : "s"}`,
+      accent: "text-emerald-300",
+    },
+    {
+      href: "/dashboard/lab",
+      icon: "wrench",
+      title: "Research & lab",
+      desc: "Build PoCs · Drive · exploits",
+      accent: "text-amber-300",
+    },
+    {
+      href: "/dashboard/bugbounty",
+      icon: "target",
+      title: "Bug finding",
+      desc: "Programs & auto-hunt",
+      accent: "text-fuchsia-300",
+    },
+    {
+      href: "/dashboard/scan",
+      icon: "shield",
+      title: "Posture scan",
+      desc: "Scheduled web checks",
+      accent: "text-indigo-300",
+    },
+    {
+      href: `/dashboard/network`,
+      icon: "globe",
+      title: "Check results",
+      desc: "Live output & host map",
+      accent: "text-cyan-300",
+    },
+    {
+      href: `/dashboard/engagements/${e.id}/report`,
+      icon: "book",
+      title: "Report",
+      desc: "Generate the write-up",
+      accent: "text-brand-glow",
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -138,6 +208,44 @@ export default async function EngagementDetail({
         </form>
       </section>
 
+      {/* Command center — drive every workflow for this engagement */}
+      <section className="mt-6">
+        <div className="flex items-center gap-2">
+          <Icon name="grid" className="h-4 w-4 text-brand" />
+          <h2 className="text-lg font-semibold">Command center</h2>
+        </div>
+        <p className="mt-1 text-sm text-gray-400">
+          Everything you can do for this engagement — scan, exploit, fix,
+          research, hunt, check, and report.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {commandTiles.map((t) => (
+            <Link
+              key={t.title}
+              href={t.href}
+              className="card-hover group flex flex-col gap-1 p-3"
+            >
+              <span className={`flex items-center gap-2 ${t.accent}`}>
+                <Icon name={t.icon} className="h-4 w-4" />
+                <span className="text-sm font-semibold text-white group-hover:text-brand">
+                  {t.title}
+                </span>
+                {t.locked && (
+                  <Icon name="lock" className="ml-auto h-3 w-3 text-amber-400" />
+                )}
+              </span>
+              <span className="text-xs text-gray-500">{t.desc}</span>
+            </Link>
+          ))}
+        </div>
+        {!e.authorized && (
+          <p className="mt-2 text-xs text-amber-400">
+            <Icon name="lock" className="mr-1 inline h-3 w-3" />
+            Scanning &amp; exploitation are locked until written authorization is recorded above.
+          </p>
+        )}
+      </section>
+
       {/* Reconnaissance Scanner — for pentest engagements */}
       {e.type === "pentest" && e.authorized && (
         <section className="mt-6">
@@ -146,7 +254,7 @@ export default async function EngagementDetail({
       )}
 
       {/* Findings */}
-      <div className="mt-8 flex items-center justify-between gap-3">
+      <div id="findings" className="mt-8 flex items-center justify-between gap-3 scroll-mt-20">
         <h2 className="text-lg font-semibold">
           Findings{" "}
           <span className="text-sm font-normal text-gray-500">

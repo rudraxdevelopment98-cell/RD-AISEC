@@ -22,6 +22,9 @@ model Engagement {
   // "planning" | "active" | "completed"
   status       String    @default("planning")
   scope        String    @default("")
+  // Free-form category/tag for grouping (e.g. a platform like "HackerOne", or
+  // a manual label). Auto-set to the platform for bug-bounty engagements.
+  category     String    @default("")
   authorized   Boolean   @default(false)
   authorizedBy String    @default("")
   ownerEmail   String    @default("")

@@ -1,19 +1,15 @@
-import Link from "next/link";
 import { Icon } from "@/components/icons";
-import { EngagementStatusBadge } from "@/components/badges";
-import { EmptyState } from "@/components/empty-state";
 import { listEngagements, createEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES } from "@/lib/engagement-constants";
+import { EngagementsManager } from "@/components/engagements-manager";
 
 export const dynamic = "force-dynamic";
 
-const TYPE_ICON: Record<string, string> = {
-  pentest: "target",
-  forensics: "fingerprint",
-  consulting: "briefcase",
-};
-
-export default async function EngagementsPage() {
+export default async function EngagementsPage({
+  searchParams,
+}: {
+  searchParams: { ok?: string };
+}) {
   const engagements = await listEngagements();
 
   return (
@@ -27,6 +23,12 @@ export default async function EngagementsPage() {
           </p>
         </div>
       </div>
+
+      {searchParams.ok && (
+        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+          ✓ {searchParams.ok}
+        </div>
+      )}
 
       {/* Create */}
       <details className="card mt-6">
@@ -55,6 +57,11 @@ export default async function EngagementsPage() {
               </option>
             ))}
           </select>
+          <input
+            name="category"
+            placeholder="Category (e.g. HackerOne, manual, internal)"
+            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:col-span-2"
+          />
           <textarea
             name="scope"
             placeholder="Scope — targets, windows, rules of engagement"
@@ -76,49 +83,21 @@ export default async function EngagementsPage() {
         </form>
       </details>
 
-      {/* List */}
-      <div className="mt-6 space-y-3">
-        {engagements.length === 0 && (
-          <EmptyState icon="briefcase" title="No engagements yet">
-            Create your first engagement above — a pentest, forensics case, or
-            consulting job. Findings, scans, and reports all live inside one.
-          </EmptyState>
-        )}
-        {engagements.map((e) => (
-          <div
-            key={e.id}
-            className="card-hover flex items-center justify-between gap-4"
-          >
-            <Link
-              href={`/dashboard/engagements/${e.id}`}
-              className="flex min-w-0 flex-1 items-center gap-3"
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
-                <Icon name={TYPE_ICON[e.type] ?? "target"} className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-white">{e.name}</p>
-                <p className="truncate text-xs text-gray-500">
-                  <span className="capitalize">{e.type}</span> · {e.client || "—"} ·{" "}
-                  {e._count.findings} finding{e._count.findings === 1 ? "" : "s"}
-                  {!e.authorized && (
-                    <span className="ml-2 text-amber-400">⚠ unauthorized</span>
-                  )}
-                </p>
-              </div>
-            </Link>
-            <div className="flex shrink-0 items-center gap-3">
-              <EngagementStatusBadge value={e.status} />
-              <Link
-                href={`/dashboard/engagements/${e.id}/edit`}
-                className="text-xs text-gray-500 hover:text-brand"
-                title="Edit engagement"
-              >
-                Edit
-              </Link>
-            </div>
-          </div>
-        ))}
+      {/* List + management bar */}
+      <div className="mt-6">
+        <EngagementsManager
+          engagements={engagements.map((e) => ({
+            id: e.id,
+            name: e.name,
+            client: e.client,
+            type: e.type,
+            status: e.status,
+            category: e.category,
+            scope: e.scope,
+            authorized: e.authorized,
+            findingCount: e._count.findings,
+          }))}
+        />
       </div>
     </div>
   );
