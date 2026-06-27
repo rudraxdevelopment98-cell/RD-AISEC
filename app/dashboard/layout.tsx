@@ -16,6 +16,7 @@ const NAV: NavGroup[] = [
     section: "Overview",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
+      { href: "/dashboard/guide", label: "How it works", icon: "book" },
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
     ],

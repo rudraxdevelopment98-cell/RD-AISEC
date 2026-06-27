@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "21"
+RUNNER_VERSION = "22"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -171,6 +171,10 @@ TOOL_TIMEOUTS = {
     "dnsenum": 900,
     "masscan": 900,
     "enum4linux": 900,
+    "subfinder": 900,
+    "naabu": 900,
+    "katana": 1200,
+    "dalfox": 1500,
 }
 
 
@@ -201,6 +205,10 @@ DEFAULT_TOOLS = {
     "nikto":   {"bin": "nikto",   "flag": "-h",    "pkg": "nikto"},
     "wpscan":  {"bin": "wpscan",  "flag": "--url", "pkg": "wpscan"},
     "sslscan": {"bin": "sslscan", "flag": None,    "pkg": "sslscan"},
+    "subfinder": {"bin": "subfinder", "flag": "-d",    "pkg": "subfinder"},
+    "naabu":     {"bin": "naabu",     "flag": "-host", "pkg": "naabu"},
+    "katana":    {"bin": "katana",    "flag": "-u",    "pkg": "katana"},
+    "dalfox":    {"bin": "dalfox",    "flag": "url",   "pkg": "dalfox"},
 }
 
 # Live allowlist — replaced by fetch_tools() at startup if the portal responds.
@@ -232,6 +240,10 @@ INSTALL_PKGS = {
     "theharvester": "theharvester",
     "enum4linux": "enum4linux",
     "searchsploit": "exploitdb",
+    "subfinder": "subfinder",
+    "naabu": "naabu",
+    "katana": "katana",
+    "dalfox": "dalfox",
     "metasploit": "metasploit-framework",
 }
 

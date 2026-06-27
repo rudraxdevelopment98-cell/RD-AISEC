@@ -66,9 +66,17 @@ function parseNuclei(target: string, output: string): ParsedFinding[] {
       const key = `${tid}|${matched}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const sev = normSeverity(info.severity);
+      let sev = normSeverity(info.severity);
 
       const classification = info.classification ?? {};
+      // Escalate severity from the CVSS score when it implies worse than the
+      // template's own label (e.g. a "medium" template with CVSS 9.1 → critical).
+      const cvssNum = Number(classification["cvss-score"]);
+      if (!Number.isNaN(cvssNum) && cvssNum > 0) {
+        const bySev = cvssNum >= 9 ? "critical" : cvssNum >= 7 ? "high" : cvssNum >= 4 ? "medium" : "low";
+        const rank: Record<string, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
+        if ((rank[bySev] ?? 0) > (rank[sev] ?? 0)) sev = bySev;
+      }
       const cve = (Array.isArray(classification["cve-id"]) ? classification["cve-id"][0] : classification["cve-id"]) || "";
       const cwe = Array.isArray(classification["cwe-id"]) ? classification["cwe-id"].join(", ") : classification["cwe-id"] || "";
       const cvss = classification["cvss-score"] ? `CVSS ${classification["cvss-score"]}` : "";
@@ -457,6 +465,102 @@ function parseWpscan(target: string, output: string): ParsedFinding[] {
   return out;
 }
 
+/** subfinder: list of discovered subdomains → one summary finding (info). The
+ * result route also chains these hosts into scans, like amass. */
+function parseSubfinder(target: string, output: string): ParsedFinding[] {
+  const hosts = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^(?:[a-z0-9_-]+\.)+[a-z]{2,}$/i.test(l));
+  const uniq = Array.from(new Set(hosts));
+  if (uniq.length === 0) return [];
+  return [
+    {
+      title: `Subdomains discovered for ${target} (${uniq.length})`,
+      severity: "info",
+      status: "open",
+      description:
+        `subfinder found ${uniq.length} subdomain(s) for ${target}:\n\n` +
+        uniq.slice(0, 60).join("\n") +
+        (uniq.length > 60 ? `\n…and ${uniq.length - 60} more` : ""),
+      recommendation:
+        "Review the attack surface. Decommission forgotten/dev/staging hosts; ensure each subdomain is intended to be public and hardened.",
+    },
+  ];
+}
+
+/** naabu: lines "host:port" → one open-port finding each. */
+function parseNaabu(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  const seen = new Set<string>();
+  for (const m of output.matchAll(/^([A-Za-z0-9._-]+):(\d{1,5})\b/gm)) {
+    const host = m[1];
+    const port = m[2];
+    const key = `${host}:${port}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      title: `Open port ${port}/tcp on ${host}`,
+      severity: "info",
+      status: "open",
+      description: `naabu found ${port}/tcp open on ${host}` + (target && target !== host ? `\n\nScan target: ${target}` : ""),
+      recommendation:
+        "Confirm this service is meant to be exposed. Close or firewall it if not, and keep it patched and access-controlled.",
+    });
+  }
+  return out;
+}
+
+/** katana: crawled URLs → one summary finding; elevate if sensitive endpoints appear. */
+function parseKatana(target: string, output: string): ParsedFinding[] {
+  const urls = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^https?:\/\//i.test(l));
+  const uniq = Array.from(new Set(urls));
+  if (uniq.length === 0) return [];
+  const sensitive = /\/(admin|api|graphql|upload|debug|actuator|swagger|\.git|\.env|backup|internal|config)/i.test(output);
+  return [
+    {
+      title: `Crawled endpoints on ${target} (${uniq.length})`,
+      severity: sensitive ? "low" : "info",
+      status: "open",
+      description:
+        `katana mapped ${uniq.length} URL(s) on ${target}:\n\n` +
+        uniq.slice(0, 60).join("\n") +
+        (uniq.length > 60 ? `\n…and ${uniq.length - 60} more` : ""),
+      recommendation:
+        "Review the discovered endpoints/parameters for testing. Lock down admin/API/debug routes that shouldn't be public.",
+    },
+  ];
+}
+
+/** dalfox: flag confirmed/PoC XSS. "[POC]" / "[VULN]" lines are real hits. */
+function parseDalfox(target: string, output: string): ParsedFinding[] {
+  const hits = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^\[(POC|VULN)\]/i.test(l));
+  if (hits.length === 0) {
+    // dalfox also prints "[G]"/"[I]" info; only POC/VULN are findings.
+    return [];
+  }
+  return [
+    {
+      title: `Cross-site scripting (XSS) on ${target}`,
+      severity: "high",
+      status: "open",
+      confirmed: true,
+      description:
+        `dalfox confirmed XSS on ${target}:\n\n` +
+        hits.slice(0, 12).join("\n") +
+        "\n\nXSS lets an attacker run script in victims' browsers (session theft, account takeover, defacement).",
+      recommendation:
+        "Context-encode all output, validate/sanitize input, set a strict Content-Security-Policy, and use framework auto-escaping. Re-test after fixing.",
+    },
+  ];
+}
+
 /** wafw00f: note whether a WAF is present (absence is useful context, not a vuln). */
 function parseWafw00f(target: string, output: string): ParsedFinding[] {
   const behind = output.match(/is behind (.+?)(?: WAF| \(|\.|$)/i);
@@ -664,6 +768,14 @@ export function parseJobFindings(
       return parseArpScan(target, output);
     case "gobuster":
       return parseGobuster(target, output);
+    case "subfinder":
+      return parseSubfinder(target, output);
+    case "naabu":
+      return parseNaabu(target, output);
+    case "katana":
+      return parseKatana(target, output);
+    case "dalfox":
+      return parseDalfox(target, output);
     case "whatweb":
       return parseWhatweb(target, output);
     case "enum4linux":

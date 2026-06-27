@@ -212,6 +212,40 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     presets: [{ id: "all", label: "Full enumeration", args: ["-a"] }],
   },
   {
+    id: "subfinder",
+    label: "subfinder — fast subdomain discovery",
+    description: "Find subdomains for a domain from many passive sources (fast, OSINT).",
+    active: false,
+    presets: [{ id: "passive", label: "Passive enum", args: ["-silent"] }],
+  },
+  {
+    id: "naabu",
+    label: "naabu — fast port scan",
+    description: "Very fast SYN/CONNECT port scan (ProjectDiscovery). Give a host/IP.",
+    active: true,
+    presets: [
+      { id: "top", label: "Top 100 ports", args: ["-silent", "-top-ports", "100"] },
+      { id: "web", label: "Web ports", args: ["-silent", "-p", "80,443,8080,8443"] },
+    ],
+  },
+  {
+    id: "katana",
+    label: "katana — web crawler",
+    description: "Crawl a web app to map its URLs/endpoints (feeds deeper testing).",
+    active: true,
+    presets: [
+      { id: "crawl", label: "Crawl (depth 2)", args: ["-silent", "-d", "2"] },
+      { id: "jscrawl", label: "Crawl + JS parsing", args: ["-silent", "-d", "3", "-jc"] },
+    ],
+  },
+  {
+    id: "dalfox",
+    label: "dalfox — XSS scanner",
+    description: "Test a URL (with parameters) for cross-site scripting (XSS).",
+    active: true,
+    presets: [{ id: "scan", label: "Scan URL params", args: ["--silence", "--no-spinner"] }],
+  },
+  {
     id: "searchsploit",
     label: "searchsploit — Exploit-DB search",
     description:
@@ -254,6 +288,11 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   theharvester: { bin: "theHarvester", flag: "-d" },
   enum4linux: { bin: "enum4linux", flag: null },
   searchsploit: { bin: "searchsploit", flag: null },
+  subfinder: { bin: "subfinder", flag: "-d" },
+  naabu: { bin: "naabu", flag: "-host" },
+  katana: { bin: "katana", flag: "-u" },
+  // dalfox runs `dalfox url <url>` — the "url" subcommand is the flag token.
+  dalfox: { bin: "dalfox", flag: "url" },
 };
 
 // Tools we can install from the portal, mapped to their apt package. Only these
@@ -279,6 +318,10 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   theharvester: "theharvester",
   enum4linux: "enum4linux",
   searchsploit: "exploitdb",
+  subfinder: "subfinder",
+  naabu: "naabu",
+  katana: "katana",
+  dalfox: "dalfox",
   metasploit: "metasploit-framework", // for the Exploitation section (no auto-find tool)
   tor: "tor", // for anonymity
   torsocks: "torsocks", // for anonymity
@@ -318,6 +361,8 @@ const HOST_TARGET_TOOLS = new Set([
   "theharvester",
   "enum4linux",
   "searchsploit",
+  "subfinder",
+  "naabu",
 ]);
 
 /** Normalize a target for a given tool (strip scheme/path for host-based tools). */
@@ -343,7 +388,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "21";
+export const RUNNER_VERSION = "22";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

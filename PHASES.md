@@ -280,6 +280,17 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ How-it-works guide + tool/analysis upgrade
+- ✅ **Guide page** ("How it works", in the sidebar): full step-by-step with a
+      worked example — engage a program → scan → findings → ⚔ exploit → confirm →
+      report — plus prereqs and tips.
+- ✅ **New tools** (runner v22): subfinder (fast subdomains), naabu (fast ports),
+      katana (web crawler/endpoint map), dalfox (XSS scanner) — with parsers,
+      install support, and framework tagging. dalfox auto-runs on XSS/param URLs;
+      subfinder chains discovered hosts into scans like amass.
+- ✅ **Smarter severity**: nuclei findings escalate by CVSS score (a "medium"
+      template with CVSS 9 becomes critical).
+
 ## ✅ Per-finding "Exploit it"
 - ✅ Every finding (Findings list + engagement findings) has an **⚔ Exploit it**
       button → a guided per-finding exploit page.
