@@ -206,6 +206,20 @@ export default async function EngagementDetail({
         </div>
       )}
 
+      {/* Quick jump — this is a long page; let people leap to the part they want. */}
+      <nav className="mt-4 flex flex-wrap gap-2 text-xs">
+        {[
+          { href: "#command", label: "⚡ Actions" },
+          { href: "#pipeline", label: "🤖 Pipeline" },
+          { href: "#findings", label: "🐞 Findings" },
+          { href: "#resources", label: "📎 Resources" },
+        ].map((j) => (
+          <a key={j.href} href={j.href} className="tag text-gray-400 transition hover:border-brand/50 hover:text-gray-200">
+            {j.label}
+          </a>
+        ))}
+      </nav>
+
       {/* Authorization */}
       <section
         className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
@@ -258,7 +272,7 @@ export default async function EngagementDetail({
       <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
 
       {/* Command center — drive every workflow for this engagement */}
-      <section className="mt-6">
+      <section id="command" className="mt-6 scroll-mt-20">
         <div className="flex items-center gap-2">
           <Icon name="grid" className="h-4 w-4 text-brand" />
           <h2 className="text-lg font-semibold">Command center</h2>
@@ -329,19 +343,26 @@ export default async function EngagementDetail({
       </section>
 
       {/* Guided assessment pipeline */}
-      <PipelinePanel
-        engagementId={e.id}
-        authorized={e.authorized}
-        hasRunner={runnerCount > 0}
-        pipeline={pipeline}
-        progress={progress}
-      />
+      <div id="pipeline" className="scroll-mt-20">
+        <PipelinePanel
+          engagementId={e.id}
+          authorized={e.authorized}
+          hasRunner={runnerCount > 0}
+          pipeline={pipeline}
+          progress={progress}
+        />
+      </div>
 
-      {/* Reconnaissance Scanner — for pentest engagements */}
+      {/* Reconnaissance Scanner — for pentest engagements (advanced, collapsed) */}
       {e.type === "pentest" && e.authorized && (
-        <section className="mt-6">
-          <ReconnaissanceScanner engagementId={e.id} />
-        </section>
+        <details className="mt-6">
+          <summary className="cursor-pointer text-sm font-semibold text-gray-300 hover:text-brand">
+            <Icon name="radar" className="mr-1 inline h-4 w-4" /> More scan tools (manual recon)
+          </summary>
+          <section className="mt-3">
+            <ReconnaissanceScanner engagementId={e.id} />
+          </section>
+        </details>
       )}
 
       {/* Findings */}
@@ -460,7 +481,7 @@ export default async function EngagementDetail({
       </div>
 
       {/* Resources */}
-      <h2 className="mt-10 text-lg font-semibold">
+      <h2 id="resources" className="mt-10 scroll-mt-20 text-lg font-semibold">
         Resources{" "}
         <span className="text-sm font-normal text-gray-500">
           ({e.resources.length})

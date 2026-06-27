@@ -280,6 +280,15 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ UI tidy-up (same theme/glass, clearer flow)
+- ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,
+      Engagements, Findings, Exploitation, Lab) · Scanning · Services · Insights
+      & tools · Admin. Nothing removed — just ordered so the daily path is on top.
+- ✅ **Engagement page quick-jump**: a chip row (⚡ Actions · 🤖 Pipeline · 🐞
+      Findings · 📎 Resources) jumps straight to each section on the long page.
+- ✅ **Less clutter**: manual recon tools tucked into a collapsible ("More scan
+      tools") so Command center → Pipeline → Findings read cleanly top to bottom.
+
 ## ✅ How-it-works guide + tool/analysis upgrade
 - ✅ **Guide page** ("How it works", in the sidebar): full step-by-step with a
       worked example — engage a program → scan → findings → ⚔ exploit → confirm →
