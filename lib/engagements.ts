@@ -31,7 +31,11 @@ export async function listEngagements() {
   await requireUser();
   return prisma.engagement.findMany({
     orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { findings: true } } },
+    include: {
+      _count: { select: { findings: true } },
+      // Where it belongs: the platform of any linked bug-bounty program.
+      bugPrograms: { select: { platform: true } },
+    },
   });
 }
 

@@ -22,6 +22,8 @@ export type EngagementRow = {
   scope: string;
   authorized: boolean;
   findingCount: number;
+  // Where it belongs: a platform (HackerOne, Bugcrowd, …) or "Manual".
+  source: string;
 };
 
 const TYPE_ICON: Record<string, string> = {
@@ -37,6 +39,7 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
   const [activeCat, setActiveCat] = useState("");
   const [activeType, setActiveType] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
+  const [activeSource, setActiveSource] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCat, setBulkCat] = useState("");
   const [bulkStatus, setBulkStatus] = useState("active");
@@ -48,21 +51,32 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
     return [...s].sort();
   }, [engagements]);
 
+  const sources = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of engagements) if (e.source) s.add(e.source);
+    // Keep "Manual" last; platforms alphabetical before it.
+    return [...s].sort((a, b) =>
+      a === "Manual" ? 1 : b === "Manual" ? -1 : a.localeCompare(b),
+    );
+  }, [engagements]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return engagements.filter((e) => {
       if (activeCat && e.category !== activeCat) return false;
       if (activeType && e.type !== activeType) return false;
       if (activeStatus && e.status !== activeStatus) return false;
+      if (activeSource && e.source !== activeSource) return false;
       if (!q) return true;
       return (
         e.name.toLowerCase().includes(q) ||
         e.client.toLowerCase().includes(q) ||
         e.category.toLowerCase().includes(q) ||
+        e.source.toLowerCase().includes(q) ||
         e.scope.toLowerCase().includes(q)
       );
     });
-  }, [engagements, query, activeCat, activeType, activeStatus]);
+  }, [engagements, query, activeCat, activeType, activeStatus, activeSource]);
 
   const toggle = (id: string) =>
     setSelected((p) => {
@@ -143,6 +157,19 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
             </ChipBtn>
           ))}
         </div>
+
+        {/* Source filter — where the engagement belongs (platform / manual) */}
+        {sources.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-gray-500">Source</span>
+            <ChipBtn active={activeSource === ""} onClick={() => setActiveSource("")}>all</ChipBtn>
+            {sources.map((s) => (
+              <ChipBtn key={s} active={activeSource === s} onClick={() => setActiveSource(activeSource === s ? "" : s)}>
+                {s}
+              </ChipBtn>
+            ))}
+          </div>
+        )}
 
         {/* Status filter */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
