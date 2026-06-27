@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "22"
+RUNNER_VERSION = "23"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -596,6 +596,9 @@ def run_job(job):
     # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
     to = job_timeout(job.get("tool", ""))
+    # Password cracking (aircrack-ng) needs much longer than a normal custom job.
+    if "aircrack-ng" in (job.get("args") or "") and "-w" in (job.get("args") or ""):
+        to = 2400
 
     def _kill():
         killed["v"] = True
