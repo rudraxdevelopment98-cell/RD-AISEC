@@ -119,10 +119,18 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               </div>
             </div>
             <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2 pl-6" linked />
-            <div className="mt-2 flex items-center gap-1 pl-6 text-xs text-gray-500">
-              <Icon name="briefcase" className="h-3 w-3" />
-              <Link href={`/dashboard/engagements/${f.engagementId}`} className="hover:text-gray-300">
-                {f.engagementName ?? "Unknown engagement"}
+            <div className="mt-2 flex flex-wrap items-center gap-3 pl-6 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <Icon name="briefcase" className="h-3 w-3" />
+                <Link href={`/dashboard/engagements/${f.engagementId}`} className="hover:text-gray-300">
+                  {f.engagementName ?? "Unknown engagement"}
+                </Link>
+              </span>
+              <Link
+                href={`/dashboard/findings/${f.id}/exploit`}
+                className="font-medium text-red-300 hover:text-red-200"
+              >
+                ⚔ Exploit it →
               </Link>
             </div>
           </div>

@@ -280,6 +280,20 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ Per-finding "Exploit it"
+- ✅ Every finding (Findings list + engagement findings) has an **⚔ Exploit it**
+      button → a guided per-finding exploit page.
+- ✅ **Step 1 — Check exploitability**: one click queues searchsploit + the right
+      non-destructive validations (nmap vuln, Metasploit checks, sslscan, sqlmap
+      detect, focused nuclei); results auto-confirm the finding (it glows) if
+      vulnerable.
+- ✅ **Step 2 — Techniques**: the matched playbook's exploit techniques, with the
+      command pre-filled to the finding's target and a one-click "Run on runner".
+- ✅ **Step 3 — Build a PoC** when no public exploit exists: opens the Exploit Lab
+      pre-filled (template + target), edit / AI-draft / save to Kali / run.
+- ✅ **Step 4 — Report**, plus how-to-fix hardening. All gated on engagement
+      authorization.
+
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
       folder path.
