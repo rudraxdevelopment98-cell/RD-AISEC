@@ -34,8 +34,43 @@ model Engagement {
   scans        ScanRun[]
   schedules    ScheduledScan[]
   bugPrograms  BugProgram[]
+  pipeline     Pipeline?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// A guided, approval-gated assessment run for one engagement. Stages execute in
+// order (recon → scan → exploit → triage → report); when a stage finishes the
+// pipeline waits for approval (unless autoApprove) then runs the next, until the
+// report is ready. One pipeline per engagement.
+model Pipeline {
+  id           String          @id @default(cuid())
+  engagement   Engagement      @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId String          @unique
+  runnerId     String          @default("")
+  // "running" | "awaiting_approval" | "done" | "paused" | "canceled"
+  status       String          @default("running")
+  currentKey   String          @default("recon") // stage key currently active
+  autoApprove  Boolean         @default(false)    // skip approval gates when true
+  ownerEmail   String          @default("")
+  stages       PipelineStage[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+// One stage within a pipeline.
+model PipelineStage {
+  id         String    @id @default(cuid())
+  pipeline   Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineId String
+  key        String // recon|scan|exploit|triage|report
+  title      String
+  order      Int
+  // "pending" | "running" | "done" | "skipped"
+  status     String    @default("pending")
+  summary    String    @default("")
+  startedAt  DateTime?
+  finishedAt DateTime?
 }
 
 // A catalog entry in the Resource Vault. The actual file lives offline (e.g. on
@@ -114,6 +149,10 @@ model Job {
   output       String     @default("") // raw tool output (capped)
   exitCode     Int?
   queuedBy     String     @default("") // user email, for audit
+  // Assessment-pipeline stage that queued this job (recon|scan|exploit). Empty
+  // for ad-hoc/bug-bounty jobs. Pipeline jobs suppress the auto-exploit chain so
+  // the pipeline's own approval gates control progression.
+  stage        String     @default("")
   // When true, results are parsed into findings automatically on completion
   // (used by bug-bounty automation, which has no human in the loop).
   autoImport   Boolean    @default(false)

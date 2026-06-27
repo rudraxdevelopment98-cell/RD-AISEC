@@ -227,9 +227,18 @@ build that item, verify, commit, and merge to `main`.
       set status, bulk set type, bulk delete. Engagements carry a category —
       auto-set to the platform for bug-bounty ones, manual otherwise.
 - ✅ **Engagement command center**: inside an engagement, a tile grid to drive
-      everything for that case — scan & recon, exploit & validate, fix & triage,
-      research & lab, bug finding, posture scan, check results, report. Scan/
-      exploit tiles show a lock until authorization is recorded.
+      everything for that case. Scan & recon / Exploit & validate / Fix & triage
+      are now **one-click actions** (run immediately on an auto-picked runner);
+      research, bug finding, posture, network, report navigate. Locked tiles
+      until authorization is recorded.
+- ✅ **Assessment pipeline** (new section in each engagement): runs every stage
+      in order — recon → scan → exploit → triage → report. When a stage finishes
+      it asks for **approval**, then the next runs automatically, until the
+      report is ready. **Auto-approve** toggle runs hands-off; pause / resume /
+      cancel / restart supported. Stage stepper shows live job progress, and
+      triage auto-fills remediation guidance on findings so the report is
+      actionable. Pipeline jobs are gate-controlled (their auto-exploit chaining
+      is suppressed so progression only happens on approval).
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
