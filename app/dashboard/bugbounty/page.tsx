@@ -6,15 +6,12 @@ import {
   saveBugAccount,
   deleteBugAccount,
   addBugProgram,
-  updateBugProgram,
-  deleteBugProgram,
-  createEngagementFromProgram,
   syncHackerOne,
-  setBugAuto,
-  runProgramNow,
   automateAllPrograms,
+  pauseAllPrograms,
 } from "@/lib/bugbounty";
-import { BUG_PLATFORMS, platformLabel, parseScopeTargets } from "@/lib/bugbounty-core";
+import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
+import { ProgramsManager } from "@/components/programs-manager";
 
 export const dynamic = "force-dynamic";
 // HackerOne sync makes several sequential API calls — give it headroom.
@@ -57,13 +54,6 @@ export default async function BugBountyPage({
     }),
     prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
   ]);
-
-  // Engaged / automated programs float to the top.
-  const sortedPrograms = [...programs].sort((a, b) => {
-    const rank = (p: (typeof programs)[number]) =>
-      (p.engagement ? 0 : 2) - (p.auto ? 1 : 0);
-    return rank(a) - rank(b);
-  });
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -210,11 +200,18 @@ export default async function BugBountyPage({
             placeholder="Out of scope (one per line)"
             className="rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
           />
-          <input
-            name="reward"
-            placeholder="Rewards (e.g. up to $5,000)"
-            className="self-start rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-          />
+          <div className="flex flex-col gap-3">
+            <input
+              name="reward"
+              placeholder="Rewards (e.g. up to $5,000)"
+              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <input
+              name="category"
+              placeholder="Category (e.g. web, mobile, priority)"
+              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </div>
         </div>
         <button className="btn-primary text-sm">Add program</button>
       </form>
@@ -226,244 +223,52 @@ export default async function BugBountyPage({
 
       {/* One-click full automation across all programs */}
       {programs.length > 0 && runners.length > 0 && (
-        <form action={automateAllPrograms} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
-          <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
-          <span className="text-gray-400">scan + auto-exploit every program daily on</span>
-          <select
-            name="runnerId"
-            defaultValue={runners[0]?.id}
-            className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
-          >
-            {runners.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-          <button className="btn-primary px-2 py-1">Automate all</button>
-        </form>
-      )}
-      {programs.length === 0 ? (
-        <p className="mt-3 card text-sm text-gray-500">No programs yet. Add one above.</p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {sortedPrograms.map((p) => {
-            const targets = parseScopeTargets(p.scope);
-            const findings = p.engagement?.findings ?? [];
-            const jobs = p.engagement?.jobs ?? [];
-            const jobsDone = jobs.filter((j) => ["done", "failed", "canceled"].includes(j.status)).length;
-            const jobsActive = jobs.filter((j) => ["queued", "running"].includes(j.status)).length;
-            const pct = jobs.length ? Math.round((jobsDone / jobs.length) * 100) : 0;
-            const open = findings.filter((f) => f.status === "open");
-            const crit = open.filter((f) => f.severity === "critical").length;
-            const high = open.filter((f) => f.severity === "high").length;
-            const exploitable = open.filter((f) =>
-              ["low", "medium", "high", "critical"].includes(f.severity),
-            ).length;
-            // Auto-exploit results: public exploits found + validated vulns.
-            const exploitsFound = open.filter((f) =>
-              f.title.startsWith("Public exploits available"),
-            ).length;
-            const validatedVulns = open.filter(
-              (f) => /zone transfer|SQL injection|handshake|vuln|CVE-/i.test(f.title) || f.severity === "critical",
-            ).length;
-            return (
-              <div key={p.id} className="card">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="tag text-brand">{platformLabel(p.platform)}</span>
-                      <span className="font-semibold text-white">{p.name}</span>
-                      {p.engagement && <span className="tag ring-emerald accent-emerald">engaged</span>}
-                      {p.auto && <span className="tag">🤖 auto</span>}
-                      <span className="tag capitalize">{p.status}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {targets.length} in-scope target{targets.length === 1 ? "" : "s"}
-                      {p.reward ? ` · ${p.reward}` : ""}
-                      {p.url && (
-                        <>
-                          {" · "}
-                          <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
-                            program link
-                          </a>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress + findings summary (for engaged programs) */}
-                {p.engagement && (jobs.length > 0 || findings.length > 0) && (
-                  <div className="mt-3 rounded-lg border border-surface-border bg-black/20 px-3 py-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
-                      <span>
-                        Scans: {jobsDone}/{jobs.length} done
-                        {jobsActive > 0 && <span className="text-sky-300"> · {jobsActive} running</span>}
-                      </span>
-                      <span>
-                        {open.length} open findings
-                        {crit > 0 && <span className="text-red-300"> · {crit} crit</span>}
-                        {high > 0 && <span className="text-orange-300"> · {high} high</span>}
-                      </span>
-                    </div>
-                    {jobs.length > 0 && (
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-border">
-                        <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
-                      </div>
-                    )}
-                    {(exploitsFound > 0 || validatedVulns > 0) && (
-                      <p className="mt-2 text-xs">
-                        <span className="text-red-300">🎯 {exploitsFound} public exploit{exploitsFound === 1 ? "" : "s"} found</span>
-                        {validatedVulns > 0 && (
-                          <span className="text-orange-300"> · {validatedVulns} validated vuln{validatedVulns === 1 ? "" : "s"}</span>
-                        )}
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                      {exploitable > 0 && (
-                        <Link href="/dashboard/exploit" className="text-red-300 hover:underline">
-                          ⚔ {exploitable} to exploit / validate →
-                        </Link>
-                      )}
-                      <Link
-                        href={`/dashboard/engagements/${p.engagement.id}/report`}
-                        className="text-brand hover:underline"
-                      >
-                        📄 Report →
-                      </Link>
-                      <Link
-                        href={`/dashboard/engagements/${p.engagement.id}`}
-                        className="text-gray-400 hover:underline"
-                      >
-                        Open engagement →
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
-                {targets.length > 0 && (
-                  <p className="mt-2 break-all font-mono text-[11px] text-gray-400">
-                    {targets.slice(0, 12).join(", ")}
-                    {targets.length > 12 ? ` +${targets.length - 12} more` : ""}
-                  </p>
-                )}
-
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                  {p.engagement ? (
-                    <Link href={`/dashboard/engagements/${p.engagement.id}`} className="text-brand hover:underline">
-                      → {p.engagement.name} (engagement)
-                    </Link>
-                  ) : (
-                    <form action={createEngagementFromProgram}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <button className="text-emerald-400 hover:text-emerald-300">Create engagement</button>
-                    </form>
-                  )}
-
-                  {runners.length > 0 && targets.length > 0 && (
-                    <form action={runProgramNow} className="flex items-center gap-2">
-                      <input type="hidden" name="id" value={p.id} />
-                      <select
-                        name="runnerId"
-                        defaultValue={p.autoRunnerId || runners[0]?.id}
-                        className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-[11px] outline-none focus:border-brand"
-                      >
-                        {runners.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="text-sky-400 hover:text-sky-300">Run pipeline now</button>
-                    </form>
-                  )}
-
-                  <form action={deleteBugProgram}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <button className="text-gray-500 hover:text-red-400">Delete</button>
-                  </form>
-                </div>
-
-                {/* Automation */}
-                {runners.length > 0 && targets.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-black/20 px-3 py-2 text-xs">
-                    {p.auto ? (
-                      <>
-                        <span className="tag ring-emerald accent-emerald">🤖 Auto on · daily</span>
-                        <span className="text-gray-500">
-                          on {runners.find((r) => r.id === p.autoRunnerId)?.name ?? "—"}
-                          {p.lastAutoAt ? ` · last ${new Date(p.lastAutoAt).toLocaleDateString()}` : ""}
-                        </span>
-                        <form action={setBugAuto} className="ml-auto">
-                          <input type="hidden" name="id" value={p.id} />
-                          <input type="hidden" name="auto" value="false" />
-                          <input type="hidden" name="autoRunnerId" value={p.autoRunnerId} />
-                          <button className="text-amber-400 hover:text-amber-300">Pause automation</button>
-                        </form>
-                      </>
-                    ) : (
-                      <form action={setBugAuto} className="flex flex-wrap items-center gap-2">
-                        <input type="hidden" name="id" value={p.id} />
-                        <input type="hidden" name="auto" value="true" />
-                        <span className="text-gray-400">Run this program automatically every day on</span>
-                        <select
-                          name="autoRunnerId"
-                          defaultValue={runners[0]?.id}
-                          className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-[11px] outline-none focus:border-brand"
-                        >
-                          {runners.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button className="text-emerald-400 hover:text-emerald-300">Enable automation</button>
-                      </form>
-                    )}
-                  </div>
-                )}
-
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-xs text-brand hover:underline">Edit scope</summary>
-                  <form action={updateBugProgram} className="mt-3 space-y-2">
-                    <input type="hidden" name="id" value={p.id} />
-                    <textarea
-                      name="scope"
-                      rows={4}
-                      defaultValue={p.scope}
-                      className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-                    />
-                    <textarea
-                      name="outScope"
-                      rows={2}
-                      defaultValue={p.outScope}
-                      placeholder="Out of scope"
-                      className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input
-                        name="url"
-                        defaultValue={p.url}
-                        placeholder="Program link"
-                        className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-                      />
-                      <select
-                        name="status"
-                        defaultValue={p.status}
-                        className="rounded-lg border border-surface-border bg-surface px-2 py-2 text-sm outline-none focus:border-brand"
-                      >
-                        <option value="active">active</option>
-                        <option value="paused">paused</option>
-                        <option value="archived">archived</option>
-                      </select>
-                    </div>
-                    <button className="btn-ghost text-xs">Save</button>
-                  </form>
-                </details>
-              </div>
-            );
-          })}
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
+          <form action={automateAllPrograms} className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
+            <span className="text-gray-400">scan + auto-exploit daily on</span>
+            <select
+              name="runnerId"
+              defaultValue={runners[0]?.id}
+              className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
+            >
+              {runners.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <button className="btn-primary px-2 py-1">Automate engaged programs</button>
+          </form>
+          <form action={pauseAllPrograms}>
+            <button className="text-gray-500 hover:text-amber-400">Pause all</button>
+          </form>
+          <span className="text-gray-600">Only programs you&apos;ve engaged are automated.</span>
         </div>
       )}
+      <ProgramsManager
+        programs={programs.map((p) => ({
+          id: p.id,
+          platform: p.platform,
+          name: p.name,
+          url: p.url,
+          reward: p.reward,
+          scope: p.scope,
+          outScope: p.outScope,
+          category: p.category,
+          status: p.status,
+          auto: p.auto,
+          autoRunnerId: p.autoRunnerId,
+          lastAutoAt: p.lastAutoAt ? p.lastAutoAt.toISOString() : null,
+          engagement: p.engagement
+            ? {
+                id: p.engagement.id,
+                name: p.engagement.name,
+                findings: p.engagement.findings,
+                jobs: p.engagement.jobs,
+              }
+            : null,
+        }))}
+        runners={runners}
+      />
     </div>
   );
 }

@@ -139,6 +139,8 @@ model Finding {
   owasp          String     @default("")
   // Set when automated validation proved the issue is exploitable (glows in UI).
   confirmed      Boolean    @default(false)
+  // Free-form category/tag for grouping (e.g. "web", "infra", "to-report").
+  category       String     @default("")
   createdAt      DateTime   @default(now())
 }
 
@@ -237,6 +239,8 @@ model BugProgram {
   outScope     String      @default("") // explicitly out-of-scope
   notes        String      @default("")
   reward       String      @default("") // e.g. "$$$ / swag"
+  // Free-form category/tag for grouping (e.g. "web", "mobile", "priority").
+  category     String      @default("")
   status       String      @default("active") // active | paused | archived
   // Automation: when `auto` is on, the daily cron runs the recon/vuln pipeline
   // against in-scope targets using `autoRunnerId`.

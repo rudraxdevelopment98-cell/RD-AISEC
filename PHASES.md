@@ -208,6 +208,21 @@ build that item, verify, commit, and merge to `main`.
 - ✅ "Automate all programs" one-click: import (HackerOne sync) → Automate all →
       daily recon + auto-exploit + findings + report + Discord notify, hands-off.
 
+## ✅ Findings & Program management
+- ✅ Auto bug-bounty pipeline now runs **only on programs you've engaged**
+      (created an engagement for) — the daily cron + "Automate" skip synced-but-
+      unengaged programs. "Automate engaged programs" + "Pause all" controls.
+- ✅ **Findings management bar**: search, multi-select (+ select-all), bulk set
+      status, bulk tag a category, bulk delete — all from one action bar.
+- ✅ **Categorise findings**: free-form category tag per finding, filter chips by
+      category, category shown on each card.
+- ✅ **Export / Import findings as CSV**: export honors current filters; import a
+      CSV (Title required; Severity/Status/Category/Description/Recommendation
+      optional) into a chosen engagement — auto-tagged to ATT&CK/OWASP.
+- ✅ **Program management bar**: search programs (name/scope/category/platform),
+      category filter chips, multi-select, bulk tag category, bulk set status,
+      bulk delete. Add/Edit programs carry a category; ranked by opportunity.
+
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
       folder path.

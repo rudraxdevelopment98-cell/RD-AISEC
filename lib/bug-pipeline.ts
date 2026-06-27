@@ -227,8 +227,15 @@ export async function queueExploitJobs(
 
 /** Cron: run the pipeline for every auto-enabled program whose interval elapsed. */
 export async function runDueBugPrograms(): Promise<{ programs: number; jobs: number }> {
+  // Only programs you've ENGAGED (have an engagement) auto-run — never the
+  // whole synced catalog.
   const programs = await prisma.bugProgram.findMany({
-    where: { auto: true, status: "active", autoRunnerId: { not: "" } },
+    where: {
+      auto: true,
+      status: "active",
+      autoRunnerId: { not: "" },
+      engagementId: { not: null },
+    },
   });
   const now = Date.now();
   let jobs = 0;
