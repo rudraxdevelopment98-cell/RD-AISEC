@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "19"
+RUNNER_VERSION = "20"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -405,6 +405,38 @@ def heartbeat_loop():
         time.sleep(PING_SECONDS)
 
 
+# Nuclei templates must be present (and current) for nuclei to find anything.
+# Refresh them on startup and then once a day, in the background, so the operator
+# never has to remember `nuclei -update-templates`.
+NUCLEI_UPDATE_SECONDS = int(os.environ.get("NUCLEI_UPDATE_SECONDS", str(24 * 3600)))
+
+
+def update_nuclei_templates():
+    """Run `nuclei -update-templates` if nuclei is installed. Best-effort."""
+    bin_ = (TOOLS.get("nuclei") or {}).get("bin", "nuclei")
+    if not shutil.which(bin_):
+        return
+    try:
+        print("⬇ updating nuclei templates…")
+        r = subprocess.run(
+            [bin_, "-update-templates"],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        ok = r.returncode == 0
+        print(f"  nuclei templates {'updated' if ok else 'update failed'} (exit {r.returncode})")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  nuclei template update skipped: {exc}")
+
+
+def nuclei_template_loop():
+    """Background: keep nuclei templates fresh on startup and daily."""
+    while True:
+        update_nuclei_templates()
+        time.sleep(NUCLEI_UPDATE_SECONDS)
+
+
 def poll():
     """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
     try:
@@ -748,6 +780,9 @@ def main():
 
     # Start the heartbeat so we stay online during long jobs/installs.
     threading.Thread(target=heartbeat_loop, daemon=True).start()
+
+    # Keep nuclei templates current (startup + daily) so scans actually match.
+    threading.Thread(target=nuclei_template_loop, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once.\n")
 

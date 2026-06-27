@@ -32,15 +32,16 @@ export async function startAssessment(formData: FormData) {
   const email = await requireUser();
   const id = String(formData.get("engagementId") ?? "");
   const autoApprove = formData.get("autoApprove") === "on";
+  const deep = formData.get("deep") === "on";
   const eng = await prisma.engagement.findUnique({ where: { id }, select: { authorized: true } });
   if (!eng) redirect("/dashboard/engagements");
   if (!eng!.authorized) redirect(back(id, "error=" + encodeURIComponent("Record written authorization first.")));
   let runnerId = String(formData.get("runnerId") ?? "");
   if (!runnerId) runnerId = await pickRunnerId();
   if (!runnerId) redirect(back(id, "error=" + encodeURIComponent("Register a runner machine first.")));
-  await startPipeline(id, runnerId, autoApprove, email);
+  await startPipeline(id, runnerId, autoApprove, email, deep);
   revalidatePath(`/dashboard/engagements/${id}`);
-  redirect(back(id, "ok=" + encodeURIComponent("Assessment started")));
+  redirect(back(id, "ok=" + encodeURIComponent(deep ? "Deep assessment started" : "Assessment started")));
 }
 
 /** Approve the current stage and advance to the next. */

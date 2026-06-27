@@ -31,19 +31,37 @@ function bareHost(v: string): string {
 // Tools each JOB stage queues, with target mode (url adds http://, host is bare).
 // Recon establishes what's alive and what it runs (so later stages have product
 // versions to match exploits against); scan runs the high-signal vuln tools.
-const STAGE_STEPS: Record<string, { tool: string; args: string; mode: "url" | "host" }[]> = {
-  recon: [
-    { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
-    { tool: "whatweb", args: "-a 3", mode: "host" }, // CMS/server/framework + versions
-  ],
-  scan: [
-    { tool: "nuclei", args: "-jsonl", mode: "url" }, // CVEs, exposures, misconfig
-    { tool: "nmap", args: "-Pn -sV -T4 --top-ports 200", mode: "host" }, // versions for exploit matching
-    { tool: "gobuster", args: "dir -q -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
-    { tool: "nikto", args: "", mode: "url" }, // web-server issues, outdated software, defaults
-    { tool: "sslscan", args: "", mode: "host" }, // weak TLS/SSL protocols & ciphers
-  ],
-};
+// `deep` trades runtime for coverage: all TCP ports + vuln NSE scripts, a bigger
+// content-discovery wordlist, and a fuller nuclei pass.
+type Step = { tool: string; args: string; mode: "url" | "host" };
+function stageSteps(stage: string, deep: boolean): Step[] {
+  if (stage === "recon") {
+    return [
+      { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
+      { tool: "whatweb", args: "-a 3", mode: "host" },
+    ];
+  }
+  if (stage === "scan") {
+    return [
+      { tool: "nuclei", args: deep ? "-jsonl" : "-jsonl", mode: "url" },
+      {
+        tool: "nmap",
+        args: deep ? "-Pn -sV -T4 -p- --script vuln" : "-Pn -sV -T4 --top-ports 200",
+        mode: "host",
+      },
+      {
+        tool: "gobuster",
+        args: deep
+          ? "dir -q -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+          : "dir -q -w /usr/share/wordlists/dirb/common.txt",
+        mode: "url",
+      },
+      { tool: "nikto", args: "", mode: "url" },
+      { tool: "sslscan", args: "", mode: "host" },
+    ];
+  }
+  return [];
+}
 
 /**
  * Queue the jobs for a JOB stage from the engagement's scope (deduped against
@@ -56,6 +74,7 @@ export async function queueStageJobs(
   runnerId: string,
   stage: string,
   queuedBy: string,
+  deep = false,
 ): Promise<number> {
   const eng = await prisma.engagement.findUnique({
     where: { id: engagementId },
@@ -99,7 +118,7 @@ export async function queueStageJobs(
       if (data.length >= 10) break;
     }
   } else {
-    const steps = STAGE_STEPS[stage] ?? [];
+    const steps = stageSteps(stage, deep);
     const entries = parseScopeEntries(eng.scope);
     const wildcards = entries.filter((e) => e.wildcard).map((e) => e.host).slice(0, 5);
     const hosts = entries.map((e) => e.host).slice(0, 15);
@@ -170,7 +189,7 @@ async function setStage(pipelineId: string, key: string, data: Record<string, un
  * jobs to wait on) so the caller can keep advancing when autoApprove is on.
  */
 async function runStage(
-  pipeline: { id: string; engagementId: string; runnerId: string; ownerEmail: string },
+  pipeline: { id: string; engagementId: string; runnerId: string; ownerEmail: string; deep?: boolean },
   key: string,
 ): Promise<{ immediate: boolean; summary: string }> {
   await setStage(pipeline.id, key, { status: "running", startedAt: new Date(), summary: "" });
@@ -178,7 +197,7 @@ async function runStage(
 
   const def = stageDef(key);
   if (def?.jobs) {
-    const n = await queueStageJobs(pipeline.engagementId, pipeline.runnerId, key, pipeline.ownerEmail);
+    const n = await queueStageJobs(pipeline.engagementId, pipeline.runnerId, key, pipeline.ownerEmail, !!pipeline.deep);
     if (n === 0) {
       // Nothing to do for this stage — complete immediately.
       await setStage(pipeline.id, key, { summary: "Nothing to run for this stage" });
@@ -238,6 +257,7 @@ export async function startPipeline(
   runnerId: string,
   autoApprove: boolean,
   email: string,
+  deep = false,
 ): Promise<void> {
   await prisma.pipeline.deleteMany({ where: { engagementId } });
   const pipeline = await prisma.pipeline.create({
@@ -245,6 +265,7 @@ export async function startPipeline(
       engagementId,
       runnerId,
       autoApprove,
+      deep,
       ownerEmail: email,
       status: "running",
       currentKey: STAGE_ORDER[0],
