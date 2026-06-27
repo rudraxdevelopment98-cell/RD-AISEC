@@ -48,29 +48,51 @@ function parseNmap(target: string, output: string): ParsedFinding[] {
   return out;
 }
 
-/** Nuclei JSONL: one JSON object per line with info.{name,severity} + matched-at. */
+/** Nuclei JSONL: one JSON object per line with info.{name,severity} + matched-at.
+ * Captures CVE id, CWE, references and extracted results for richer findings,
+ * and dedupes repeats (templateId|matched) within a single run. */
 function parseNuclei(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
+  const seen = new Set<string>();
   for (const raw of output.split("\n")) {
     const line = raw.trim();
     if (!line.startsWith("{")) continue;
     try {
       const j = JSON.parse(line);
       const info = j.info ?? {};
-      const name = info.name ?? j["template-id"] ?? "Nuclei match";
+      const tid = j["template-id"] ?? "";
+      const name = info.name ?? tid ?? "Nuclei match";
       const matched = j["matched-at"] ?? j.host ?? target;
+      const key = `${tid}|${matched}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const sev = normSeverity(info.severity);
+
+      const classification = info.classification ?? {};
+      const cve = (Array.isArray(classification["cve-id"]) ? classification["cve-id"][0] : classification["cve-id"]) || "";
+      const cwe = Array.isArray(classification["cwe-id"]) ? classification["cwe-id"].join(", ") : classification["cwe-id"] || "";
+      const cvss = classification["cvss-score"] ? `CVSS ${classification["cvss-score"]}` : "";
+      const refs: string[] = Array.isArray(info.reference) ? info.reference.slice(0, 3) : [];
+      const extracted: string[] = Array.isArray(j["extracted-results"]) ? j["extracted-results"].slice(0, 5) : [];
+      const tags = Array.isArray(info.tags) ? info.tags.join(", ") : info.tags || "";
+
+      const meta = [cve && cve.toUpperCase(), cwe && `CWE: ${cwe}`, cvss].filter(Boolean).join(" · ");
       out.push({
-        title: `${name} — ${matched}`,
+        title: `${name}${cve ? ` (${cve.toUpperCase()})` : ""} — ${matched}`,
         severity: sev,
         status: "open",
+        // High/critical nuclei matches are template-confirmed exposures.
         confirmed: sev === "critical" || sev === "high",
         description:
-          `Nuclei template "${j["template-id"] ?? name}" matched at ${matched}.` +
-          (info.description ? `\n\n${info.description}` : ""),
+          `Nuclei template "${tid || name}" matched at ${matched}.` +
+          (meta ? `\n\n${meta}` : "") +
+          (tags ? `\nTags: ${tags}` : "") +
+          (info.description ? `\n\n${info.description}` : "") +
+          (extracted.length ? `\n\nExtracted: ${extracted.join(", ")}` : "") +
+          (refs.length ? `\n\nReferences:\n${refs.join("\n")}` : ""),
         recommendation:
           info.remediation ??
-          "Review the matched template reference and remediate the underlying exposure.",
+          "Review the matched template reference and remediate the underlying exposure (patch/upgrade or remove the exposed asset).",
       });
     } catch {
       /* skip non-JSON lines */
@@ -320,6 +342,121 @@ function parseSearchsploit(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+/** sslscan: flag weak protocols (SSLv2/3, TLS1.0/1.1), weak ciphers (RC4/3DES/
+ * NULL/EXPORT/DES), Heartbleed, and expired/self-signed certificates. */
+function parseSslscan(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  const enabled = (proto: RegExp) =>
+    output.split("\n").some((l) => proto.test(l) && /enabled/i.test(l));
+
+  // Deprecated protocols still enabled.
+  const deadProtos: { re: RegExp; name: string; sev: string }[] = [
+    { re: /SSLv2/i, name: "SSLv2", sev: "high" },
+    { re: /SSLv3/i, name: "SSLv3", sev: "high" },
+    { re: /TLSv1\.0/i, name: "TLS 1.0", sev: "medium" },
+    { re: /TLSv1\.1/i, name: "TLS 1.1", sev: "medium" },
+  ];
+  const weakOn = deadProtos.filter((p) => enabled(p.re));
+  if (weakOn.length) {
+    const worst = weakOn.some((p) => p.sev === "high") ? "high" : "medium";
+    out.push({
+      title: `Weak TLS/SSL protocols enabled on ${target} (${weakOn.map((p) => p.name).join(", ")})`,
+      severity: worst,
+      status: "open",
+      confirmed: true,
+      description:
+        `sslscan found these deprecated protocols enabled on ${target}: ${weakOn.map((p) => p.name).join(", ")}.\n\n` +
+        "Deprecated TLS/SSL versions are vulnerable to downgrade and decryption attacks (POODLE, BEAST, etc.).",
+      recommendation:
+        "Disable SSLv2/SSLv3 and TLS 1.0/1.1. Serve only TLS 1.2+ (prefer TLS 1.3) with modern cipher suites.",
+    });
+  }
+
+  // Weak ciphers accepted.
+  const weakCiphers = Array.from(
+    output.matchAll(/Accepted\s+\S+\s+\d+\s+bits\s+(\S*(?:RC4|3DES|DES|NULL|EXPORT|MD5|ANON)\S*)/gi),
+  ).map((m) => m[1]);
+  const uniqWeak = Array.from(new Set(weakCiphers)).slice(0, 12);
+  if (uniqWeak.length) {
+    out.push({
+      title: `Weak TLS ciphers accepted on ${target} (${uniqWeak.length})`,
+      severity: "medium",
+      status: "open",
+      confirmed: true,
+      description: `sslscan shows ${target} accepts weak cipher suites:\n\n${uniqWeak.join("\n")}`,
+      recommendation:
+        "Remove RC4, 3DES/DES, NULL, EXPORT, MD5 and anonymous cipher suites. Use AEAD ciphers (AES-GCM, ChaCha20-Poly1305) with forward secrecy.",
+    });
+  }
+
+  // Heartbleed.
+  if (/vulnerable to heartbleed/i.test(output)) {
+    out.push({
+      title: `Heartbleed (CVE-2014-0160) on ${target}`,
+      severity: "critical",
+      status: "open",
+      confirmed: true,
+      description: `sslscan reports ${target} is vulnerable to Heartbleed (CVE-2014-0160), which leaks server memory (keys, sessions, secrets).`,
+      recommendation: "Upgrade OpenSSL immediately, reissue/rotate certificates and keys, and invalidate existing sessions.",
+    });
+  }
+
+  // Certificate problems.
+  if (/certificate has expired|expired\s*$/im.test(output)) {
+    out.push({
+      title: `Expired TLS certificate on ${target}`,
+      severity: "medium",
+      status: "open",
+      description: `sslscan reports the TLS certificate for ${target} has expired.`,
+      recommendation: "Renew the certificate and automate renewal (e.g. ACME/Let's Encrypt) to prevent recurrence.",
+    });
+  }
+  if (/self[- ]signed/i.test(output)) {
+    out.push({
+      title: `Self-signed TLS certificate on ${target}`,
+      severity: "low",
+      status: "open",
+      description: `sslscan reports a self-signed certificate on ${target}; clients can't verify the server's identity.`,
+      recommendation: "Use a certificate from a trusted CA for any service clients connect to.",
+    });
+  }
+  return out;
+}
+
+/** WPScan: surface flagged vulnerabilities ("[!]" alerts) and an out-of-date core. */
+function parseWpscan(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  const alerts = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("[!]") && /vulnerab|out of date|outdated|known|cve|wpvdb/i.test(l));
+  if (alerts.length) {
+    out.push({
+      title: `WordPress vulnerabilities on ${target} (${alerts.length})`,
+      severity: "high",
+      status: "open",
+      confirmed: true,
+      description:
+        `WPScan flagged ${alerts.length} issue(s) on ${target}:\n\n` +
+        alerts.slice(0, 20).join("\n") +
+        (alerts.length > 20 ? `\n…and ${alerts.length - 20} more` : ""),
+      recommendation:
+        "Update WordPress core, themes and plugins to patched versions; remove unused/abandoned plugins; restrict wp-admin and xmlrpc.",
+    });
+  }
+  const ver = output.match(/WordPress version ([\d.]+) identified[\s\S]*?(out of date|insecure|latest)/i);
+  if (ver && /out of date|insecure/i.test(ver[2])) {
+    out.push({
+      title: `Outdated WordPress core ${ver[1]} on ${target}`,
+      severity: "medium",
+      status: "open",
+      description: `WPScan identified WordPress ${ver[1]} on ${target}, which is out of date.`,
+      recommendation: "Upgrade WordPress core to the latest release and keep auto-updates enabled.",
+    });
+  }
+  return out;
+}
+
 /** wafw00f: note whether a WAF is present (absence is useful context, not a vuln). */
 function parseWafw00f(target: string, output: string): ParsedFinding[] {
   const behind = output.match(/is behind (.+?)(?: WAF| \(|\.|$)/i);
@@ -494,10 +631,10 @@ function parseWifi(output: string): ParsedFinding[] {
 }
 
 /**
- * Dispatch to the right parser. Lookup-only tools (whois/dig) and config scans
- * (sslscan/wpscan) intentionally produce no auto-findings — their output stays
- * on the job for manual review. Custom jobs are checked for WiFi output so a
- * wireless scan can be imported.
+ * Dispatch to the right parser. Lookup-only tools (whois/dig) intentionally
+ * produce no auto-findings — their output stays on the job for manual review.
+ * Custom jobs are checked for WiFi output and confirmed-vuln signals so wireless
+ * scans and Metasploit checks can be imported.
  */
 export function parseJobFindings(
   tool: string,
@@ -511,6 +648,10 @@ export function parseJobFindings(
       return [...parseNmap(target, output), ...parseVulnConfirm(target, output)];
     case "nuclei":
       return parseNuclei(target, output);
+    case "sslscan":
+      return [...parseSslscan(target, output), ...parseVulnConfirm(target, output)];
+    case "wpscan":
+      return parseWpscan(target, output);
     case "httpx":
       return parseHttpx(target, output);
     case "sqlmap":

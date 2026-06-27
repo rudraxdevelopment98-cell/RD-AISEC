@@ -240,6 +240,22 @@ build that item, verify, commit, and merge to `main`.
       actionable. Pipeline jobs are gate-controlled (their auto-exploit chaining
       is suppressed so progression only happens on approval).
 
+## ✅ Stronger detection engine
+- ✅ **Richer automated pipeline**: recon now also fingerprints tech/versions
+      (whatweb); the scan stage runs nuclei + **nmap -sV** (service versions) +
+      gobuster + **nikto** + **sslscan** — far more coverage than before.
+- ✅ **New parsers**: sslscan (weak SSL/TLS protocols, weak ciphers, Heartbleed,
+      expired/self-signed certs) and WPScan (flagged WordPress vulns, outdated
+      core) now produce findings instead of being ignored.
+- ✅ **Better nuclei findings**: capture CVE id, CWE, CVSS, tags, references and
+      extracted results; dedupe repeats.
+- ✅ **Smarter auto-validation** (exploitActions): WordPress→wpscan, URLs with a
+      query param→sqlmap, TLS findings→sslscan, live web→a focused nuclei CVE/
+      exposure pass — on top of nmap --script vuln + Metasploit checks.
+- ✅ **Wider classification**: more ATT&CK/OWASP keyword rules (XXE, SSTI, RCE,
+      open redirect, JWT/secret leaks, .git/.env exposure, Heartbleed/POODLE,
+      etc.) and tool inference for accurate framework tags.
+
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
       folder path.
