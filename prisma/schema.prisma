@@ -52,6 +52,7 @@ model Pipeline {
   status       String          @default("running")
   currentKey   String          @default("recon") // stage key currently active
   autoApprove  Boolean         @default(false)    // skip approval gates when true
+  deep         Boolean         @default(false)    // heavier args: all ports, bigger lists, vuln scripts
   ownerEmail   String          @default("")
   stages       PipelineStage[]
   createdAt    DateTime        @default(now())

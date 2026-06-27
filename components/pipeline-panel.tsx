@@ -21,6 +21,7 @@ type Pipeline = {
   status: string;
   currentKey: string;
   autoApprove: boolean;
+  deep: boolean;
   stages: Stage[];
 };
 
@@ -60,49 +61,66 @@ export function PipelinePanel({
 
       {/* No pipeline yet — start it */}
       {!pipeline || pipeline.status === "canceled" ? (
-        <form action={startAssessment} className="card mt-3 flex flex-wrap items-center gap-3">
+        <form action={startAssessment} className="card mt-3 space-y-3">
           <input type="hidden" name="engagementId" value={engagementId} />
-          <label className="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" name="autoApprove" className="h-4 w-4 accent-emerald-500" />
-            Auto-approve every stage (hands-off)
-          </label>
-          <button
-            type="submit"
-            disabled={blocked}
-            className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon name="bolt" className="mr-1 inline h-4 w-4" />
-            {pipeline?.status === "canceled" ? "Restart assessment" : "Run full assessment"}
-          </button>
-          {blocked && (
-            <span className="text-xs text-amber-400">
-              {!authorized ? "Record authorization first." : "Register a runner first."}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" name="autoApprove" className="h-4 w-4 accent-emerald-500" />
+              Auto-approve every stage (hands-off)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" name="deep" className="h-4 w-4 accent-amber-500" />
+              Deep scan (all ports + vuln scripts + bigger wordlist)
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={blocked}
+              className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icon name="bolt" className="mr-1 inline h-4 w-4" />
+              {pipeline?.status === "canceled" ? "Restart assessment" : "Run full assessment"}
+            </button>
+            {blocked && (
+              <span className="text-xs text-amber-400">
+                {!authorized ? "Record authorization first." : "Register a runner first."}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Deep scan is much more thorough but slower (full TCP port sweep, nmap
+            vuln NSE scripts, and a larger content-discovery wordlist).
+          </p>
         </form>
       ) : (
         <div className="card mt-3">
           {/* Controls */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span
-              className={`tag ${
-                pipeline.status === "done"
-                  ? "border-emerald-500/40 text-emerald-300"
-                  : pipeline.status === "awaiting_approval"
-                    ? "border-amber-500/40 text-amber-300"
-                    : pipeline.status === "paused"
-                      ? "border-gray-500/40 text-gray-400"
-                      : "border-sky-500/50 text-sky-300"
-              }`}
-            >
-              {pipeline.status === "awaiting_approval"
-                ? "⏸ Awaiting approval"
-                : pipeline.status === "running"
-                  ? "▶ Running"
-                  : pipeline.status === "done"
-                    ? "✓ Complete"
-                    : "⏸ Paused"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`tag ${
+                  pipeline.status === "done"
+                    ? "border-emerald-500/40 text-emerald-300"
+                    : pipeline.status === "awaiting_approval"
+                      ? "border-amber-500/40 text-amber-300"
+                      : pipeline.status === "paused"
+                        ? "border-gray-500/40 text-gray-400"
+                        : "border-sky-500/50 text-sky-300"
+                }`}
+              >
+                {pipeline.status === "awaiting_approval"
+                  ? "⏸ Awaiting approval"
+                  : pipeline.status === "running"
+                    ? "▶ Running"
+                    : pipeline.status === "done"
+                      ? "✓ Complete"
+                      : "⏸ Paused"}
+              </span>
+              {pipeline.deep && (
+                <span className="tag border-amber-500/40 text-amber-300">⚡ Deep</span>
+              )}
+            </div>
             <div className="flex items-center gap-3 text-xs">
               <form action={toggleAutoApprove}>
                 <input type="hidden" name="engagementId" value={engagementId} />

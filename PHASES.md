@@ -255,6 +255,12 @@ build that item, verify, commit, and merge to `main`.
 - ✅ **Wider classification**: more ATT&CK/OWASP keyword rules (XXE, SSTI, RCE,
       open redirect, JWT/secret leaks, .git/.env exposure, Heartbleed/POODLE,
       etc.) and tool inference for accurate framework tags.
+- ✅ **Deep scan toggle** (on the assessment pipeline): full TCP port sweep +
+      nmap vuln NSE scripts + a larger content-discovery wordlist for maximum
+      depth. Standard scan stays fast. Shows a ⚡ Deep badge while running.
+- ✅ **Nuclei template auto-update** in the runner (v20): refreshes templates on
+      startup and daily in the background, so scans always run the latest CVE/
+      exposure checks — no manual `nuclei -update-templates` needed.
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
