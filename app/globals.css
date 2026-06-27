@@ -327,3 +327,24 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .glow-danger { animation: none; box-shadow: 0 0 0 1px rgba(239,68,68,0.6); }
 }
+
+/* ── Severity glow (subtle, colored by risk level) ───────── */
+.sev-glow-critical {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35), 0 0 16px rgba(239, 68, 68, 0.28);
+}
+.sev-glow-high {
+  border-color: rgba(249, 115, 22, 0.45) !important;
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.3), 0 0 14px rgba(249, 115, 22, 0.22);
+}
+.sev-glow-medium {
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25), 0 0 12px rgba(245, 158, 11, 0.16);
+}
+.sev-glow-low {
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 0 10px rgba(56, 189, 248, 0.14);
+}
+.sev-glow-info {
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}
