@@ -35,6 +35,7 @@ const PIPELINE: Step[] = [
     args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
     mode: "url",
   }, // content discovery
+  { tool: "katana", args: "-silent -d 2 -jc -rl 150", mode: "url" }, // crawl endpoints + JS (feeds secret/endpoint detection)
 ];
 
 // Deep variant: maximum coverage (all TCP ports + vuln NSE, bigger wordlist,
@@ -52,6 +53,15 @@ const PIPELINE_DEEP: Step[] = [
 /** Bare host from any host/URL value. */
 function bareHost(v: string): string {
   return v.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split("/")[0];
+}
+
+// Authorized OPSEC: identify your scan traffic so programs don't mistake you for
+// a real attacker (most bug-bounty rules ask for this). Set RD_HUNTER_HANDLE.
+const HUNTER = (process.env.RD_HUNTER_HANDLE || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+function withIdentify(tool: string, args: string): string {
+  return HUNTER && (tool === "httpx" || tool === "nuclei" || tool === "katana")
+    ? `${args} -H X-Bug-Hunter:${HUNTER}`
+    : args;
 }
 
 /** Form a step's target (url-mode adds http://) and validate it for that tool. */
@@ -142,7 +152,7 @@ export async function queueProgramPipeline(
     for (const step of PIPELINE) {
       const target = stepTarget(host, step);
       if (!target || pendingKey.has(`${step.tool}|${target}`)) continue;
-      data.push({ engagementId, runnerId, tool: step.tool, target, args: step.args, autoImport: true, queuedBy });
+      data.push({ engagementId, runnerId, tool: step.tool, target, args: withIdentify(step.tool, step.args), autoImport: true, queuedBy });
     }
   }
 
@@ -183,7 +193,7 @@ export async function queueHostScans(
         runnerId,
         tool: step.tool,
         target,
-        args: step.args,
+        args: withIdentify(step.tool, step.args),
         autoImport: true,
         queuedBy: queuedBy || "automation",
       });
