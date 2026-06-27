@@ -17,37 +17,45 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
       { href: "/dashboard/guide", label: "How it works", icon: "book" },
-      { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
-      { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
     ],
   },
+  // The daily bug-hunting flow, top to bottom.
   {
-    section: "Engagements",
+    section: "Hunt",
     items: [
+      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
-      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
+      { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
+      { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
+    ],
+  },
+  // Running the scans behind the hunt.
+  {
+    section: "Scanning",
+    items: [
+      { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
+      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
+      { href: "/dashboard/network", label: "Network Map", icon: "globe" },
+      { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
+      { href: "/dashboard/runners", label: "Machines", icon: "server" },
+      { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
+    ],
+  },
+  // The three consulting pillars.
+  {
+    section: "Services",
+    items: [
       { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
       { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
       { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
     ],
   },
   {
-    section: "Offensive ops",
+    section: "Insights & tools",
     items: [
-      { href: "/dashboard/network", label: "Network Map", icon: "globe" },
-      { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
-      { href: "/dashboard/runners", label: "Machines", icon: "server" },
-      { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
-      { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
-      { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
-      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
-      { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
-    ],
-  },
-  {
-    section: "Knowledge & tools",
-    items: [
+      { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
+      { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
       { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
       { href: "/dashboard/frameworks", label: "Frameworks", icon: "shield" },
