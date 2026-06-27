@@ -19,23 +19,23 @@ export type ClassifyInput = {
 // Keyword → OWASP id. First match wins, so order most-specific first.
 const OWASP_RULES: { re: RegExp; id: string }[] = [
   { re: /\bssrf\b|server-side request forgery/i, id: "A10" },
-  { re: /sql\s*injection|sqli\b|nosql injection|command injection|os command|ldap injection|template injection|\binjection\b|\bxss\b|cross[- ]site scripting/i, id: "A03" },
-  { re: /deserializ|insecure update|integrity (failure|check)|unsigned|supply chain|ci\/cd/i, id: "A08" },
-  { re: /broken access|access control|idor|insecure direct object|directory traversal|path traversal|\blfi\b|\brfi\b|forced browsing|csrf|cross[- ]site request forgery|privilege escalation/i, id: "A01" },
-  { re: /\bcve-|outdated|deprecated|end[- ]of[- ]life|vulnerable (component|version|library|plugin)|known vulnerab/i, id: "A06" },
-  { re: /tls|ssl|cipher|certificate|cleartext|plaintext|weak (crypto|hash|encryption)|crypto(graphic)? failure|http (instead of|not) https/i, id: "A02" },
-  { re: /auth(entication)? (failure|bypass|weak)|default (account|credential|password)|weak password|brute[- ]force|session (fixation|management)|missing mfa|2fa/i, id: "A07" },
+  { re: /sql\s*injection|sqli\b|nosql injection|command injection|os command|ldap injection|template injection|\bssti\b|\bxxe\b|xml external entity|\binjection\b|\bxss\b|cross[- ]site scripting|crlf injection|host header injection/i, id: "A03" },
+  { re: /deserializ|insecure update|integrity (failure|check)|unsigned|supply chain|ci\/cd|subresource integrity/i, id: "A08" },
+  { re: /broken access|access control|\bidor\b|insecure direct object|directory traversal|path traversal|\blfi\b|\brfi\b|local file inclusion|remote file inclusion|forced browsing|csrf|cross[- ]site request forgery|privilege escalation|open redirect|unrestricted (file )?upload/i, id: "A01" },
+  { re: /\bcve-|outdated|deprecated|end[- ]of[- ]life|vulnerable (component|version|library|plugin|theme)|known vulnerab|out of date/i, id: "A06" },
+  { re: /\btls\b|\bssl\b|cipher|certificate|cleartext|plaintext|weak (crypto|hash|encryption)|crypto(graphic)? failure|http (instead of|not) https|heartbleed|poodle|\brc4\b|\b3des\b|md5|sslv[23]|tls\s?1\.[01]/i, id: "A02" },
+  { re: /auth(entication)? (failure|bypass|weak)|default (account|credential|password)|weak password|brute[- ]force|session (fixation|management)|missing mfa|2fa|\bjwt\b|exposed (api )?(key|token|secret)|hardcoded (password|secret)/i, id: "A07" },
   { re: /logging|monitoring|audit (trail|log)|no alerting/i, id: "A09" },
-  { re: /misconfig|default (file|page|install|config)|directory (indexing|listing)|verbose error|stack trace|debug (mode|enabled)|missing (security )?header|x-frame-options|cors|exposed (config|panel|dashboard|\.env|backup)|open (port|service|redirect)/i, id: "A05" },
+  { re: /misconfig|default (file|page|install|config)|directory (indexing|listing)|verbose error|stack trace|debug (mode|enabled)|missing (security )?header|x-frame-options|content-security|hsts|cors|exposed (config|panel|dashboard|\.env|\.git|backup|phpinfo|swagger|actuator)|open (port|service|redirect)|http methods|\bwaf\b/i, id: "A05" },
 ];
 
 // Keyword → ATT&CK tactic id. First match wins.
 const ATTACK_RULES: { re: RegExp; id: string }[] = [
-  { re: /sql\s*injection|sqli\b|command injection|os command|rce|remote code|exploit|upload (shell|webshell)|authentication bypass|auth bypass/i, id: "TA0001" }, // Initial Access
-  { re: /privilege escalation|sudo|setuid|escalat/i, id: "TA0004" }, // Privilege Escalation
-  { re: /default (account|credential|password)|weak password|brute[- ]force|credential|password (exposed|leak)|secret (exposed|leak)|api key|token leak/i, id: "TA0006" }, // Credential Access
-  { re: /exfiltrat|data (leak|exposure|exposed)|backup (file|exposed)|\.env|database dump/i, id: "TA0010" }, // Exfiltration
-  { re: /lateral movement|smb|rdp share|pivot/i, id: "TA0008" }, // Lateral Movement
+  { re: /sql\s*injection|sqli\b|command injection|os command|\brce\b|remote code|code execution|exploit|upload (shell|webshell)|web shell|authentication bypass|auth bypass|\bssti\b|\bxxe\b|deserializ/i, id: "TA0001" }, // Initial Access
+  { re: /privilege escalation|sudo|setuid|escalat|\bidor\b|access control/i, id: "TA0004" }, // Privilege Escalation
+  { re: /default (account|credential|password)|weak password|brute[- ]force|credential|password (exposed|leak)|secret (exposed|leak)|api key|token leak|\bjwt\b|hardcoded/i, id: "TA0006" }, // Credential Access
+  { re: /exfiltrat|data (leak|exposure|exposed)|backup (file|exposed)|\.env|\.git|database dump|directory (indexing|listing)|zone transfer/i, id: "TA0010" }, // Exfiltration
+  { re: /lateral movement|\bsmb\b|rdp share|pivot/i, id: "TA0008" }, // Lateral Movement
 ];
 
 function firstMatch(rules: { re: RegExp; id: string }[], hay: string): string {
@@ -57,8 +57,15 @@ function inferTool(hay: string): string {
   if (/\bsqlmap\b/.test(h)) return "sqlmap";
   if (/\bnikto\b/.test(h)) return "nikto";
   if (/\bhttpx\b|live http/.test(h)) return "httpx";
-  if (/\bsslscan\b/.test(h)) return "sslscan";
+  if (/\bsslscan\b|tls\/ssl|cipher|heartbleed/.test(h)) return "sslscan";
   if (/\bwpscan\b|wordpress/.test(h)) return "wpscan";
+  if (/\bgobuster\b|discovered paths/.test(h)) return "gobuster";
+  if (/\bwhatweb\b|technology stack/.test(h)) return "whatweb";
+  if (/\bwafw00f\b|\bwaf\b/.test(h)) return "wafw00f";
+  if (/\bmasscan\b/.test(h)) return "masscan";
+  if (/\benum4linux\b|smb enumeration/.test(h)) return "enum4linux";
+  if (/\bdnsrecon\b|zone transfer/.test(h)) return "dnsrecon";
+  if (/\bamass\b|subdomain/.test(h)) return "amass";
   if (/\bwhois\b/.test(h)) return "whois";
   if (/\bdig\b|dns record/.test(h)) return "dig";
   return "";
@@ -71,18 +78,19 @@ export function classifyFinding(input: ClassifyInput): FrameworkTags {
   let owasp = firstMatch(OWASP_RULES, hay);
   let attack = firstMatch(ATTACK_RULES, hay);
 
-  // Tool-level defaults when keywords didn't pin it down.
-  if (!attack) {
-    if (tool === "nmap" || tool === "httpx" || tool === "whois" || tool === "dig") {
-      attack = "TA0007"; // Discovery — recon/enumeration tools
-    } else if (tool === "nuclei" || tool === "nikto" || tool === "sslscan" || tool === "wpscan") {
-      attack = "TA0007"; // Discovery — vuln/exposure enumeration
-    }
-  }
+  // Tool-level defaults when keywords didn't pin it down. Recon/scan tools map
+  // to Discovery; their findings still get a sensible OWASP bucket.
+  const DISCOVERY_TOOLS = new Set([
+    "nmap", "httpx", "whois", "dig", "nuclei", "nikto", "sslscan", "wpscan",
+    "gobuster", "whatweb", "wafw00f", "masscan", "enum4linux", "dnsrecon",
+    "dnsenum", "amass", "theharvester",
+  ]);
+  if (!attack && DISCOVERY_TOOLS.has(tool)) attack = "TA0007"; // Discovery
   if (!owasp) {
-    // sslscan/TLS-focused tools default to crypto; web scanners to misconfig.
-    if (tool === "sslscan") owasp = "A02";
-    else if (tool === "nikto" || tool === "wpscan" || tool === "nuclei") owasp = "A05";
+    if (tool === "sslscan") owasp = "A02"; // crypto
+    else if (tool === "nikto" || tool === "wpscan" || tool === "nuclei" || tool === "gobuster" || tool === "whatweb") {
+      owasp = "A05"; // misconfiguration / exposure
+    } else if (tool === "enum4linux") owasp = "A05";
   }
 
   return { attack, owasp };

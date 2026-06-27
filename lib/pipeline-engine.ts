@@ -29,14 +29,19 @@ function bareHost(v: string): string {
 }
 
 // Tools each JOB stage queues, with target mode (url adds http://, host is bare).
+// Recon establishes what's alive and what it runs (so later stages have product
+// versions to match exploits against); scan runs the high-signal vuln tools.
 const STAGE_STEPS: Record<string, { tool: string; args: string; mode: "url" | "host" }[]> = {
   recon: [
     { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
+    { tool: "whatweb", args: "-a 3", mode: "host" }, // CMS/server/framework + versions
   ],
   scan: [
-    { tool: "nuclei", args: "-jsonl", mode: "url" },
-    { tool: "nmap", args: "-Pn -F -T4", mode: "host" },
+    { tool: "nuclei", args: "-jsonl", mode: "url" }, // CVEs, exposures, misconfig
+    { tool: "nmap", args: "-Pn -sV -T4 --top-ports 200", mode: "host" }, // versions for exploit matching
     { tool: "gobuster", args: "dir -q -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
+    { tool: "nikto", args: "", mode: "url" }, // web-server issues, outdated software, defaults
+    { tool: "sslscan", args: "", mode: "host" }, // weak TLS/SSL protocols & ciphers
   ],
 };
 
