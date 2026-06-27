@@ -175,6 +175,17 @@ export default async function WifiPage({
                         Check the <Link href={`/dashboard/jobs`} className="text-brand hover:underline">job output</Link>.
                       </p>
                     )}
+                    {/* Raw output for diagnosis when nothing parsed. */}
+                    {job?.status === "done" && networks.length === 0 && job.output && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-300">
+                          View raw scan output
+                        </summary>
+                        <pre className="mt-1 max-h-60 overflow-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-400">
+                          {job.output.slice(0, 5000) || "(empty)"}
+                        </pre>
+                      </details>
+                    )}
                     {networks.length > 0 && (
                       <div className="mt-3 overflow-x-auto">
                         <p className="mb-1 text-xs font-semibold text-gray-400">{networks.length} access point(s)</p>

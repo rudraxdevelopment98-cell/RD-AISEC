@@ -13,37 +13,29 @@ async function requireUser() {
 
 const BACK = "/dashboard/wifi";
 
-// Terse output so the portal can parse SSID/BSSID/CHAN/SIGNAL/SECURITY reliably.
-const WIFI_SCAN_CMD = "nmcli -t -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list";
+// Robust scan: detect the mode ON the runner at run time (the portal's reported
+// interface state can lag). Try nmcli (managed) AND, if any interface is in
+// monitor mode, airodump-ng it to a CSV. The parser handles either output.
+const WIFI_SMART_SCAN =
+  `bash -lc 'echo "== nmcli =="; nmcli -t -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list 2>/dev/null; ` +
+  `for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `if iw dev "$n" info 2>/dev/null | grep -q "type monitor"; then ` +
+  `echo "== airodump $n =="; rm -f /tmp/rdwifi-*.csv; ` +
+  `timeout 20 airodump-ng -w /tmp/rdwifi --output-format csv "$n" >/dev/null 2>&1; ` +
+  `cat /tmp/rdwifi-01.csv 2>/dev/null; break; fi; done; echo "== iw dev =="; iw dev 2>/dev/null'`;
 
-/** Queue a WiFi access-point scan on a runner; results render back on this page.
- * Managed interface → nmcli; monitor interface (wlanXmon) → airodump-ng CSV
- * (nmcli can't scan in monitor mode), read back in the same job. */
+/** Queue a WiFi access-point scan on a runner; results render back on this page. */
 export async function scanWifi(formData: FormData) {
   const email = await requireUser();
   const runnerId = String(formData.get("runnerId") ?? "");
   if (!runnerId) redirect(`${BACK}?error=${encodeURIComponent("Pick a machine to scan from.")}`);
-
-  const runner = await prisma.runner.findUnique({
-    where: { id: runnerId },
-    select: { wifi: true },
-  });
-  const ifaces = (runner?.wifi ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  // A safe interface name (alphanumeric) in monitor mode → use airodump.
-  const monIface = ifaces.find((i) => /^[a-z0-9]+mon$/i.test(i));
-
-  const args = monIface
-    ? // airodump for ~20s to a CSV, then print it. Runs under bash so the steps
-      // can be chained (custom jobs allow shell metacharacters; argv via shlex).
-      `bash -lc "rm -f /tmp/rdwifi-*.csv; timeout 20 airodump-ng -w /tmp/rdwifi --output-format csv ${monIface} >/dev/null 2>&1; cat /tmp/rdwifi-01.csv 2>/dev/null"`
-    : WIFI_SCAN_CMD;
 
   await prisma.job.create({
     data: {
       runnerId,
       tool: "custom",
       target: "wifi-scan",
-      args,
+      args: WIFI_SMART_SCAN,
       queuedBy: email,
     },
   });
