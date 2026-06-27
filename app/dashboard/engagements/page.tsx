@@ -1,6 +1,7 @@
 import { Icon } from "@/components/icons";
 import { listEngagements, createEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES } from "@/lib/engagement-constants";
+import { platformLabel } from "@/lib/bugbounty-core";
 import { EngagementsManager } from "@/components/engagements-manager";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +97,10 @@ export default async function EngagementsPage({
             scope: e.scope,
             authorized: e.authorized,
             findingCount: e._count.findings,
+            // Where it belongs: linked program's platform, else Manual.
+            source: e.bugPrograms[0]
+              ? platformLabel(e.bugPrograms[0].platform)
+              : "Manual",
           }))}
         />
       </div>
