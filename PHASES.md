@@ -303,6 +303,10 @@ build that item, verify, commit, and merge to `main`.
       in the scan table; full suggestions on Inspect with **Copy** and **Save as
       findings** into an engagement (report-ready). Plus a **🤝 Auto handshake**
       (deauth + capture in one go).
+- ✅ **Crack a handshake**: 🔓 dictionary attack on the captured handshake —
+      rockyou by default (auto-gunzip) or a custom wordlist path; crack jobs get
+      a 40-min runner timeout (v23). A cracked key proves a weak passphrase →
+      feeds the "use a long random passphrase / WPA3" suggestion.
 
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,

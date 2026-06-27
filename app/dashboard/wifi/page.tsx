@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, saveWifiFindings } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, crackHandshake, saveWifiFindings } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
 import { wifiSecurityAdvice, wifiAdviceText } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
@@ -334,6 +334,21 @@ export default async function WifiPage({
                                   </button>
                                 </form>
                               </div>
+
+                              {/* Crack a captured handshake with a wordlist (dictionary attack). */}
+                              <form action={crackHandshake} className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                <input type="hidden" name="runnerId" value={r.id} />
+                                <input type="hidden" name="bssid" value={target} />
+                                <input
+                                  name="wordlist"
+                                  placeholder="wordlist path (blank = rockyou)"
+                                  className="w-56 rounded-md border border-surface-border bg-surface px-2 py-1 font-mono outline-none focus:border-brand"
+                                />
+                                <button className="btn-ghost px-2 py-1" title="Dictionary attack on the captured handshake">
+                                  🔓 Crack handshake
+                                </button>
+                                <span className="text-[10px] text-gray-600">runs after a capture; weak passphrases fall fast</span>
+                              </form>
 
                               {/* Security assessment & suggestions */}
                               {ap && (() => {

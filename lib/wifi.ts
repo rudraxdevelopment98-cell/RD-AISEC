@@ -154,6 +154,39 @@ export async function autoHandshake(formData: FormData) {
 }
 
 /**
+ * Crack a captured handshake (/tmp/rdhs-01.cap) with a wordlist. Defaults to
+ * rockyou (auto-gunzip), or a custom wordlist path. Dictionary attack only —
+ * brute-forcing the full WPA keyspace is infeasible. Authorized only.
+ */
+export async function crackHandshake(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const wordlist = String(formData.get("wordlist") ?? "").trim();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  // Allow only safe path characters if a custom wordlist is given.
+  if (wordlist && !/^[A-Za-z0-9._/\-]+$/.test(wordlist)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Invalid wordlist path.")}`);
+  }
+
+  const cmd = wordlist
+    ? `bash -lc 'W="${wordlist}"; [ -f "$W" ] || { echo "Wordlist not found: $W"; exit 0; }; ` +
+      `echo "Cracking with $W…"; aircrack-ng -w "$W" -b ${bssid} /tmp/rdhs-01.cap'`
+    : `bash -lc 'W=/usr/share/wordlists/rockyou.txt; ` +
+      `[ -f "$W" ] || { [ -f "$W.gz" ] && gunzip -kf "$W.gz"; }; ` +
+      `[ -f "$W" ] || W=$(ls /usr/share/wordlists/*.txt 2>/dev/null | head -1); ` +
+      `if [ -z "$W" ]; then echo "NO_WORDLIST — install seclists/wordlists or pass a path"; exit 0; fi; ` +
+      `echo "Cracking with $W…"; aircrack-ng -w "$W" -b ${bssid} /tmp/rdhs-01.cap'`;
+
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-crack:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
+/**
  * Save a WiFi security review as findings on an authorized engagement — turns the
  * assessment into report-ready items (recomputed server-side; one finding per
  * real issue).
