@@ -307,6 +307,11 @@ build that item, verify, commit, and merge to `main`.
       rockyou by default (auto-gunzip) or a custom wordlist path; crack jobs get
       a 40-min runner timeout (v23). A cracked key proves a weak passphrase →
       feeds the "use a long random passphrase / WPA3" suggestion.
+- ✅ **More WiFi methods**: ⚡ hashcat crack (mode 22000, GPU-fast), 📡 clientless
+      PMKID capture (hcxdumptool), and a 🪤 Evil Twin / captive-portal option
+      (wifiphisher/airgeddon command, run-in-terminal, heavily warned). One-click
+      installs for hashcat/hcxtools/hcxdumptool/wifiphisher. A cracked passphrase
+      is detected, shown, and saved as a CRITICAL "weak passphrase" finding.
 
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,
