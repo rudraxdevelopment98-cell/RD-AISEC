@@ -293,6 +293,11 @@ build that item, verify, commit, and merge to `main`.
       pre-filled (template + target), edit / AI-draft / save to Kali / run.
 - ✅ **Step 4 — Report**, plus how-to-fix hardening. All gated on engagement
       authorization.
+- ✅ **Live results inline**: the exploit page streams the queued checks'/
+      techniques' output in real time (auto-refresh, tap a job to expand) — no
+      need to jump to Jobs.
+- ✅ **Auto "✅ Confirmed exploitable" banner** appears the moment a check comes
+      back vulnerable; a "🎯 Public exploit available" banner when Exploit-DB matches.
 
 ## ✅ Research & Exploit Lab
 - ✅ Settings: research workspace — Google Drive folder link + Kali exploit
