@@ -561,6 +561,45 @@ function parseDalfox(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+// High-value leaked secrets — finding one of these in a response/JS is often a
+// direct bug-bounty payout. Patterns are specific to avoid false positives.
+const SECRET_PATTERNS: { name: string; re: RegExp; severity: string }[] = [
+  { name: "AWS access key", re: /\bAKIA[0-9A-Z]{16}\b/, severity: "critical" },
+  { name: "Google API key", re: /\bAIza[0-9A-Za-z\-_]{35}\b/, severity: "high" },
+  { name: "GitHub token", re: /\b(ghp|gho|ghu|ghs|ghr)_[0-9A-Za-z]{36}\b/, severity: "critical" },
+  { name: "GitHub fine-grained token", re: /\bgithub_pat_[0-9A-Za-z_]{22,}\b/, severity: "critical" },
+  { name: "Slack token", re: /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/, severity: "high" },
+  { name: "Stripe live key", re: /\bsk_live_[0-9A-Za-z]{24,}\b/, severity: "critical" },
+  { name: "Twilio key", re: /\bSK[0-9a-fA-F]{32}\b/, severity: "high" },
+  { name: "Private key", re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/, severity: "critical" },
+  { name: "JWT", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/, severity: "medium" },
+  { name: "Generic secret assignment", re: /\b(?:api[_-]?key|secret|access[_-]?token|client[_-]?secret)["']?\s*[:=]\s*["'][A-Za-z0-9\-_]{16,}["']/i, severity: "medium" },
+];
+
+/** Detect leaked secrets/keys in any tool output (responses, JS, headers). */
+function parseSecrets(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  const seen = new Set<string>();
+  for (const p of SECRET_PATTERNS) {
+    const m = output.match(p.re);
+    if (!m || seen.has(p.name)) continue;
+    seen.add(p.name);
+    const sample = m[0].slice(0, 8) + "…"; // redacted preview, never store the full secret
+    out.push({
+      title: `Exposed ${p.name} on ${target}`,
+      severity: p.severity,
+      status: "open",
+      confirmed: p.severity === "critical",
+      description:
+        `A ${p.name} appears to be exposed at ${target} (preview: ${sample}).\n\n` +
+        "Leaked credentials can grant direct access to cloud/services — verify and report immediately.",
+      recommendation:
+        "Revoke/rotate the exposed credential now, remove it from client-side code/responses, and move secrets to server-side config or a secrets manager. Audit for misuse.",
+    });
+  }
+  return out;
+}
+
 /** wafw00f: note whether a WAF is present (absence is useful context, not a vuln). */
 function parseWafw00f(target: string, output: string): ParsedFinding[] {
   const behind = output.match(/is behind (.+?)(?: WAF| \(|\.|$)/i);
@@ -757,7 +796,9 @@ export function parseJobFindings(
     case "wpscan":
       return parseWpscan(target, output);
     case "httpx":
-      return parseHttpx(target, output);
+      return [...parseHttpx(target, output), ...parseSecrets(target, output)];
+    case "katana":
+      return [...parseKatana(target, output), ...parseSecrets(target, output)];
     case "sqlmap":
       return parseSqlmap(target, output);
     case "nikto":
@@ -772,12 +813,10 @@ export function parseJobFindings(
       return parseSubfinder(target, output);
     case "naabu":
       return parseNaabu(target, output);
-    case "katana":
-      return parseKatana(target, output);
     case "dalfox":
       return parseDalfox(target, output);
     case "whatweb":
-      return parseWhatweb(target, output);
+      return [...parseWhatweb(target, output), ...parseSecrets(target, output)];
     case "enum4linux":
       return parseEnum4linux(target, output);
     case "dnsrecon":
@@ -787,7 +826,7 @@ export function parseJobFindings(
     case "searchsploit":
       return parseSearchsploit(target, output);
     default:
-      // Custom jobs: WiFi scans, or Metasploit check/scanner confirmations.
-      return [...parseWifi(output), ...parseVulnConfirm(target, output)];
+      // Custom jobs: WiFi scans, Metasploit confirmations, or leaked secrets.
+      return [...parseWifi(output), ...parseVulnConfirm(target, output), ...parseSecrets(target, output)];
   }
 }

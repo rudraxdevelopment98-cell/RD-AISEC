@@ -280,6 +280,21 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ Engine level-up (capability · security · OPSEC)
+- ✅ **Leaked-secret detection**: scans tool output (responses/JS/headers) for
+      AWS/Google/GitHub/Slack/Stripe/Twilio keys, private keys, JWTs and generic
+      secret assignments → high/critical findings (redacted preview, never stores
+      the full secret). Runs on httpx/katana/whatweb/custom output.
+- ✅ **Endpoint/JS crawl in the bug pipeline**: katana (`-jc`, depth 2) added so
+      recon maps endpoints + JS, feeding the secret scan and exploit flow.
+- ✅ **Portal hardening**: strict security headers on every response (CSP,
+      HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy)
+      and `poweredByHeader` off.
+- ✅ **Authorized OPSEC**: Tor routing + rate-limited scans already in; added an
+      **identify-your-traffic** header (`X-Bug-Hunter:<handle>` via
+      `RD_HUNTER_HANDLE`) on bug-bounty httpx/nuclei/katana so programs don't
+      mistake you for an attacker. (No detection-evasion — that's out of scope.)
+
 ## ✅ WiFi + Network map fixes
 - ✅ **WiFi now works on-page**: per machine, a **Scan networks now** button runs
       the scan on the runner and the access points render in a table (SSID/BSSID/
