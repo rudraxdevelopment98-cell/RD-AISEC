@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { wifiSecurityAdvice, type WifiApInput } from "@/lib/wifi-advice";
+import { classifyFinding } from "@/lib/finding-map";
 
 async function requireUser() {
   const session = await auth();
@@ -127,6 +129,73 @@ export async function deauthClient(formData: FormData) {
     data: { runnerId, tool: "custom", target: `wifi-deauth:${bssid}`, args: cmd, queuedBy: email },
   });
   redirect("/dashboard/jobs?queued=1");
+}
+
+/** Auto handshake: fire a few deauths to force a reconnect WHILE airodump
+ * captures, then check for a handshake — the fastest grab. Authorized only. */
+export async function autoHandshake(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const channel = String(formData.get("channel") ?? "").trim();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const chArg = /^\d{1,3}$/.test(channel) ? `-c ${channel} ` : "";
+  const cmd =
+    `bash -lc '${findMonSh()}; rm -f /tmp/rdhs-*; ` +
+    `( sleep 8; for i in 1 2 3; do aireplay-ng --deauth 5 -a ${bssid} "$M" >/dev/null 2>&1; sleep 6; done ) & ` +
+    `timeout 90 airodump-ng ${chArg}--bssid ${bssid} -w /tmp/rdhs "$M" >/dev/null 2>&1; ` +
+    `echo "== handshake check =="; aircrack-ng /tmp/rdhs-01.cap 2>/dev/null'`;
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-capture:${bssid}`, args: cmd, queuedBy: email },
+  });
+  redirect("/dashboard/jobs?queued=1");
+}
+
+/**
+ * Save a WiFi security review as findings on an authorized engagement — turns the
+ * assessment into report-ready items (recomputed server-side; one finding per
+ * real issue).
+ */
+export async function saveWifiFindings(formData: FormData) {
+  await requireUser();
+  const engagementId = String(formData.get("engagementId") ?? "");
+  if (!engagementId) redirect(`${BACK}?error=${encodeURIComponent("Pick an engagement to save into.")}`);
+  const eng = await prisma.engagement.findUnique({ where: { id: engagementId }, select: { authorized: true } });
+  if (!eng) redirect(`${BACK}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (!eng!.authorized) redirect(`${BACK}?error=${encodeURIComponent("Authorize the engagement first.")}`);
+
+  const ap: WifiApInput = {
+    ssid: String(formData.get("ssid") ?? "").slice(0, 64),
+    security: String(formData.get("security") ?? ""),
+    cipher: String(formData.get("cipher") ?? ""),
+    auth: String(formData.get("auth") ?? ""),
+    clients: Number(formData.get("clients") ?? 0) || 0,
+  };
+  const bssid = String(formData.get("bssid") ?? "").slice(0, 32);
+  const where = `${ap.ssid || "(hidden)"}${bssid ? ` (${bssid})` : ""}`;
+
+  const { issues } = wifiSecurityAdvice(ap);
+  const real = issues.filter((i) => i.severity !== "info");
+  if (real.length === 0) {
+    redirect(`${BACK}?error=${encodeURIComponent("No issues to save — this AP looks well configured.")}`);
+  }
+  const data = real.map((i) => {
+    const title = `WiFi: ${i.title} — ${where}`;
+    const description = i.detail;
+    return {
+      engagementId,
+      title,
+      severity: i.severity,
+      description,
+      recommendation: i.fix,
+      ...classifyFinding({ title, description, severity: i.severity, tool: "wifi" }),
+    };
+  });
+  await prisma.finding.createMany({ data });
+  await prisma.engagement.update({ where: { id: engagementId }, data: { updatedAt: new Date() } });
+  redirect(`${BACK}?ok=${encodeURIComponent(`Saved ${data.length} WiFi finding(s) to the engagement`)}`);
 }
 
 /** Run a wireless command (monitor mode, capture, etc.) on a runner directly. */

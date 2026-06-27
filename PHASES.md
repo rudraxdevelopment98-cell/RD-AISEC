@@ -298,6 +298,11 @@ build that item, verify, commit, and merge to `main`.
       💻 computer / 🔌 IoT / 📡 network gear, flags randomized MACs); AP cipher/
       auth + traffic (data frames, beacons); one-click **🤝 capture handshake**
       and **⚡ deauth** (all clients or a single device) — authorized only.
+- ✅ **WiFi security suggestions**: a deterministic assessment per AP (risk +
+      concrete fixes for OPEN/WEP/WPA/TKIP/PSK/segmentation/hygiene). Risk badge
+      in the scan table; full suggestions on Inspect with **Copy** and **Save as
+      findings** into an engagement (report-ready). Plus a **🤝 Auto handshake**
+      (deauth + capture in one go).
 
 ## ✅ UI tidy-up (same theme/glass, clearer flow)
 - ✅ **Sidebar regrouped** around the real workflow: Overview · Hunt (Bug Bounty,
