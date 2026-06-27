@@ -59,7 +59,7 @@ export async function POST(
   // (amass→scan, recon→auto-exploit) are suppressed for them.
   const pipelineJob = !!job.stage;
   if (status === "done" && job.autoImport && job.engagementId) {
-    if (job.tool === "amass") {
+    if (job.tool === "amass" || job.tool === "subfinder") {
       // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
       const hosts = parseSubdomains(output);
       if (hosts.length > 0 && !pipelineJob) {

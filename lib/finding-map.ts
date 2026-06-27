@@ -65,6 +65,10 @@ function inferTool(hay: string): string {
   if (/\bmasscan\b/.test(h)) return "masscan";
   if (/\benum4linux\b|smb enumeration/.test(h)) return "enum4linux";
   if (/\bdnsrecon\b|zone transfer/.test(h)) return "dnsrecon";
+  if (/\bdalfox\b/.test(h)) return "dalfox";
+  if (/\bnaabu\b/.test(h)) return "naabu";
+  if (/\bkatana\b|crawled endpoints/.test(h)) return "katana";
+  if (/\bsubfinder\b|subdomains discovered/.test(h)) return "subfinder";
   if (/\bamass\b|subdomain/.test(h)) return "amass";
   if (/\bwhois\b/.test(h)) return "whois";
   if (/\bdig\b|dns record/.test(h)) return "dig";
@@ -83,7 +87,7 @@ export function classifyFinding(input: ClassifyInput): FrameworkTags {
   const DISCOVERY_TOOLS = new Set([
     "nmap", "httpx", "whois", "dig", "nuclei", "nikto", "sslscan", "wpscan",
     "gobuster", "whatweb", "wafw00f", "masscan", "enum4linux", "dnsrecon",
-    "dnsenum", "amass", "theharvester",
+    "dnsenum", "amass", "theharvester", "subfinder", "naabu", "katana",
   ]);
   if (!attack && DISCOVERY_TOOLS.has(tool)) attack = "TA0007"; // Discovery
   if (!owasp) {
