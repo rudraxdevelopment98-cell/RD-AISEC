@@ -8,19 +8,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Calm, desaturated cool-slate accent (was loud emerald green). Keeps the
-        // UI mostly monochrome so the liquid-glass frost is the main look, not a
-        // wash of colour. Semantic status colours (red/amber/emerald/sky) stay
-        // vivid since they carry meaning and are used sparingly.
+        // ProjectDiscovery-style: deep near-black canvas + crisp white primary
+        // buttons (see .btn-primary) + a clean green accent used SPARINGLY for
+        // links, active nav, status and progress. Not a green wash — the canvas
+        // and backdrops stay near-monochrome; green is the single bright accent.
         brand: {
-          DEFAULT: "#aeb9c2",
-          dark: "#7f8a93",
-          glow: "#ccd4db",
+          DEFAULT: "#34d399",
+          dark: "#10b981",
+          glow: "#6ee7b7",
         },
         surface: {
-          DEFAULT: "#0b0f17",
-          card: "#111827",
-          border: "#1f2937",
+          DEFAULT: "#08090c",
+          card: "#101216",
+          border: "#222730",
         },
       },
       fontFamily: {
