@@ -106,7 +106,10 @@ export function wifiSecurityAdvice(ap: WifiApInput): WifiAssessment {
     });
   }
 
-  if (auth === "PSK" && (sec === "WPA2" || sec === "WPA")) {
+  // Fires for PSK, or when auth is unknown (nmcli scans don't report it) on a
+  // WPA/WPA2 network — home/SMB WiFi is PSK by default, so the offline-crack
+  // risk applies and shouldn't be silently dropped.
+  if ((auth === "PSK" || !auth) && (sec === "WPA2" || sec === "WPA")) {
     issues.push({
       title: "Pre-shared key (PSK) authentication",
       severity: "medium",

@@ -54,10 +54,13 @@ export function lookupVendor(mac: string): string {
   const m = (mac || "").toUpperCase();
   const prefix = m.slice(0, 8);
   if (!/^([0-9A-F]{2}:){2}[0-9A-F]{2}$/.test(prefix)) return "";
-  // Locally-administered bit (private/randomized MAC) — common on modern phones.
+  // A known OUI wins even if the locally-administered bit happens to be set.
+  if (OUI[prefix]) return OUI[prefix];
+  // Otherwise, flag locally-administered (private/randomized) MACs — common on
+  // modern phones — vs a genuinely unknown vendor.
   const first = parseInt(m.slice(0, 2), 16);
   if (!Number.isNaN(first) && (first & 0x02)) return "Randomized (private)";
-  return OUI[prefix] ?? "Unknown";
+  return "Unknown";
 }
 
 /** A rough device-type emoji+label from the vendor. */

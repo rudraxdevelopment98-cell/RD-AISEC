@@ -280,6 +280,31 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ Full audit pass — bugs found & fixed
+Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · runner
+· auth/security/schema). Fixed:
+- **Pipeline liveness (critical)**: the cron now sweeps stale/orphaned jobs
+  (dead runners, queued-but-unclaimable) and advances any pipeline whose stage
+  became complete — pipelines no longer hang waiting for someone to open Jobs.
+- **Runner delete (high)**: deleting a runner now cancels its queued/running
+  jobs instead of orphaning them (was: stuck "queued" forever).
+- **Pipeline advance race (high)**: concurrent job completions can no longer
+  double-advance a stage (atomic claim).
+- **Exploit stage (high)**: its focused nuclei pass is no longer dropped by the
+  recon dedup (args-aware dedup).
+- **CSV import**: validates status against the allowed set; parses quoted fields
+  that span newlines (was: shifted columns / bad data).
+- **Category filter**: search + CSV export now keep an active category filter.
+- **Diagnostics**: missing-validation-tools correctly reads as a blocker (was a
+  dead `warn` branch).
+- **WiFi**: cracked-key now binds to the exact AP; vendor lookup no longer loses
+  known OUIs with the locally-administered bit; PSK offline-crack advice fires on
+  nmcli scans too.
+- **Secrets**: dropped the noisy generic-assignment pattern (false positives).
+- **Security**: cron fails closed when `CRON_SECRET` is unset (was public);
+  findings CSV export now enforces per-section access.
+- **Bulk tag**: empty category no longer wipes tags (findings/engagements/programs).
+
 ## ✅ Job cancellation actually stops the runner (v24)
 - ✅ **Fix**: canceling a job previously only marked it canceled in the DB — the
       runner kept running the tool, holding its worker slot, so new jobs sat

@@ -573,7 +573,6 @@ const SECRET_PATTERNS: { name: string; re: RegExp; severity: string }[] = [
   { name: "Twilio key", re: /\bSK[0-9a-fA-F]{32}\b/, severity: "high" },
   { name: "Private key", re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/, severity: "critical" },
   { name: "JWT", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/, severity: "medium" },
-  { name: "Generic secret assignment", re: /\b(?:api[_-]?key|secret|access[_-]?token|client[_-]?secret)["']?\s*[:=]\s*["'][A-Za-z0-9\-_]{16,}["']/i, severity: "medium" },
 ];
 
 /** Detect leaked secrets/keys in any tool output (responses, JS, headers). */

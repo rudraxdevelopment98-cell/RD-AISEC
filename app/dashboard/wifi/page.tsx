@@ -301,7 +301,7 @@ export default async function WifiPage({
                       // A passphrase cracked from a recent crack job for this AP.
                       const crackJob = crackByRunner.get(r.id);
                       const crackedKey =
-                        crackJob && crackJob.target.includes(target) && crackJob.status === "done"
+                        crackJob && crackJob.target === `wifi-crack:${target}` && crackJob.status === "done"
                           ? extractCrackedKey(crackJob.output)
                           : "";
                       return (

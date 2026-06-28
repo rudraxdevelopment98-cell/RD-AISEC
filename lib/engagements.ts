@@ -147,7 +147,7 @@ export async function bulkSetEngagementCategory(formData: FormData) {
   await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const category = String(formData.get("category") ?? "").trim().slice(0, 60);
-  if (ids.length) {
+  if (ids.length && category) {
     await prisma.engagement.updateMany({ where: { id: { in: ids } }, data: { category } });
   }
   revalidatePath("/dashboard/engagements");
