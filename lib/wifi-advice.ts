@@ -45,6 +45,22 @@ export function extractCrackedKey(output: string): string {
   return "";
 }
 
+/**
+ * Pull a captured password out of the Auto Evil-Twin job output. wifiphisher logs
+ * the victim's submitted form data; the password shows up as a key=value pair or
+ * a labelled line. Returns "" if nothing was captured.
+ */
+export function extractEvilTwinKey(output: string): string {
+  if (!output) return "";
+  const start = output.indexOf("== CAPTURED ==");
+  const end = output.indexOf("== END ==");
+  const block = start >= 0 ? output.slice(start, end >= 0 ? end : undefined) : output;
+  // form-encoded / labelled: password=..., passphrase: ..., psk = ...
+  const kv = block.match(/(?:pass(?:word|phrase)?|psk|pre-?shared(?:[ _-]?key)?)\s*[=:]\s*["']?([^"'&\s]{6,63})/i);
+  if (kv) return kv[1];
+  return "";
+}
+
 export function wifiSecurityAdvice(ap: WifiApInput): WifiAssessment {
   const sec = (ap.security || "").toUpperCase();
   const cipher = (ap.cipher || "").toUpperCase();

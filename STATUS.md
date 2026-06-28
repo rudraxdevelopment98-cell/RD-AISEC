@@ -28,7 +28,9 @@ results back; the portal parses them into findings.
   PoC in Lab, **verify & confirm yourself**, webhook notify, save to report.
 - **WiFi**: scan (managed nmcli / monitor airodump), inspect (devices, vendor,
   distance, traffic), capture (handshake/PMKID/auto), crack (aircrack/hashcat),
-  **💥 Auto-pwn** (capture→crack→reveal), security assessment → save as findings.
+  **💥 Auto-pwn** (capture→crack→reveal), **🪤 Auto Evil-Twin** (one-click fake-AP
+  captive portal via wifiphisher, headless/PTY, quit-on-capture → reveals the
+  submitted password), security assessment → save as findings.
 - **Network map** (per-scan + full-engagement merged), **Learn** roadmap,
   **Readiness check**, **How-it-works guide**, runner cancellation (v24).
 - **Job priority**: jobs have a `priority` (claimed priority-desc then oldest-first);

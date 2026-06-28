@@ -4,9 +4,9 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, autoPwn, crackHandshake, crackHashcat, capturePmkid, saveWifiFindings } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, autoPwn, autoEvilTwin, crackHandshake, crackHashcat, capturePmkid, saveWifiFindings } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
-import { wifiSecurityAdvice, wifiAdviceText, extractCrackedKey } from "@/lib/wifi-advice";
+import { wifiSecurityAdvice, wifiAdviceText, extractCrackedKey, extractEvilTwinKey } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
 import { CopyText } from "@/components/copy-text";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -60,7 +60,7 @@ const SEC_TONE: Record<string, string> = {
 export default async function WifiPage({
   searchParams,
 }: {
-  searchParams: { error?: string; scanned?: string; inspected?: string; pwning?: string };
+  searchParams: { error?: string; scanned?: string; inspected?: string; pwning?: string; eviltwin?: string };
 }) {
   const [runners, engagements] = await Promise.all([
     prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
@@ -82,11 +82,13 @@ export default async function WifiPage({
   const latestByRunner = new Map<string, (typeof wifiJobs)[number]>();
   const inspectByRunner = new Map<string, (typeof wifiJobs)[number]>();
   const crackByRunner = new Map<string, (typeof wifiJobs)[number]>();
+  const evilByRunner = new Map<string, (typeof wifiJobs)[number]>();
   for (const j of wifiJobs) {
     if (!j.runnerId) continue;
     if (j.target === "wifi-scan" && !latestByRunner.has(j.runnerId)) latestByRunner.set(j.runnerId, j);
     if (j.target.startsWith("wifi-inspect") && !inspectByRunner.has(j.runnerId)) inspectByRunner.set(j.runnerId, j);
     if (j.target.startsWith("wifi-crack") && !crackByRunner.has(j.runnerId)) crackByRunner.set(j.runnerId, j);
+    if (j.target.startsWith("wifi-eviltwin") && !evilByRunner.has(j.runnerId)) evilByRunner.set(j.runnerId, j);
   }
 
   const anyActive = wifiJobs.some((j) => j.status === "queued" || j.status === "running");
@@ -134,6 +136,13 @@ export default async function WifiPage({
         <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
           💥 Auto-pwn running — capture (~2 min) then crack. The password appears in
           the network&apos;s 🔓 banner below when done (this page auto-refreshes).
+        </div>
+      )}
+      {searchParams.eviltwin && (
+        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+          🪤 Auto Evil-Twin running — a fake AP + captive portal is up (up to ~5 min).
+          It quits the moment a victim submits the password, which then appears in
+          the network&apos;s 🪤 banner below (this page auto-refreshes).
         </div>
       )}
 
@@ -334,6 +343,12 @@ export default async function WifiPage({
                         crackJob && crackJob.target === `wifi-crack:${target}` && crackJob.status === "done"
                           ? extractCrackedKey(crackJob.output)
                           : "";
+                      // Evil-twin job for this AP (running, or captured password).
+                      const evilJob = evilByRunner.get(r.id);
+                      const evilForThis = evilJob && evilJob.target === `wifi-eviltwin:${target}`;
+                      const evilRunning = !!evilForThis && (evilJob!.status === "queued" || evilJob!.status === "running");
+                      const evilKey =
+                        evilForThis && evilJob!.status === "done" ? extractEvilTwinKey(evilJob!.output) : "";
                       return (
                         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/5 p-3">
                           <p className="text-xs font-semibold text-brand-glow">
@@ -362,6 +377,18 @@ export default async function WifiPage({
                                   <input type="hidden" name="channel" value={apChan} />
                                   <button className="btn-primary px-2 py-1" title="Capture → crack → reveal, all in one (authorized networks only)">
                                     💥 Auto-pwn (capture → crack → reveal)
+                                  </button>
+                                </form>
+                                <form action={autoEvilTwin}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <input type="hidden" name="ssid" value={ap?.ssid ?? ""} />
+                                  <button
+                                    className="btn-primary px-2 py-1"
+                                    title="Stand up a fake AP + captive portal and capture the password a victim submits — one click (authorized networks only)"
+                                    disabled={evilRunning}
+                                  >
+                                    {evilRunning ? "🪤 Evil-Twin running…" : "🪤 Auto Evil-Twin (capture password)"}
                                   </button>
                                 </form>
                                 <form action={autoHandshake}>
@@ -430,17 +457,32 @@ export default async function WifiPage({
                                 </div>
                               )}
 
-                              {/* Evil Twin — aggressive; run in your Kali terminal. */}
+                              {/* Evil-twin captured password banner (from the one-click run). */}
+                              {evilKey && (
+                                <div className="mt-2 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                                  🪤 <b>Password captured via Evil Twin:</b>{" "}
+                                  <span className="font-mono">{evilKey}</span> — a user typed this into the
+                                  fake captive portal. Strong proof the network is phishable; recommend
+                                  WPA3/802.1X and user awareness.
+                                </div>
+                              )}
+
+                              {/* Evil Twin — aggressive. One-click auto runs above; manual fallback here. */}
                               <details className="mt-2">
                                 <summary className="cursor-pointer text-xs font-semibold text-amber-300 hover:text-amber-200">
-                                  🪤 Evil Twin / captive portal (advanced)
+                                  🪤 Evil Twin / captive portal (how it works · manual command)
                                 </summary>
                                 <div className="mt-2 space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2">
                                   <p className="text-[11px] text-red-200">
-                                    Spins up a fake AP with this SSID + a captive portal that asks the
-                                    victim for the WiFi password, then validates it against a captured
-                                    handshake. Very intrusive — <b>only on networks you own / are explicitly authorized to test</b>.
-                                    Interactive: run it in the runner&apos;s Kali terminal and watch it.
+                                    The <b>🪤 Auto Evil-Twin</b> button above does this for you in one click:
+                                    it stands up a fake AP with this SSID + a captive portal that asks the
+                                    victim for the WiFi password, runs headless, and quits the moment a
+                                    password is submitted (shown in the banner above). Very intrusive —
+                                    <b> only on networks you own / are explicitly authorized to test</b>.
+                                    Needs <code className="font-mono">wifiphisher</code> + root on the runner.
+                                  </p>
+                                  <p className="text-[11px] text-gray-400">
+                                    Prefer to drive it by hand in the runner&apos;s Kali terminal instead:
                                   </p>
                                   <div className="flex items-center gap-2">
                                     <code className="flex-1 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
