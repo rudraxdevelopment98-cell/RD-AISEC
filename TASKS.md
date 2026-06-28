@@ -17,7 +17,7 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ Collapsible left sidebar (icons-only) + collapsible right rail
 - ✅ Tidy sidebar: separators, alignment
 - ✅ Centered brand; symmetric header/footer sizes on both rails
-- 🔄 **Nav colours: ACTIVE = green, inactive = white / dim-white** (currently reversed — fix)
+- ✅ **Nav colours: ACTIVE = green, inactive = white / dim-white**
 - ⬜ Footer parity: make left footer a single compact row to match right footer height (optional)
 
 ## B. Filters & sorting

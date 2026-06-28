@@ -56,10 +56,10 @@ body {
   .nav-link {
     @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 transition hover:bg-surface-border/60 hover:text-white;
   }
-  /* Active item turns solid white (icon + label) on a subtle highlight; inactive
-     icons stay brand-green (set on the icon in SidebarNav). */
+  /* Active item turns brand-green (icon + label) on a subtle highlight; inactive
+     icons are white / labels dim-white (set in SidebarNav). */
   .nav-link-active {
-    @apply bg-white/[0.06] text-white;
+    @apply bg-brand/10 text-brand;
   }
   .nav-section {
     @apply px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600;

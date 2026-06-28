@@ -36,11 +36,11 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
                   active ? "nav-link-active" : ""
                 }`}
               >
-                {/* Inactive icons are brand-green; the active item goes white
-                    (inherits the link colour). */}
+                {/* Active item is brand-green (inherits the link colour);
+                    inactive icons are white. */}
                 <Icon
                   name={item.icon}
-                  className={`h-4 w-4 shrink-0 ${active ? "" : "text-brand"}`}
+                  className={`h-4 w-4 shrink-0 ${active ? "" : "text-white"}`}
                 />
                 <span className="truncate group-data-[collapsed=true]:hidden">{item.label}</span>
               </Link>
