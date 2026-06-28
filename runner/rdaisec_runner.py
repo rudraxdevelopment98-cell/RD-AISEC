@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "24"
+RUNNER_VERSION = "25"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -322,6 +322,82 @@ def post_with_retry(path: str, body, what: str) -> bool:
             time.sleep(wait)
     print(f"  ✗ could not post {what}. The job will time out on the portal; use Retry there.")
     return False
+
+
+# ---- Self-update -----------------------------------------------------------
+# So you never have to re-pull/re-run the runner by hand. The runner fetches the
+# latest script from the portal, and if its RUNNER_VERSION is newer than ours it
+# overwrites this file and re-execs itself. Default on; set RUNNER_AUTO_UPDATE=0
+# to disable (e.g. if you run from a pinned/edited copy).
+AUTO_UPDATE = os.environ.get("RUNNER_AUTO_UPDATE", "1") not in ("0", "false", "no")
+# Check for a newer script this often (in addition to once at startup).
+UPDATE_CHECK_SECONDS = int(os.environ.get("UPDATE_CHECK_SECONDS", str(3600)))
+_VERSION_RE = re.compile(r'^RUNNER_VERSION\s*=\s*["\'](\d+)["\']', re.MULTILINE)
+
+
+def self_update() -> bool:
+    """Fetch the latest runner from the portal; if newer, overwrite & re-exec.
+
+    Returns True if it replaced the file and is about to re-exec (caller won't
+    see the return — os.execv replaces the process). Best-effort and safe: it
+    only writes when the fetched content is a valid, newer runner script.
+    """
+    if not AUTO_UPDATE:
+        return False
+    try:
+        resp = request("GET", "/api/runner/script", timeout=30)
+        content = resp.read().decode("utf-8", "replace")
+    except Exception as exc:  # noqa: BLE001
+        # Older portals won't have this endpoint — that's fine, stay on current.
+        print(f"  self-update check skipped: {exc}")
+        return False
+
+    # Sanity-check the payload so a stray HTML error page can never clobber us.
+    if not content.startswith("#!") or "def main" not in content:
+        return False
+    m = _VERSION_RE.search(content)
+    if not m:
+        return False
+    remote = m.group(1)
+    try:
+        if int(remote) <= int(RUNNER_VERSION):
+            return False
+    except ValueError:
+        return False
+
+    path = os.path.abspath(__file__)
+    try:
+        # Write atomically (tmp + replace) so a crash mid-write can't truncate
+        # the running script.
+        tmp = path + ".new"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp, path)
+        os.chmod(path, 0o755)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  self-update could not write {path}: {exc}")
+        return False
+
+    print(f"⬆ updated runner {RUNNER_VERSION} → {remote}; restarting…")
+    try:
+        os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
+    except Exception as exc:  # noqa: BLE001
+        # If re-exec fails, the new file is in place for the next manual start.
+        print(f"  restart failed ({exc}); please restart the runner.")
+    return True
+
+
+def auto_update_loop():
+    """Background: periodically check the portal for a newer runner."""
+    if not AUTO_UPDATE:
+        return
+    while True:
+        time.sleep(UPDATE_CHECK_SECONDS)
+        # Only update when idle so we never kill a running job mid-scan.
+        with WORKERS_LOCK:
+            busy = ACTIVE_WORKERS
+        if busy == 0:
+            self_update()
 
 
 # ---- Tor anonymity ---------------------------------------------------------
@@ -849,6 +925,9 @@ def main():
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
     print(f"RD-AISEC runner → {PORTAL_URL}")
 
+    # Pull the latest runner before doing anything else; if newer this re-execs.
+    self_update()
+
     SUBNETS = detect_subnets()
     if SUBNETS:
         print(f"Local network(s): {', '.join(SUBNETS)}")
@@ -872,6 +951,10 @@ def main():
 
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
+
+    # Keep the runner itself current — checks the portal hourly and self-updates
+    # when idle, so you never have to re-pull/re-run it by hand.
+    threading.Thread(target=auto_update_loop, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once.\n")
 

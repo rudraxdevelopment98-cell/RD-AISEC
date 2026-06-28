@@ -436,6 +436,15 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       API when ANTHROPIC_API_KEY is set (your key) to draft a PoC; gated/safe
       message otherwise.
 
+## ✅ Runner self-update (no more re-pulls)
+- ✅ **The runner updates itself (v25).** It fetches the latest script from the
+      portal (`/api/runner/script`, runner-token authed) at startup and hourly
+      while idle; if the portal's `RUNNER_VERSION` is newer it overwrites its own
+      file atomically and re-execs. Sanity-checked (must be a valid, newer runner
+      script) so a stray error page can never clobber it; only updates when no job
+      is running. One **final manual re-pull to v25**, then it stays current on
+      its own. Turn off with `RUNNER_AUTO_UPDATE=0`.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

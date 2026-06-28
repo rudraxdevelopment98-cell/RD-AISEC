@@ -35,9 +35,12 @@ results back; the portal parses them into findings.
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
 ## Runner
-- Current version: **24** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). Re-pull on the Kali box when the Machines page
-  flags it outdated. v24 = job cancellation kills the process + frees the slot.
+- Current version: **25** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). v25 = **self-update**: the runner pulls the latest
+  script from the portal (`/api/runner/script`, runner-token authed) at startup
+  and hourly-when-idle, then re-execs itself. **One final manual re-pull to v25**
+  on the Kali box, after which it updates automatically — no more re-pulls.
+  Disable with `RUNNER_AUTO_UPDATE=0`. v24 = job cancellation kills the process.
 
 ## Required env (Vercel)
 - `DATABASE_URL`, `DIRECT_URL` (Neon pooled + direct), `AUTH_SECRET`,

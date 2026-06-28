@@ -40,6 +40,8 @@ const nextConfig = {
       "/dashboard/knowledge/[slug]": ["./content/**/*"],
       "/dashboard/shiva": ["./shiva/docs/**/*"],
       "/dashboard/shiva/[slug]": ["./shiva/docs/**/*"],
+      // Serve the runner script for self-update — bundle the .py with the route.
+      "/api/runner/script": ["./runner/rdaisec_runner.py"],
     },
   },
 };
