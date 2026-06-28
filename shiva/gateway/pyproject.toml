@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shiva-gateway"
+version = "0.1.0"
+description = "Runtime policy + drift defense for MCP tool calls (the Shiva gateway)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+keywords = ["mcp", "security", "gateway", "ai-agents", "runtime-defense"]
+
+# The engine + replay CLI reuse the scanner's checks. The live stdio proxy
+# (coming next) additionally needs the MCP SDK.
+dependencies = ["shiva-scanner"]
+
+[project.optional-dependencies]
+live = ["mcp[cli]>=1.2.0"]
+
+[project.scripts]
+shiva-gateway = "shiva_gateway.cli:main"
+
+[tool.setuptools]
+packages = ["shiva_gateway"]
