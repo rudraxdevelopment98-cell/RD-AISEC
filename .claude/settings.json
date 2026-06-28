@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" 2>/dev/null && { if git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then git pull --ff-only --quiet 2>/dev/null && echo \"[auto-sync] pulled latest\"; else echo \"[auto-sync] skipped pull (uncommitted changes)\"; fi; echo '--- STATUS.md ---'; sed -n '1,40p' STATUS.md 2>/dev/null; }; true",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
