@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-// Client shell for the right "Live ops" rail: provides the collapsible aside +
-// header toggle and remembers the choice (localStorage). The rail's data is a
-// server component passed in as `children`, so the toggle never re-fetches —
-// it just shows/hides what's already rendered. Wide screens only (xl+).
+// Client frame for the right "Live ops" rail. Mirrors the left sidebar's
+// structure — a fixed-height header and a footer of the same sizes — and is
+// collapsible (remembered in localStorage). The rail's data is a server
+// component passed in as `children`. Wide screens only (xl+).
 export function OpsRailShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -35,11 +35,15 @@ export function OpsRailShell({ children }: { children: React.ReactNode }) {
         collapsed ? "w-12" : "w-72"
       }`}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-surface-border px-3 py-3">
+      {/* Header — same fixed height as the left rail's brand header. */}
+      <div className="flex h-[4.5rem] shrink-0 items-center justify-between border-b border-surface-border px-4">
         {!collapsed && (
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Live ops
-          </p>
+          <div className="leading-tight">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Live ops
+            </p>
+            <p className="text-[10px] text-gray-600">team · machines · findings</p>
+          </div>
         )}
         <button
           type="button"
@@ -47,14 +51,27 @@ export function OpsRailShell({ children }: { children: React.ReactNode }) {
           aria-label={collapsed ? "Expand live ops" : "Collapse live ops"}
           aria-expanded={!collapsed}
           title={collapsed ? "Expand" : "Collapse"}
-          className="grid h-6 w-6 place-items-center rounded text-gray-500 hover:bg-white/5 hover:text-brand"
+          className={`grid h-6 w-6 place-items-center rounded text-gray-500 transition hover:bg-white/5 hover:text-brand ${
+            collapsed ? "mx-auto" : ""
+          }`}
         >
           {collapsed ? "«" : "»"}
         </button>
       </div>
+
       <div className={`flex-1 overflow-y-auto p-4 ${collapsed ? "hidden" : ""}`}>
         {children}
       </div>
+
+      {/* Footer — mirrors the left rail footer (border-t, same padding). */}
+      {!collapsed && (
+        <div className="shrink-0 border-t border-surface-border px-4 py-3 text-[10px] text-gray-600">
+          <p className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            online now · refreshes on reload
+          </p>
+        </div>
+      )}
     </aside>
   );
 }

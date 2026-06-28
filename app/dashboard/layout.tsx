@@ -51,12 +51,9 @@ export default async function DashboardLayout({
       </div>
 
       <SidebarShell>
-        {/* Sidebar header — brand (text hides when collapsed) */}
-        <div className="shrink-0 border-b border-surface-border p-4 group-data-[collapsed=true]:px-2">
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-2 group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-0"
-          >
+        {/* Sidebar header — brand, centered (text hides when collapsed) */}
+        <div className="flex h-[4.5rem] shrink-0 flex-col items-center justify-center gap-1 border-b border-surface-border px-4 text-center group-data-[collapsed=true]:px-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-sm font-black text-black">
               R
             </span>
@@ -64,8 +61,8 @@ export default async function DashboardLayout({
               RD<span className="text-brand">-AISEC</span>
             </span>
           </Link>
-          <p className="mt-2 px-2 text-[10px] leading-tight text-gray-600 group-data-[collapsed=true]:hidden">
-            AI Security Operating System — Founded, Architected &amp; Led by{" "}
+          <p className="text-[10px] leading-tight text-gray-600 group-data-[collapsed=true]:hidden">
+            AI Security Operating System — by{" "}
             <span className="text-gray-400">Kuldeep J</span>
           </p>
         </div>
