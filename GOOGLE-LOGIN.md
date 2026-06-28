@@ -69,16 +69,22 @@ Pick one:
 
 **Recommended — redirect proxy (one URL for all previews).**
 Route every preview's OAuth callback through your single, already-registered
-production callback. In Vercel → **Settings → Environment Variables**, set on the
-**Preview** environment:
+production callback. In Vercel → **Settings → Environment Variables**, set the
+**same value on BOTH the Production and Preview** environments:
 
-| Name | Value |
-|---|---|
-| `AUTH_REDIRECT_PROXY_URL` | `https://<your-production-domain>/api/auth` |
+| Name | Value | Environments |
+|---|---|---|
+| `AUTH_REDIRECT_PROXY_URL` | `https://<your-production-domain>/api/auth` | Production **and** Preview |
 
 The app reads this automatically (`auth.config.ts`). Now only production's
 callback needs to be in Google, and every preview works.
 
+- **Set it on BOTH, not just Preview.** Auth.js only activates the forwarding
+  logic on the deployment whose origin matches this URL — i.e. production. A
+  preview sends its OAuth callback to the proxy URL; production (with the same
+  var set) recognises itself as the proxy and forwards the session back to the
+  originating preview. If production doesn't have it set, the callback lands
+  there but is never forwarded and sign-in just hangs.
 - **Requirement:** `AUTH_SECRET` must be **identical** across production and
   preview, so the proxy can validate the sign-in state it issued.
 - Production must stay deployed (it's the proxy) with the Google env vars set.
