@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "27"
+RUNNER_VERSION = "28"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -175,6 +175,8 @@ TOOL_TIMEOUTS = {
     "naabu": 900,
     "katana": 1200,
     "dalfox": 1500,
+    "ffuf": 1200,
+    "gau": 600,
 }
 
 
@@ -209,6 +211,8 @@ DEFAULT_TOOLS = {
     "naabu":     {"bin": "naabu",     "flag": "-host", "pkg": "naabu"},
     "katana":    {"bin": "katana",    "flag": "-u",    "pkg": "katana"},
     "dalfox":    {"bin": "dalfox",    "flag": "url",   "pkg": "dalfox"},
+    "ffuf":      {"bin": "ffuf",      "flag": "-u",    "pkg": "ffuf"},
+    "gau":       {"bin": "gau",       "flag": None,    "pkg": None},
 }
 
 # Live allowlist — replaced by fetch_tools() at startup if the portal responds.
@@ -244,6 +248,7 @@ INSTALL_PKGS = {
     "naabu": "naabu",
     "katana": "katana",
     "dalfox": "dalfox",
+    "ffuf": "ffuf",
     "metasploit": "metasploit-framework",
     "hashcat": "hashcat",
     "hcxtools": "hcxtools",
@@ -263,6 +268,9 @@ GO_INSTALL = {
     "naabu": "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest",
     "katana": "github.com/projectdiscovery/katana/cmd/katana@latest",
     "dalfox": "github.com/hahwul/dalfox/v2@latest",
+    "nuclei": "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
+    "ffuf": "github.com/ffuf/ffuf/v2@latest",
+    "gau": "github.com/lc/gau/v2/cmd/gau@latest",
 }
 
 

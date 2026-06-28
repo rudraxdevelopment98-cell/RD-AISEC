@@ -39,8 +39,10 @@ results back; the portal parses them into findings.
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
 ## Runner
-- Current version: **27** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). v27 = **go fallback** for subfinder/naabu/katana/
+- Current version: **28** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). v28 = **ffuf** (web fuzzer) + **gau** (known-URL
+  discovery) as one-click tools; **nuclei** gains a `go install` fallback.
+  v27 = **go fallback** for subfinder/naabu/katana/
   dalfox (apt-primary; falls back to `go install` if apt fails/unavailable).
   v26 = **non-apt installs**: tools with no apt
   package (httpx) install via `go install` (allowlisted source on the runner;

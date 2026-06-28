@@ -535,6 +535,37 @@ function parseKatana(target: string, output: string): ParsedFinding[] {
   ];
 }
 
+/**
+ * Generic URL/path-list parser for tools that print one URL per line (gau,
+ * ffuf -s). Surfaces the count + a sample, flagging sensitive paths as low.
+ */
+function parseUrlList(
+  tool: string,
+  target: string,
+  output: string,
+): ParsedFinding[] {
+  const urls = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^https?:\/\//i.test(l));
+  const uniq = Array.from(new Set(urls));
+  if (uniq.length === 0) return [];
+  const sensitive = /\/(admin|api|graphql|upload|debug|actuator|swagger|\.git|\.env|backup|internal|config)/i.test(output);
+  return [
+    {
+      title: `${tool} URLs on ${target} (${uniq.length})`,
+      severity: sensitive ? "low" : "info",
+      status: "open",
+      description:
+        `${tool} surfaced ${uniq.length} URL(s) for ${target}:\n\n` +
+        uniq.slice(0, 60).join("\n") +
+        (uniq.length > 60 ? `\n…and ${uniq.length - 60} more` : ""),
+      recommendation:
+        "Review these endpoints/paths for testing. Lock down admin/API/debug routes and stale files that shouldn't be public.",
+    },
+  ];
+}
+
 /** dalfox: flag confirmed/PoC XSS. "[POC]" / "[VULN]" lines are real hits. */
 function parseDalfox(target: string, output: string): ParsedFinding[] {
   const hits = output
@@ -814,6 +845,10 @@ export function parseJobFindings(
       return parseNaabu(target, output);
     case "dalfox":
       return parseDalfox(target, output);
+    case "gau":
+      return [...parseUrlList("gau", target, output), ...parseSecrets(target, output)];
+    case "ffuf":
+      return [...parseUrlList("ffuf", target, output), ...parseSecrets(target, output)];
     case "whatweb":
       return [...parseWhatweb(target, output), ...parseSecrets(target, output)];
     case "enum4linux":
