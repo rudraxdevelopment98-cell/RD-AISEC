@@ -9,9 +9,16 @@ import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 const ATTACK_NAME = new Map(MITRE_TACTICS.map((t) => [t.id, t.name]));
 const OWASP_NAME = new Map(OWASP_TOP10.map((o) => [o.id, o.name]));
 
+// "Created within" presets (mirror the Findings page) → how far back, in ms.
+const SINCE_MS: Record<string, number> = {
+  "1d": 86_400_000,
+  "7d": 604_800_000,
+  "30d": 2_592_000_000,
+};
+
 /**
  * Export findings as CSV. Honors the same filters as the Findings page:
- *   ?engagement= &attack= &owasp= &severity= &status= &q=
+ *   ?engagement= &attack= &owasp= &severity= &status= &category= &since= &q=
  * With no filters, exports every finding across all engagements.
  */
 export async function GET(req: Request) {
@@ -34,6 +41,10 @@ export async function GET(req: Request) {
   if (p.get("severity")) where.severity = p.get("severity");
   if (p.get("status")) where.status = p.get("status");
   if (p.get("category")) where.category = p.get("category");
+  const since = p.get("since");
+  if (since && SINCE_MS[since]) {
+    where.createdAt = { gte: new Date(Date.now() - SINCE_MS[since]) };
+  }
   if (p.get("q")) where.title = { contains: p.get("q"), mode: "insensitive" };
 
   const findings = await prisma.finding.findMany({
