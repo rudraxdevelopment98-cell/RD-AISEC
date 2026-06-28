@@ -58,6 +58,16 @@ export default async function EngagementDetail({
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
 
+  // Severity tally for the dashboard stat row (ProjectDiscovery-style).
+  const sevCount = (s: string) => e.findings.filter((f) => f.severity === s).length;
+  const SEV_STATS = [
+    { key: "critical", label: "Critical", dot: "bg-red-500" },
+    { key: "high", label: "High", dot: "bg-orange-500" },
+    { key: "medium", label: "Medium", dot: "bg-amber-500" },
+    { key: "low", label: "Low", dot: "bg-sky-500" },
+    { key: "info", label: "Info", dot: "bg-gray-400" },
+  ];
+
   // Guided-assessment pipeline state, how many runner machines exist, and a
   // readiness diagnostic (why bug-finding might be producing nothing).
   const [pipeline, progress, runnerCount, readiness] = await Promise.all([
@@ -258,6 +268,19 @@ export default async function EngagementDetail({
 
       {/* Readiness — why bug-finding might be producing nothing */}
       <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
+
+      {/* Severity dashboard row (ProjectDiscovery-style) */}
+      <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {SEV_STATS.map((s) => (
+          <div key={s.key} className="card !p-3">
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
+              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+              {s.label}
+            </span>
+            <p className="mt-1 text-2xl font-bold text-white">{sevCount(s.key)}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Sub-sections as tabs (ProjectDiscovery-style) so the workspace isn't one long scroll. */}
       <div className="mt-6">

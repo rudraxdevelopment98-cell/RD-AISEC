@@ -18,17 +18,16 @@ body {
 
 @layer components {
   .card {
-    @apply relative rounded-xl border border-white/[0.14] p-5;
-    /* A touch lighter + more opaque than the near-black canvas so cards read as
-       distinct surfaces (more contrast, less "flat"). Liquid-glass blur kept. */
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)),
-      rgba(20, 25, 33, 0.66);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    /* Crisp near-black surface with a thin hairline border (ProjectDiscovery
+       style) — sharpness comes from the border + white text, not a grey fill,
+       so it never looks dull/muddy. Liquid-glass blur kept. */
+    @apply relative rounded-xl border border-white/[0.10] p-5;
+    background: rgba(13, 15, 20, 0.72);
+    backdrop-filter: blur(14px) saturate(120%);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 8px 30px rgba(0, 0, 0, 0.35);
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 6px 22px rgba(0, 0, 0, 0.5);
   }
   .card-hover {
     @apply card transition duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10;
