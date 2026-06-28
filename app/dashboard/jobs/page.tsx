@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
 import { CustomJobForm } from "@/components/custom-job";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { cancelJob, cancelQueuedJobs } from "@/lib/runners";
+import { cancelJob, cancelQueuedJobs, prioritizeJob, deprioritizeJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
 import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
@@ -75,7 +75,17 @@ export default async function JobsPage({
   ]);
 
   const now = Date.now();
-  const active = jobs.filter((j) => j.status === "queued" || j.status === "running");
+  const active = jobs
+    .filter((j) => j.status === "queued" || j.status === "running")
+    // Running first, then queued in the order the runner will claim them
+    // (priority desc, then oldest first) so "Run next" visibly reorders the queue.
+    .sort((a, b) => {
+      const rank = (s: string) => (s === "running" ? 0 : 1);
+      if (rank(a.status) !== rank(b.status)) return rank(a.status) - rank(b.status);
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  const queuedCount = active.filter((j) => j.status === "queued").length;
   const history = jobs.filter((j) => !["queued", "running"].includes(j.status));
   const failedCount = history.filter((j) => j.status === "failed").length;
 
@@ -144,18 +154,43 @@ export default async function JobsPage({
             return (
               <div key={j.id} className="card">
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`tag capitalize ${STATUS_STYLE[j.status]}`}>
-                    {j.status === "running" && (
-                      <span className="pulse-dot mr-1 inline-block h-2 w-2 rounded-full bg-sky-400" />
+                  <span className="flex items-center gap-1.5">
+                    <span className={`tag capitalize ${STATUS_STYLE[j.status]}`}>
+                      {j.status === "running" && (
+                        <span className="pulse-dot mr-1 inline-block h-2 w-2 rounded-full bg-sky-400" />
+                      )}
+                      {j.status}
+                    </span>
+                    {j.priority > 0 && (
+                      <span className="tag ring-amber accent-amber" title="Prioritized — runs before normal jobs">
+                        ⚡ priority
+                      </span>
                     )}
-                    {j.status}
                   </span>
-                  <form action={cancelJob}>
-                    <input type="hidden" name="id" value={j.id} />
-                    <button className="text-xs text-gray-500 hover:text-amber-400">
-                      {j.status === "running" ? "Stop" : "Cancel"}
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-2">
+                    {j.status === "queued" && queuedCount > 1 && (
+                      <form action={prioritizeJob}>
+                        <input type="hidden" name="id" value={j.id} />
+                        <button className="text-xs text-amber-400 hover:text-amber-300" title="Run this job before the others">
+                          ↑ Run next
+                        </button>
+                      </form>
+                    )}
+                    {j.status === "queued" && j.priority > 0 && (
+                      <form action={deprioritizeJob}>
+                        <input type="hidden" name="id" value={j.id} />
+                        <button className="text-xs text-gray-500 hover:text-gray-300" title="Reset to normal priority">
+                          Reset
+                        </button>
+                      </form>
+                    )}
+                    <form action={cancelJob}>
+                      <input type="hidden" name="id" value={j.id} />
+                      <button className="text-xs text-gray-500 hover:text-amber-400">
+                        {j.status === "running" ? "Stop" : "Cancel"}
+                      </button>
+                    </form>
+                  </div>
                 </div>
                 <p className="mt-2 font-mono text-sm font-semibold text-white">
                   {j.tool} {j.args}

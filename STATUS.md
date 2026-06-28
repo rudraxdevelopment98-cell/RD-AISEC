@@ -31,6 +31,8 @@ results back; the portal parses them into findings.
   **💥 Auto-pwn** (capture→crack→reveal), security assessment → save as findings.
 - **Network map** (per-scan + full-engagement merged), **Learn** roadmap,
   **Readiness check**, **How-it-works guide**, runner cancellation (v24).
+- **Job priority**: jobs have a `priority` (claimed priority-desc then oldest-first);
+  "⚡ Run first" when queuing and "↑ Run next" on a queued job jump the queue.
 - Security headers/CSP, encrypted secrets, RBAC, cron fail-closed, API per-section
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
