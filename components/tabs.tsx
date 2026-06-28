@@ -24,7 +24,9 @@ export function Tabs({
     <div>
       <div
         role="tablist"
-        className="flex flex-wrap gap-1 overflow-x-auto border-b border-surface-border"
+        // Pinned to the top of the scroll area so the tab strip stays visible
+        // while a long panel scrolls underneath it.
+        className="sticky top-0 z-20 flex flex-nowrap gap-1 overflow-x-auto border-b border-surface-border bg-surface/85 backdrop-blur"
       >
         {tabs.map((t) => {
           const on = active === t.id;
