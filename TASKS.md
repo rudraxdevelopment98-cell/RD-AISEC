@@ -55,15 +55,16 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ More event sources (job.queued, finding.created, report.exported)
 - ⬜ Surface a real activity feed in the right rail from AuditEvent
 
-## I. Bug reports (human-quality) — NEXT
-- ⬜ **Two report formats from a finding/engagement**: an "engine/structured"
-  view AND a **human-written-style** narrative (the one we send). Human style
-  must read naturally — no "AI-generated" tells, varied phrasing, first-person
-  researcher voice, platform-appropriate (HackerOne/Bugcrowd) sections.
-- ⬜ **Submission**: automate submit where an API exists (HackerOne), else a
-  prefilled deep-link / copy-ready draft + step hints.
-- ⬜ **Validity suggestion**: heuristic check (scope match, severity sanity,
-  repro completeness, dupe risk) → "looks submittable / needs X".
+## I. Bug reports (human-quality) — IN PROGRESS
+- 🔄 **Two report formats**: `lib/report-narrative.ts` done + verified — pure,
+  deterministic `buildHumanReport` (first-person, varied, no AI tells) +
+  `buildStructuredReport`. UI toggle next.
+- ✅ **Validity heuristic** (`assessValidity`): confirmed / severity / repro depth
+  / evidence / scope-match → ready | review | weak. (surface in UI)
+- ⬜ **UI**: ReportBuilder component (toggle human/structured, copy each, show
+  validity) wired into the finding/exploit page.
+- ⬜ **Submission**: HackerOne API submit where possible, else prefilled deep-link
+  + copy-ready draft + hints.
 - ⬜ Better bug discovery feeding the report (tie into pipeline/exploit).
 
 ## H. Misc small fixes (rolling)
