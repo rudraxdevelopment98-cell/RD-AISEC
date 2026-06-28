@@ -54,6 +54,18 @@ if (process.env.ALLOW_DEV_LOGIN === "true") {
 export const authConfig = {
   providers,
   pages: { signIn: "/login" },
+  // Behind Vercel's trusted proxy the deployment host is authoritative.
+  trustHost: true,
+  // OAuth on preview deployments: each Vercel preview has its own URL, but
+  // Google/GitHub only allow exact, pre-registered redirect URIs (no wildcards).
+  // Setting AUTH_REDIRECT_PROXY_URL (to a stable URL like the production
+  // "/api/auth") routes every OAuth callback through that one registered URL,
+  // which then forwards the session back to the originating preview. So only
+  // production's callback needs to be in the provider console, and all previews
+  // work. Set it on BOTH production and preview with the same value: production
+  // (origin matches this URL) does the forwarding; previews use it as their
+  // redirect_uri. Unset = normal behaviour (no proxy), so this is safe by default.
+  redirectProxyUrl: process.env.AUTH_REDIRECT_PROXY_URL,
   callbacks: {
     authorized({ auth }) {
       return !!auth?.user;
