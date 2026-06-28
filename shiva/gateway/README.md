@@ -69,10 +69,29 @@ authorize_call(tool)   →  Decision(allow|flag|block, reasons, severity) + even
 ```
 
 `engine.py` is transport-agnostic and fully unit-tested — it's the heart of the
-gateway. The CLI above drives it in **replay** mode. A live **stdio proxy**
-(client ⇄ gateway ⇄ upstream MCP server, using the MCP SDK) is the next step;
-it will be a thin shell over this same engine, so the detection/enforcement
-logic is already proven here.
+gateway. The CLI above drives it in **replay** mode.
+
+## Live proxy (runtime enforcement)
+
+`proxy.py` puts the gateway **in-line** at runtime:
+
+```
+client  ⇄  shiva-gateway-proxy  ⇄  upstream MCP server
+```
+
+```bash
+pip install -e ".[live]"     # the MCP SDK
+# Point your MCP client at this process instead of the upstream server:
+shiva-gateway-proxy "python ../attack-range/poisoned_server.py" --mode enforce
+shiva-gateway-proxy "python server.py" --allow get_weather --baseline trusted.json
+```
+
+It mirrors the upstream's tools, re-scores them on every `tools/list` (so a
+live rug-pull is caught), and routes every `tools/call` through the same engine:
+blocked calls return an `⛔ Shiva gateway blocked …` result to the client and a
+line on stderr; allowed calls are forwarded untouched. It's a thin shell over
+the proven engine — the I/O glue needs the SDK + a live server to exercise, but
+every decision it makes is covered by the engine tests.
 
 ## Test
 

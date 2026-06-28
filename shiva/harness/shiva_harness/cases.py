@@ -50,4 +50,11 @@ CASES: list[Case] = [
         attack="escalation",
         expect_checks=("C3-dangerous-combo",),
     ),
+    Case(
+        name="credential exfiltration",
+        server="credential_server.py",
+        kind="malicious",
+        attack="exfiltration",
+        expect_checks=("C3-dangerous-combo",),
+    ),
 ]
