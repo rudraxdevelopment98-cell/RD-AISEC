@@ -56,3 +56,41 @@ the authorized accounts.
   trailing slash). If you add a custom domain later, add its callback URI too.
 - "Error 400: redirect_uri_mismatch" → the URI in Google Console doesn't match;
   fix it to `https://<domain>/api/auth/callback/google`.
+
+## Preview deployments (fixing redirect_uri_mismatch on Vercel previews)
+
+Every Vercel **preview** deployment (e.g. a branch like `from-mobileicu`) runs on
+a *different* URL than production, such as
+`https://<project>-git-<branch>-<scope>.vercel.app`. Google requires the redirect
+URI to be registered **exactly** and does **not** support wildcards, so a preview
+whose callback isn't registered fails with **Error 400: redirect_uri_mismatch**.
+
+Pick one:
+
+**Recommended — redirect proxy (one URL for all previews).**
+Route every preview's OAuth callback through your single, already-registered
+production callback. In Vercel → **Settings → Environment Variables**, set on the
+**Preview** environment:
+
+| Name | Value |
+|---|---|
+| `AUTH_REDIRECT_PROXY_URL` | `https://<your-production-domain>/api/auth` |
+
+The app reads this automatically (`auth.config.ts`). Now only production's
+callback needs to be in Google, and every preview works.
+
+- **Requirement:** `AUTH_SECRET` must be **identical** across production and
+  preview, so the proxy can validate the sign-in state it issued.
+- Production must stay deployed (it's the proxy) with the Google env vars set.
+
+**Alternative — register the preview URL.** Add the preview's callback to Google
+Console's Authorized redirect URIs:
+`https://<project>-git-<branch>-<scope>.vercel.app/api/auth/callback/google`.
+Use the **stable branch alias** (the `-git-<branch>-` URL), not the per-commit
+hash URL, which changes on every push. Simple for one long-lived branch; gets
+unwieldy across many previews.
+
+> Security: both options use real Google OAuth and the email allowlist still
+> gates sign-in. The **dev login** (`ALLOW_DEV_LOGIN`) is a static shared
+> password — fine as a quick local unblock, but remove it from preview/prod once
+> Google works.
