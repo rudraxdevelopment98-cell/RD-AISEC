@@ -4,29 +4,31 @@
 
 > Update this on every meaningful step. This is the "you are here" map.
 
-**Current phase:** Phase 0 — Learn + Break
-**Current focus:** First 7 days
-**Last updated:** 2026-06-10
+**Current phase:** Phase 1 — OSS Scanner (Phase 2 Gateway started)
+**Current focus:** Scanner + Gateway hardening; live MCP proxy next
+**Last updated:** 2026-06-28
 
 ## Kanban
 
 ```mermaid
 flowchart LR
     subgraph BACKLOG["📋 Backlog"]
-        b1["Reproduce description drift"]
-        b2["Reproduce cross-tool escalation"]
-        b3["Sketch scanner's first 3 checks"]
-        b4["Attack Range repo skeleton"]
+        b1["Live stdio proxy over the Gateway engine"]
+        b2["Scoring harness: detection-rate vs the Range"]
+        b3["credential_server.py (exfil attack #5)"]
+        b4["CI packaging + public release of the scanner"]
     end
     subgraph DOING["🔨 Doing"]
-        d1["Install MCP SDKs (Py + TS)"]
-        d2["Build first trivial MCP server"]
+        d1["Gateway: live MCP proxy shell"]
     end
     subgraph REVIEW["👀 Verify"]
-        r1["Poison a tool description,\nconfirm agent obeys"]
+        r1["FP rate of scanner/gateway on the Range"]
     end
     subgraph DONE["✅ Done"]
         e1["Scaffold control-room repo"]
+        e2["Attack Range: poisoning / drift / escalation servers"]
+        e3["Scanner: C1–C4 checks (static + live), CLI, JSON, CI exit codes"]
+        e4["Gateway: policy + drift engine, monitor/enforce, replay CLI"]
     end
 ```
 
