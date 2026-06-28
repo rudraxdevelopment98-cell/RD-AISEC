@@ -17,6 +17,7 @@ export function QueueJobForm({
   runners: Opt[];
   defaultEngagementId?: string;
 }) {
+  const [formOpen, setFormOpen] = useState(false);
   const [toolId, setToolId] = useState(RUNNER_TOOLS[0].id);
   const [engId, setEngId] = useState(defaultEngagementId ?? engagements[0]?.id ?? "");
   const [target, setTarget] = useState("");
@@ -44,13 +45,34 @@ export function QueueJobForm({
 
   return (
     <div className="card mt-6">
-      <h2 className="font-semibold text-brand">▶ Queue a job</h2>
-      <p className="mt-1 text-sm text-gray-400">
-        The job waits in the queue until the runner polls and executes it. Only
-        in-scope targets on an authorized engagement are allowed.
-      </p>
+      <button
+        type="button"
+        onClick={() => setFormOpen((o) => !o)}
+        aria-expanded={formOpen}
+        className="flex w-full items-center gap-2 text-left font-semibold text-brand"
+      >
+        <svg
+          viewBox="0 0 20 20"
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${formOpen ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        ▶ Queue a job
+      </button>
+      {!formOpen && (
+        <p className="mt-1 pl-6 text-xs text-gray-500">Click to queue a tool on a machine.</p>
+      )}
+      {formOpen && (
+        <>
+          <p className="mt-1 text-sm text-gray-400">
+            The job waits in the queue until the runner polls and executes it. Only
+            in-scope targets on an authorized engagement are allowed.
+          </p>
 
-      <form action={queueJob} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <form action={queueJob} className="mt-4 grid gap-3 sm:grid-cols-2">
         <select
           name="engagementId"
           value={engId}
@@ -147,6 +169,8 @@ export function QueueJobForm({
           Queue job
         </button>
       </form>
+        </>
+      )}
     </div>
   );
 }

@@ -518,6 +518,18 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       (no shell injection); authorized networks only; needs wifiphisher + root on
       the runner. Manual command kept as a fallback in the details panel.
 
+## ✅ Calmer palette + collapsible UI (liquid-glass kept)
+- ✅ **Toned down the colour.** The loud emerald-green accent (`brand`) is now a
+      calm, desaturated cool-slate; the body glow, the morphing "liquid glass"
+      blobs, and the scene backdrop (grid/rays/particles/radar/scanline/galaxy)
+      were all neutralised + dimmed. The **liquid-glass frost is unchanged**
+      (same `.card`/`.glass-panel` blur). Semantic status colours (red/amber/
+      emerald/sky risk + live cues) stay vivid since they carry meaning.
+- ✅ **Less scrolling.** `HelpBanner` now defaults **collapsed** on all ~12 pages
+      (one click to show). The big "Queue a job" form collapses. New reusable
+      `Collapsible` card component (header + chevron, open/close) for dense
+      sections — the pattern to fold more panels going forward.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

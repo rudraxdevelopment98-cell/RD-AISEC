@@ -41,7 +41,9 @@ export function HelpBanner({
   title?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  // Collapsed by default so pages aren't dominated by help text — one click on
+  // "Show help" reveals it when needed.
+  const [open, setOpen] = useState(false);
   if (!open) {
     return (
       <button
