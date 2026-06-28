@@ -85,7 +85,25 @@ export default async function JobsPage({
       if (a.priority !== b.priority) return b.priority - a.priority;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
-  const queuedCount = active.filter((j) => j.status === "queued").length;
+  // Priority only reorders within a single runner's queue, so "Run next" is only
+  // meaningful when a runner has >1 queued job — and only on the jobs that aren't
+  // already first in that runner's claim order.
+  const queuedByRunner = new Map<string, typeof active>();
+  for (const j of active) {
+    if (j.status !== "queued") continue;
+    const key = j.runnerId ?? "unassigned";
+    (queuedByRunner.get(key) ?? queuedByRunner.set(key, []).get(key)!).push(j);
+  }
+  // active is already sorted by claim order, so the first queued job per runner
+  // is the one that runs next — no point bumping it.
+  const topQueuedId = new Map<string, string>();
+  for (const [key, list] of queuedByRunner) {
+    if (list[0]) topQueuedId.set(key, list[0].id);
+  }
+  const canRunNext = (j: (typeof active)[number]) => {
+    const key = j.runnerId ?? "unassigned";
+    return (queuedByRunner.get(key)?.length ?? 0) > 1 && topQueuedId.get(key) !== j.id;
+  };
   const history = jobs.filter((j) => !["queued", "running"].includes(j.status));
   const failedCount = history.filter((j) => j.status === "failed").length;
 
@@ -168,10 +186,10 @@ export default async function JobsPage({
                     )}
                   </span>
                   <div className="flex items-center gap-2">
-                    {j.status === "queued" && queuedCount > 1 && (
+                    {j.status === "queued" && canRunNext(j) && (
                       <form action={prioritizeJob}>
                         <input type="hidden" name="id" value={j.id} />
-                        <button className="text-xs text-amber-400 hover:text-amber-300" title="Run this job before the others">
+                        <button className="text-xs text-amber-400 hover:text-amber-300" title="Run this job before the others on its machine">
                           ↑ Run next
                         </button>
                       </form>

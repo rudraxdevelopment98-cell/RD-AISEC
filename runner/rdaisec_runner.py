@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "28"
+RUNNER_VERSION = "29"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -254,6 +254,9 @@ INSTALL_PKGS = {
     "hcxtools": "hcxtools",
     "hcxdumptool": "hcxdumptool",
     "wifiphisher": "wifiphisher",
+    "tor": "tor",
+    "torsocks": "torsocks",
+    "aircrack": "aircrack-ng",
 }
 
 
@@ -357,36 +360,39 @@ UPDATE_CHECK_SECONDS = int(os.environ.get("UPDATE_CHECK_SECONDS", str(3600)))
 _VERSION_RE = re.compile(r'^RUNNER_VERSION\s*=\s*["\'](\d+)["\']', re.MULTILINE)
 
 
-def self_update() -> bool:
-    """Fetch the latest runner from the portal; if newer, overwrite & re-exec.
-
-    Returns True if it replaced the file and is about to re-exec (caller won't
-    see the return — os.execv replaces the process). Best-effort and safe: it
-    only writes when the fetched content is a valid, newer runner script.
-    """
+def _fetch_update():
+    """Return the latest runner script text iff it's NEWER than ours, else None.
+    Best-effort; validates the payload so a stray HTML error page can't clobber
+    us. Does the (slow) network fetch, so callers run it OUTSIDE any lock."""
     if not AUTO_UPDATE:
-        return False
+        return None
     try:
         resp = request("GET", "/api/runner/script", timeout=30)
         content = resp.read().decode("utf-8", "replace")
     except Exception as exc:  # noqa: BLE001
         # Older portals won't have this endpoint — that's fine, stay on current.
         print(f"  self-update check skipped: {exc}")
-        return False
+        return None
 
     # Sanity-check the payload so a stray HTML error page can never clobber us.
     if not content.startswith("#!") or "def main" not in content:
-        return False
+        return None
     m = _VERSION_RE.search(content)
     if not m:
-        return False
-    remote = m.group(1)
+        return None
     try:
-        if int(remote) <= int(RUNNER_VERSION):
-            return False
+        if int(m.group(1)) <= int(RUNNER_VERSION):
+            return None
     except ValueError:
-        return False
+        return None
+    return content
 
+
+def _apply_update(content) -> bool:
+    """Overwrite this script atomically and re-exec. Does not return on success
+    (os.execv replaces the process). Returns False only if the write failed."""
+    m = _VERSION_RE.search(content)
+    remote = m.group(1) if m else "?"
     path = os.path.abspath(__file__)
     try:
         # Write atomically (tmp + replace) so a crash mid-write can't truncate
@@ -409,17 +415,28 @@ def self_update() -> bool:
     return True
 
 
+def self_update() -> bool:
+    """Startup convenience: fetch + apply if newer. Called before any worker
+    threads start, so no idle guard is needed here."""
+    content = _fetch_update()
+    return _apply_update(content) if content else False
+
+
 def auto_update_loop():
-    """Background: periodically check the portal for a newer runner."""
+    """Background: periodically check for a newer runner and apply it only while
+    idle. The slow fetch happens outside the lock; the idle re-check and re-exec
+    happen while HOLDING WORKERS_LOCK so main() can't claim a job in the gap (it
+    increments ACTIVE_WORKERS under the same lock)."""
     if not AUTO_UPDATE:
         return
     while True:
         time.sleep(UPDATE_CHECK_SECONDS)
-        # Only update when idle so we never kill a running job mid-scan.
+        content = _fetch_update()
+        if not content:
+            continue
         with WORKERS_LOCK:
-            busy = ACTIVE_WORKERS
-        if busy == 0:
-            self_update()
+            if ACTIVE_WORKERS == 0:
+                _apply_update(content)  # writes + re-execs; won't return
 
 
 # ---- Tor anonymity ---------------------------------------------------------
@@ -974,7 +991,8 @@ def run_install(inst):
     low = text.lower()
 
     # apt couldn't find/install the package, but we have a Go source → try it.
-    if code != 0 and go_source and shutil.which(spec.get("bin", tool)) is None:
+    bin_name = spec.get("bin") or EXTRA_INSTALL_BINS.get(tool) or tool
+    if code != 0 and go_source and shutil.which(bin_name) is None:
         note = f"\n— apt install failed (exit {code}); falling back to `go install` for {tool} —\n"
         post_install_progress(inst_id, (text + note)[:MAX_OUTPUT])
         gtext, gcode = _go_install(tool, go_source, sudo, stdin_in, env, inst_id)

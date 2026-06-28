@@ -480,6 +480,19 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       then a divided controls area (a **Tools** section for one-click installs +
       live status, and the **Tor** toggle). Much less cramped.
 
+## ✅ Hardening pass (audit of the recent stage)
+- ✅ 4-agent audit of the priority queue, installs, self-update, ffuf/gau and the
+      Machines UI; fixed every real issue found (runner v29):
+  - Prisma **schema drift** — added the `@@index` the job_priority migration creates.
+  - Self-update **TOCTOU** — fetch (no lock) then idle re-check + re-exec under
+      `WORKERS_LOCK`, so a job can't start in the gap.
+  - apt→go fallback resolves the binary name robustly (id≠bin tools).
+  - Runner `INSTALL_PKGS` now truly mirrors the portal (tor/torsocks/aircrack).
+  - **ffuf** output parsed correctly: `-s` prints the matched payload, so the
+      parser reconstructs each URL from the FUZZ target (was producing 0 findings).
+  - "↑ Run next" gates **per-runner** and hides on the job already first.
+  - ffuf job without `FUZZ` is rejected with a clear message; no "0 tools" badge.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

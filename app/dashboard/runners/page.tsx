@@ -275,7 +275,7 @@ python3 rdaisec_runner.py`}
                   </p>
                   {r.lastSeenAt && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="tag">🧰 {r.toolCount} tools</span>
+                      {r.toolCount > 0 && <span className="tag">🧰 {r.toolCount} tools</span>}
                       {missing.length > 0 && (
                         <span className="tag border-amber-500/40 text-amber-300">
                           {missing.length} missing

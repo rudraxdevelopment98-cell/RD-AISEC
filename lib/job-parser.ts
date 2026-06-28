@@ -535,22 +535,15 @@ function parseKatana(target: string, output: string): ParsedFinding[] {
   ];
 }
 
-/**
- * Generic URL/path-list parser for tools that print one URL per line (gau,
- * ffuf -s). Surfaces the count + a sample, flagging sensitive paths as low.
- */
-function parseUrlList(
+/** Shared formatter: one finding listing the discovered URLs (sensitive→low). */
+function urlListFinding(
   tool: string,
   target: string,
-  output: string,
+  uniq: string[],
 ): ParsedFinding[] {
-  const urls = output
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => /^https?:\/\//i.test(l));
-  const uniq = Array.from(new Set(urls));
   if (uniq.length === 0) return [];
-  const sensitive = /\/(admin|api|graphql|upload|debug|actuator|swagger|\.git|\.env|backup|internal|config)/i.test(output);
+  const blob = uniq.join("\n");
+  const sensitive = /\/(admin|api|graphql|upload|debug|actuator|swagger|\.git|\.env|backup|internal|config)/i.test(blob);
   return [
     {
       title: `${tool} URLs on ${target} (${uniq.length})`,
@@ -564,6 +557,37 @@ function parseUrlList(
         "Review these endpoints/paths for testing. Lock down admin/API/debug routes and stale files that shouldn't be public.",
     },
   ];
+}
+
+/** gau: prints one full URL per line. */
+function parseUrlList(
+  tool: string,
+  target: string,
+  output: string,
+): ParsedFinding[] {
+  const urls = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^https?:\/\//i.test(l));
+  return urlListFinding(tool, target, Array.from(new Set(urls)));
+}
+
+/**
+ * ffuf (-s, silent): prints only the matched FUZZ payload per line (e.g. `admin`,
+ * `.git`), NOT full URLs. Reconstruct each URL by substituting the payload into
+ * the FUZZ position of the target. Lines that are already full URLs are kept.
+ */
+function parseFfuf(target: string, output: string): ParsedFinding[] {
+  const hasFuzz = target.includes("FUZZ");
+  const urls: string[] = [];
+  for (const raw of output.split("\n")) {
+    const l = raw.trim();
+    // Skip blanks, progress/status lines, and tokens with whitespace.
+    if (!l || /\s/.test(l) || l.startsWith("::")) continue;
+    if (/^https?:\/\//i.test(l)) urls.push(l);
+    else if (hasFuzz) urls.push(target.replace(/FUZZ/g, l));
+  }
+  return urlListFinding("ffuf", target, Array.from(new Set(urls)));
 }
 
 /** dalfox: flag confirmed/PoC XSS. "[POC]" / "[VULN]" lines are real hits. */
@@ -848,7 +872,7 @@ export function parseJobFindings(
     case "gau":
       return [...parseUrlList("gau", target, output), ...parseSecrets(target, output)];
     case "ffuf":
-      return [...parseUrlList("ffuf", target, output), ...parseSecrets(target, output)];
+      return [...parseFfuf(target, output), ...parseSecrets(target, output)];
     case "whatweb":
       return [...parseWhatweb(target, output), ...parseSecrets(target, output)];
     case "enum4linux":
