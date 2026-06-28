@@ -413,13 +413,18 @@ export default async function EngagementDetail({
         {e.findings.map((f) => (
           <div
             key={f.id}
-            className={`card ${f.confirmed ? "glow-danger" : SEV_GLOW[f.severity] ?? ""}`}
+            className={`card ${SEV_GLOW[f.severity] ?? ""}`}
           >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold text-white">{f.title}</h3>
+              <h3 className="flex items-center gap-2 font-semibold text-white">
+                {f.confirmed && (
+                  <span className="dot-blink shrink-0" title="Confirmed exploitable" />
+                )}
+                {f.title}
+              </h3>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 {f.confirmed && (
-                  <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>
+                  <span className="tag border-red-500/50 text-red-300">confirmed</span>
                 )}
                 <span className="flex items-center gap-1">
                   <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
