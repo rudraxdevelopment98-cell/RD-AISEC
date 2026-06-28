@@ -29,7 +29,7 @@ pattern-mirrored, and verified on the Vercel deploy.
 
 ## C. Tabs / organisation
 - ✅ Tabs strip is sticky (pins while panel scrolls)
-- 🔄 **Jobs page → tabs: Active (running/queued) · History (· Archived)**
+- ✅ **Jobs page → tabs: Active (running/queued) · History (· Archived)**
 - ⬜ Audit other long pages for tab/inner-scroll treatment
 
 ## D. Right-rail correctness
