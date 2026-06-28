@@ -35,7 +35,7 @@ const ENABLE_MONITOR_CMD =
   `t=$(iw dev "$n" info 2>/dev/null | grep -oE "type [a-z]+" | head -1); ` +
   `if [ "$t" = "type monitor" ]; then M="$n"; elif [ "$t" = "type managed" ]; then G="$n"; fi; done; ` +
   `if [ -n "$M" ]; then echo "Already in monitor mode: $M"; iw dev; exit 0; fi; ` +
-  `if [ -z "$G" ]; then echo "No wireless interface found — plug in the adapter"; iw dev; exit 0; fi; ` +
+  `if [ -z "$G" ]; then echo "No wireless interface found - plug in the adapter"; iw dev; exit 0; fi; ` +
   `echo "Killing interfering processes + enabling monitor on $G"; airmon-ng check kill >/dev/null 2>&1; ` +
   `airmon-ng start "$G"; echo; iw dev'`;
 const STOP_MONITOR_CMD =
