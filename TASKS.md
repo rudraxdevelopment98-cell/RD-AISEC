@@ -52,8 +52,14 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ **AuditEvent model + additive migration** (CREATE TABLE only), `lib/audit.ts`
   (best-effort logger), login/logout hooks, owner-only `/dashboard/siem` timeline
   with type/actor/severity/date filters.
-- ⬜ More event sources (job.queued, finding.created, report.exported)
+- 🔄 More event sources: ✅ job.queued (manual + custom); ⬜ finding.created, report.exported
 - ⬜ Surface a real activity feed in the right rail from AuditEvent
+- ℹ️ SIEM empty until events occur AFTER deploy — sign out/in or queue a job to populate
+
+## J. Remote WiFi / multi-site runners
+- ✅ Clarified in the WiFi UI: WiFi is radio (range-limited); place a runner with a
+  dongle AT the target site and drive it remotely (already supported per-machine)
+- ⬜ Optional: a runner "site/location" label to manage multiple site sensors
 
 ## I. Bug reports (human-quality) — IN PROGRESS
 - ✅ **Two report formats**: `lib/report-narrative.ts` (human + structured) +

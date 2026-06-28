@@ -116,6 +116,12 @@ export default async function WifiPage({
         <p>• Click <b>Scan networks now</b> on a machine — nearby access points appear below.</p>
         <p>• Open/WEP networks are flagged red. Results refresh automatically while scanning.</p>
         <p>• For capture/deauth, plug in a monitor-mode USB adapter and install aircrack-ng.</p>
+        <p>
+          • <b>WiFi is radio, not remote.</b> Each machine only sees networks in range of <i>its</i>
+          adapter. To assess a network somewhere else, run a runner (a laptop/Pi with a dongle)
+          <b> at that location</b> — it polls the portal over HTTPS, so you drive it from anywhere.
+          Pick that machine&apos;s card below to scan from it.
+        </p>
       </HelpBanner>
 
       {searchParams.error && (

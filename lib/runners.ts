@@ -14,6 +14,7 @@ import {
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
+import { logAudit } from "@/lib/audit";
 import { tagFindings } from "@/lib/finding-map";
 import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
 
@@ -287,6 +288,12 @@ export async function queueJob(formData: FormData) {
       priority: formData.get("priority") === "high" ? await nextTopPriority(runnerId) : 0,
     },
   });
+  await logAudit({
+    type: "job.queued",
+    actor: session.user.email,
+    summary: `Queued ${tool!.id} against ${finalTarget}`,
+    target: finalTarget,
+  });
 
   revalidatePath("/dashboard/jobs");
   redirect(back);
@@ -402,6 +409,12 @@ export async function queueCustomJob(formData: FormData) {
       // "Run first" queues this above everything already waiting on the runner.
       priority: formData.get("priority") === "high" ? await nextTopPriority(runnerId) : 0,
     },
+  });
+  await logAudit({
+    type: "job.queued",
+    actor: session.user.email,
+    summary: `Ran custom command: ${program}`,
+    target: program,
   });
 
   revalidatePath("/dashboard/jobs");
