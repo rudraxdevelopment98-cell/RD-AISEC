@@ -24,7 +24,7 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ Findings: engagement + date + status filters (NavSelect)
 - ⬜ **Findings: sorting** (severity / date / status) + category filter polish
   - ⚠️ tool/command/machine filters N/A on Findings (no such fields on the model)
-- ⬜ **Jobs/History: filter by tool · command · machine · engagement · status · date + sorting**
+- ✅ **Jobs/History: filter by tool · machine · engagement · status (+ command via search) + sort by date/tool/machine/status** (date-range filter optional later)
 - ⬜ Apply the same NavSelect filter bar to other list pages (Engagements, Bug Bounty, Runners)
 
 ## C. Tabs / organisation

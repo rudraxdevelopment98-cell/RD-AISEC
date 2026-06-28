@@ -43,9 +43,36 @@ export function JobsTable({
 }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
+  const [tool, setTool] = useState("all");
+  const [machine, setMachine] = useState("all");
+  const [engagement, setEngagement] = useState("all");
   const [sort, setSort] = useState("recent");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+
+  // Distinct values for the dimension filters (tool · machine · engagement).
+  const tools = useMemo(
+    () => Array.from(new Set(jobs.map((j) => j.tool).filter(Boolean))).sort(),
+    [jobs],
+  );
+  const machines = useMemo(
+    () => Array.from(new Set(jobs.map((j) => j.machine).filter((m): m is string => !!m))).sort(),
+    [jobs],
+  );
+  const engagements = useMemo(
+    () => Array.from(new Set(jobs.map((j) => j.engagement).filter((e): e is string => !!e))).sort(),
+    [jobs],
+  );
+  const anyFilter =
+    q.trim() !== "" || status !== "all" || tool !== "all" || machine !== "all" || engagement !== "all";
+
+  function clearFilters() {
+    setQ("");
+    setStatus("all");
+    setTool("all");
+    setMachine("all");
+    setEngagement("all");
+  }
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -67,56 +94,73 @@ export function JobsTable({
     const ql = q.trim().toLowerCase();
     const filtered = jobs.filter((j) => {
       const okS = status === "all" || j.status === status;
+      const okTool = tool === "all" || j.tool === tool;
+      const okMachine = machine === "all" || (j.machine ?? "") === machine;
+      const okEng = engagement === "all" || (j.engagement ?? "") === engagement;
       const okQ =
         !ql ||
         `${j.tool} ${j.args}`.toLowerCase().includes(ql) ||
         j.target.toLowerCase().includes(ql) ||
         (j.machine ?? "").toLowerCase().includes(ql) ||
         (j.engagement ?? "").toLowerCase().includes(ql);
-      return okS && okQ;
+      return okS && okTool && okMachine && okEng && okQ;
     });
     const t = (s: string | null) => (s ? Date.parse(s) : 0);
     return [...filtered].sort((a, b) => {
       if (sort === "status") return a.status.localeCompare(b.status);
+      if (sort === "tool") return a.tool.localeCompare(b.tool);
+      if (sort === "machine") return (a.machine ?? "").localeCompare(b.machine ?? "");
       const ta = t(a.finished) || t(a.created);
       const tb = t(b.finished) || t(b.created);
       return sort === "oldest" ? ta - tb : tb - ta;
     });
-  }, [jobs, q, status, sort]);
+  }, [jobs, q, status, tool, machine, engagement, sort]);
 
   return (
     <div className="mt-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-card/40 p-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Icon name="search" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search tool, target, machine, engagement…"
-            className="w-full rounded-md border border-surface-border bg-surface py-2 pl-8 pr-3 text-sm outline-none focus:border-brand"
-          />
+      <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-card/40 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Icon name="search" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search command, target, machine, engagement…"
+              className="w-full rounded-md border border-surface-border bg-surface py-2 pl-8 pr-3 text-sm outline-none focus:border-brand"
+            />
+          </div>
+          <FilterSel value={status} onChange={setStatus} allLabel="All statuses" options={STATUSES.filter((s) => s !== "all")} capitalize />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          >
+            <option value="recent">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="status">By status</option>
+            <option value="tool">By tool</option>
+            <option value="machine">By machine</option>
+          </select>
         </div>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm capitalize outline-none focus:border-brand"
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s === "all" ? "All statuses" : s}
-            </option>
-          ))}
-        </select>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-        >
-          <option value="recent">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="status">By status</option>
-        </select>
+        {(tools.length > 1 || machines.length > 1 || engagements.length > 1) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {tools.length > 1 && (
+              <FilterSel value={tool} onChange={setTool} allLabel="All tools" options={tools} />
+            )}
+            {machines.length > 1 && (
+              <FilterSel value={machine} onChange={setMachine} allLabel="All machines" options={machines} />
+            )}
+            {engagements.length > 1 && (
+              <FilterSel value={engagement} onChange={setEngagement} allLabel="All engagements" options={engagements} />
+            )}
+            {anyFilter && (
+              <button onClick={clearFilters} className="text-xs text-gray-500 hover:text-brand">
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -252,5 +296,36 @@ export function JobsTable({
         )}
       </div>
     </div>
+  );
+}
+
+function FilterSel({
+  value,
+  onChange,
+  allLabel,
+  options,
+  capitalize,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  allLabel: string;
+  options: string[];
+  capitalize?: boolean;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`max-w-[12rem] truncate rounded-md border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand ${
+        capitalize ? "capitalize" : ""
+      }`}
+    >
+      <option value="all">{allLabel}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
   );
 }
