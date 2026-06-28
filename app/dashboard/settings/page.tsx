@@ -3,6 +3,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { prisma } from "@/lib/db";
 import { saveNotifySetting, testNotify, saveWorkspace } from "@/lib/notify-actions";
+import { Tabs, TabPanel } from "@/components/tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,15 @@ export default async function SettingsPage({
         </div>
       )}
 
-      <h2 className="mt-8 text-lg font-bold">Notifications</h2>
+      <Tabs
+        defaultTab="notify"
+        tabs={[
+          { id: "notify", label: "🔔 Notifications" },
+          { id: "workspace", label: "🗂 Workspace" },
+        ]}
+      >
+      <TabPanel id="notify">
+      <h2 className="text-lg font-bold">Notifications</h2>
       <HelpBanner>
         <p>• Get a free <b>Discord</b> webhook: Server Settings → Integrations → Webhooks → New Webhook → Copy URL.</p>
         <p>• Slack works too (Incoming Webhook URL).</p>
@@ -85,8 +94,10 @@ export default async function SettingsPage({
       <form action={testNotify} className="mt-3">
         <button className="btn-ghost text-sm">Send test notification</button>
       </form>
+      </TabPanel>
 
-      <h2 className="mt-8 text-lg font-bold">Research &amp; exploit workspace</h2>
+      <TabPanel id="workspace">
+      <h2 className="text-lg font-bold">Research &amp; exploit workspace</h2>
       <HelpBanner>
         <p>• <b>Google Drive folder</b> — a link to where you keep research/notes (opened from the Exploit Lab).</p>
         <p>• <b>Kali exploit folder</b> — an absolute path on your runner where generated exploits are saved (e.g. <code>/root/rdaisec-exploits</code>).</p>
@@ -114,6 +125,8 @@ export default async function SettingsPage({
         </div>
         <button className="btn-primary text-sm">Save workspace</button>
       </form>
+      </TabPanel>
+      </Tabs>
     </div>
   );
 }
