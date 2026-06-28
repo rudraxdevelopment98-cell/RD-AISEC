@@ -133,6 +133,16 @@ export function QueueJobForm({
           </datalist>
         )}
 
+        <label className="flex items-center gap-2 text-sm text-gray-300 sm:col-span-2">
+          <input
+            type="checkbox"
+            name="priority"
+            value="high"
+            className="h-4 w-4 rounded border-surface-border bg-surface accent-brand"
+          />
+          ⚡ Run first — jump ahead of everything else queued on this machine
+        </label>
+
         <button type="submit" className="btn-primary sm:col-span-2">
           Queue job
         </button>

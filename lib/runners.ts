@@ -257,11 +257,60 @@ export async function queueJob(formData: FormData) {
       target: finalTarget,
       args: preset!.args.join(" "),
       queuedBy: session.user.email ?? "",
+      // "Run first" queues this above everything already waiting on the runner.
+      priority: formData.get("priority") === "high" ? await nextTopPriority(runnerId) : 0,
     },
   });
 
   revalidatePath("/dashboard/jobs");
   redirect(back);
+}
+
+/**
+ * Compute a priority that sits above every job currently queued for a runner, so
+ * a "Run next" / "Run first" job is claimed before the rest of the queue. Capped
+ * to keep the number sane. runnerId optional → considers the whole queue.
+ */
+async function nextTopPriority(runnerId?: string | null): Promise<number> {
+  const top = await prisma.job.findFirst({
+    where: { status: "queued", ...(runnerId ? { runnerId } : {}) },
+    orderBy: { priority: "desc" },
+    select: { priority: true },
+  });
+  return Math.min((top?.priority ?? 0) + 1, 1_000_000);
+}
+
+/** Bump a queued job above everything else waiting on its runner ("Run next"). */
+export async function prioritizeJob(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  if (id) {
+    const job = await prisma.job.findUnique({
+      where: { id },
+      select: { runnerId: true, status: true },
+    });
+    if (job && job.status === "queued") {
+      const priority = await nextTopPriority(job.runnerId);
+      await prisma.job
+        .updateMany({ where: { id, status: "queued" }, data: { priority } })
+        .catch(() => {});
+    }
+  }
+  revalidatePath("/dashboard/jobs");
+}
+
+/** Reset a queued job back to normal priority (undo "Run next"). */
+export async function deprioritizeJob(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  if (id) {
+    await prisma.job
+      .updateMany({ where: { id, status: "queued" }, data: { priority: 0 } })
+      .catch(() => {});
+  }
+  revalidatePath("/dashboard/jobs");
 }
 
 /**
@@ -324,6 +373,8 @@ export async function queueCustomJob(formData: FormData) {
       target: program, // shown as a label; the runner reads `args`
       args: command,
       queuedBy: session.user.email ?? "",
+      // "Run first" queues this above everything already waiting on the runner.
+      priority: formData.get("priority") === "high" ? await nextTopPriority(runnerId) : 0,
     },
   });
 

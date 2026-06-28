@@ -445,6 +445,16 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       is running. One **final manual re-pull to v25**, then it stays current on
       its own. Turn off with `RUNNER_AUTO_UPDATE=0`.
 
+## ✅ Job priority (run important work first)
+- ✅ **Queue is no longer pure FIFO.** Each job has a `priority` (higher runs
+      first); the runner claims jobs ordered by **priority desc, then oldest
+      first**, so same-priority work stays first-come.
+- ✅ **"⚡ Run first" checkbox** on the Queue-a-job and Run-a-custom-command forms
+      queues that job above everything already waiting on the machine.
+- ✅ **"↑ Run next" button** on any queued job (Jobs → Active) bumps it above the
+      rest of that machine's queue; a **⚡ priority** badge marks it and **Reset**
+      puts it back to normal. The Active list shows the real claim order.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

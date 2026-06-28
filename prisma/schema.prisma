@@ -147,6 +147,10 @@ model Job {
   args         String     @default("")
   // "queued" | "running" | "done" | "failed" | "canceled"
   status       String     @default("queued")
+  // Queue priority: higher runs first. The runner claims queued jobs ordered by
+  // priority desc, then createdAt asc (same-priority stays first-come). 0 =
+  // normal; "Run next" / "Run first" bumps a job above all other queued jobs.
+  priority     Int        @default(0)
   output       String     @default("") // raw tool output (capped)
   exitCode     Int?
   queuedBy     String     @default("") // user email, for audit

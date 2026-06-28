@@ -92,6 +92,10 @@ export function CustomJobForm({
               only.
             </span>
           </label>
+          <label className="flex items-center gap-2 text-xs text-gray-300">
+            <input type="checkbox" name="priority" value="high" className="accent-brand" />
+            ⚡ Run first — jump ahead of everything else queued on this machine
+          </label>
           <button className="btn-primary text-sm">Run command</button>
         </form>
       )}

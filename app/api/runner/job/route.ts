@@ -23,12 +23,13 @@ export async function GET(req: Request) {
     return r;
   };
 
-  // Find the oldest queued job for this runner, then claim it with a guarded
-  // update so two concurrent polls can't grab the same job.
+  // Claim the highest-priority queued job for this runner (ties broken by age),
+  // with a guarded update so two concurrent polls can't grab the same job.
+  // "Run next" / "Run first" raise a job's priority above the rest of the queue.
   for (let attempt = 0; attempt < 3; attempt++) {
     const next = await prisma.job.findFirst({
       where: { runnerId: runner.id, status: "queued" },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
     });
     if (!next) return idle();
 
