@@ -26,6 +26,27 @@ const ISSUE_TONE: Record<string, string> = {
   info: "text-gray-400",
 };
 
+// Smart monitor-mode commands: auto-detect the real wireless interface on the
+// runner (the portal's reported name can be wrong/stale) and kill the processes
+// (NetworkManager/wpa_supplicant) that fight monitor mode.
+const ENABLE_MONITOR_CMD =
+  `bash -lc 'M=""; G=""; for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `t=$(iw dev "$n" info 2>/dev/null | grep -oE "type [a-z]+" | head -1); ` +
+  `if [ "$t" = "type monitor" ]; then M="$n"; elif [ "$t" = "type managed" ]; then G="$n"; fi; done; ` +
+  `if [ -n "$M" ]; then echo "Already in monitor mode: $M"; iw dev; exit 0; fi; ` +
+  `if [ -z "$G" ]; then echo "No wireless interface found — plug in the adapter"; iw dev; exit 0; fi; ` +
+  `echo "Killing interfering processes + enabling monitor on $G"; airmon-ng check kill >/dev/null 2>&1; ` +
+  `airmon-ng start "$G"; echo; iw dev'`;
+const STOP_MONITOR_CMD =
+  `bash -lc 'for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done; ` +
+  `(systemctl start NetworkManager 2>/dev/null || service NetworkManager start 2>/dev/null || service network-manager start 2>/dev/null); ` +
+  `echo "Monitor stopped, NetworkManager restarted"; iw dev'`;
+const AIRODUMP_60_CMD =
+  `bash -lc 'M=$(for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && echo "$n" && break; done); ` +
+  `if [ -z "$M" ]; then echo "Enable monitor mode first"; exit 0; fi; timeout 60 airodump-ng "$M"'`;
+
 export const dynamic = "force-dynamic";
 
 const SEC_TONE: Record<string, string> = {
@@ -131,8 +152,6 @@ export default async function WifiPage({
             // — don't append "mon" again (that produced "wlan0monmon").
             const monIface = ifaces.find((i) => /mon$/i.test(i));
             const mon = monIface ?? `${iface}mon`;
-            // The managed base name to enable monitor mode on (strip a trailing "mon").
-            const baseIface = iface.replace(/mon$/i, "");
             const hasAircrack = (r.installed ?? "").split(",").map((s) => s.trim()).includes("aircrack");
             const inMonitor = ifaces.some((i) => /mon$/i.test(i));
             const job = latestByRunner.get(r.id);
@@ -575,20 +594,23 @@ export default async function WifiPage({
                             📡 No monitor-mode adapter detected. Plug a USB WiFi adapter that supports monitor mode into this machine (appears within ~30s). A VM&apos;s built-in WiFi usually can&apos;t capture.
                           </p>
                         )}
+                        <p className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-gray-400">
+                          ⚠ &quot;Enable monitor mode&quot; runs <code className="font-mono">airmon-ng check kill</code> (stops NetworkManager/wpa_supplicant). If this machine&apos;s internet is on the same WiFi card it&apos;ll briefly drop — use a separate USB dongle or a wired/secondary uplink. &quot;Stop monitor mode&quot; restarts NetworkManager.
+                        </p>
                         <div className="flex flex-wrap gap-2 text-xs">
                           <form action={runWifiCommand}>
                             <input type="hidden" name="runnerId" value={r.id} />
-                            <input type="hidden" name="command" value={`airmon-ng start ${baseIface}`} />
+                            <input type="hidden" name="command" value={ENABLE_MONITOR_CMD} />
                             <button className="btn-ghost px-2 py-1">Enable monitor mode</button>
                           </form>
                           <form action={runWifiCommand}>
                             <input type="hidden" name="runnerId" value={r.id} />
-                            <input type="hidden" name="command" value={`timeout 60 airodump-ng ${mon}`} />
+                            <input type="hidden" name="command" value={AIRODUMP_60_CMD} />
                             <button className="btn-ghost px-2 py-1">Scan APs (airodump 60s)</button>
                           </form>
                           <form action={runWifiCommand}>
                             <input type="hidden" name="runnerId" value={r.id} />
-                            <input type="hidden" name="command" value={`airmon-ng stop ${mon}`} />
+                            <input type="hidden" name="command" value={STOP_MONITOR_CMD} />
                             <button className="btn-ghost px-2 py-1">Stop monitor mode</button>
                           </form>
                           {captureActions.map((a) => (
