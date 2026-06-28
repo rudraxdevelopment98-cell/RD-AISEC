@@ -280,6 +280,14 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ Learn — personal skill roadmap
+- ✅ A **Learn** section (sidebar) with a curated catalog of techniques/tactics
+      across Recon, Web exploitation, Network/infra, WiFi, Exploitation, and
+      Methodology — each with what it is, **how to practice it in the portal**,
+      and a reference link.
+- ✅ Per-user **progress tracking** (to learn / learning / learned) with a
+      progress bar and category/status filters (LearnProgress model).
+
 ## ✅ Engine level-up (capability · security · OPSEC)
 - ✅ **Leaked-secret detection**: scans tool output (responses/JS/headers) for
       AWS/Google/GitHub/Slack/Stripe/Twilio keys, private keys, JWTs and generic
