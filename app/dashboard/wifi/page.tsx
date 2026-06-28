@@ -384,7 +384,7 @@ export default async function WifiPage({
                                   <input type="hidden" name="bssid" value={target} />
                                   <input type="hidden" name="ssid" value={ap?.ssid ?? ""} />
                                   <button
-                                    className="btn-primary px-2 py-1"
+                                    className="btn-ghost px-2 py-1"
                                     title="Stand up a fake AP + captive portal and capture the password a victim submits — one click (authorized networks only)"
                                     disabled={evilRunning}
                                   >
@@ -395,7 +395,7 @@ export default async function WifiPage({
                                   <input type="hidden" name="runnerId" value={r.id} />
                                   <input type="hidden" name="bssid" value={target} />
                                   <input type="hidden" name="channel" value={apChan} />
-                                  <button className="btn-primary px-2 py-1" title="Deauth + capture in one go, then handshake check">
+                                  <button className="btn-ghost px-2 py-1" title="Deauth + capture in one go, then handshake check">
                                     🤝 Auto handshake
                                   </button>
                                 </form>
