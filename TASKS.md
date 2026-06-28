@@ -37,10 +37,11 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ Rail content: Needs-attention (critical), Machines, Active jobs, Team (owners)
 
 ## E. Runner tools
-- ⬜ **Add more allowlisted tools** to `RUNNER_TOOL_SPECS` (+ runner install map): e.g.
-  feroxbuster, dirsearch, whatweb*, wafw00f*, dnsx, tlsx, asnmap, cdncheck,
-  trufflehog, gitleaks, nuclei-extra, testssl.sh, hydra (gated), etc. (*some exist)
-- ⬜ Parsers for new tools where output → findings
+- ✅ **Added 11 tools** (queueable + one-click install, runner v31): feroxbuster,
+  dirsearch, testssl, sslyze, nbtscan, smbmap, fierce, sublist3r, commix (apt) +
+  gospider, waybackurls (go). Portal + runner maps mirrored; self-update propagates.
+- ⬜ Parsers for new tools where output → findings (generic/leaked-secret already apply)
+- ⬜ More PD tools (dnsx/tlsx/asnmap), secret scanners (trufflehog/gitleaks)
 
 ## F. Shiva (MCP security)
 - ✅ Scanner · Gateway (+live proxy) · Attack Range (+exfil) · Harness

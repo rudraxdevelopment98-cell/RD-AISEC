@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "30"
+RUNNER_VERSION = "31"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -214,6 +214,17 @@ DEFAULT_TOOLS = {
     "dalfox":    {"bin": "dalfox",    "flag": "url",   "pkg": "dalfox"},
     "ffuf":      {"bin": "ffuf",      "flag": "-u",    "pkg": "ffuf"},
     "gau":       {"bin": "gau",       "flag": None,    "pkg": None},
+    "feroxbuster": {"bin": "feroxbuster", "flag": "-u",        "pkg": "feroxbuster"},
+    "dirsearch":   {"bin": "dirsearch",   "flag": "-u",        "pkg": "dirsearch"},
+    "testssl":     {"bin": "testssl.sh",  "flag": None,        "pkg": "testssl.sh"},
+    "sslyze":      {"bin": "sslyze",      "flag": None,        "pkg": "sslyze"},
+    "nbtscan":     {"bin": "nbtscan",     "flag": None,        "pkg": "nbtscan"},
+    "smbmap":      {"bin": "smbmap",      "flag": "-H",        "pkg": "smbmap"},
+    "fierce":      {"bin": "fierce",      "flag": "--domain",  "pkg": "fierce"},
+    "sublist3r":   {"bin": "sublist3r",   "flag": "-d",        "pkg": "sublist3r"},
+    "commix":      {"bin": "commix",      "flag": "--url",     "pkg": "commix"},
+    "gospider":    {"bin": "gospider",    "flag": "-s",        "pkg": None},
+    "waybackurls": {"bin": "waybackurls", "flag": None,        "pkg": None},
 }
 
 # Live allowlist — replaced by fetch_tools() at startup if the portal responds.
@@ -258,6 +269,15 @@ INSTALL_PKGS = {
     "tor": "tor",
     "torsocks": "torsocks",
     "aircrack": "aircrack-ng",
+    "feroxbuster": "feroxbuster",
+    "dirsearch": "dirsearch",
+    "testssl": "testssl.sh",
+    "sslyze": "sslyze",
+    "nbtscan": "nbtscan",
+    "smbmap": "smbmap",
+    "fierce": "fierce",
+    "sublist3r": "sublist3r",
+    "commix": "commix",
 }
 
 
@@ -275,6 +295,8 @@ GO_INSTALL = {
     "nuclei": "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
     "ffuf": "github.com/ffuf/ffuf/v2@latest",
     "gau": "github.com/lc/gau/v2/cmd/gau@latest",
+    "gospider": "github.com/jaeles-project/gospider@latest",
+    "waybackurls": "github.com/tomnomnom/waybackurls@latest",
 }
 
 
