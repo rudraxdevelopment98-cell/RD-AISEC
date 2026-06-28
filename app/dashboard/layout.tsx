@@ -6,6 +6,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NeuralBg } from "@/components/neural-bg";
 import { CommandPalette } from "@/components/command-palette";
+import { OpsRail } from "@/components/ops-rail";
 import { canAccess } from "@/lib/access";
 import { NAV } from "@/lib/nav";
 import { getMemberAccess } from "@/lib/members";
@@ -128,11 +129,24 @@ export default async function DashboardLayout({
             </form>
           </div>
         </header>
-        {/* Scrollable content area */}
+        {/* Scrollable content area — the center canvas */}
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 print:overflow-visible">
           {children}
         </main>
       </div>
+
+      {/* Right rail — live ops (machines · jobs · findings). Wide screens only;
+          the center canvas keeps full width below xl. */}
+      <aside className="relative z-10 hidden h-screen w-72 shrink-0 flex-col border-l border-surface-border bg-surface-card/40 xl:flex print:!hidden">
+        <div className="shrink-0 border-b border-surface-border px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Live ops
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <OpsRail info={info} />
+        </div>
+      </aside>
     </div>
   );
 }
