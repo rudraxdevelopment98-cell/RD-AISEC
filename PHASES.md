@@ -530,6 +530,13 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       `Collapsible` card component (header + chevron, open/close) for dense
       sections — the pattern to fold more panels going forward.
 
+## ✅ In-workspace tabs (ProjectDiscovery-style)
+- ✅ Reusable `Tabs`/`TabPanel` component (underline strip, all panels stay
+      mounted so forms keep state). The **engagement workspace** now groups its
+      sub-sections into tabs — **⚡ Command · 🤖 Pipeline · 🐞 Findings (n) · 📎
+      Resources (n)** — instead of one long scroll (replaces the old quick-jump
+      chips). Header/authorization/diagnostics stay pinned above as context.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)
