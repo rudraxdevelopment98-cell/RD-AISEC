@@ -280,6 +280,15 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ WiFi Auto-pwn + audit follow-ups
+- ✅ **💥 Auto-pwn** button (per inspected AP): one click does deauth + handshake
+      capture → verify → crack with rockyou, in a single job; the password shows
+      in the AP's 🔓 banner (page auto-refreshes). Authorized networks only.
+- ✅ Fixed the `wlan0monmon` bug — the page no longer appends "mon" to an
+      interface that's already in monitor mode; enable-monitor uses the base iface.
+- ✅ **API access checks** extended (per-section `canAccess`): findings export,
+      engagement report, search, scan, bulk scan, exploit-status (via lib/api-guard.ts).
+
 ## ✅ Full audit pass — bugs found & fixed
 Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · runner
 · auth/security/schema). Fixed:
