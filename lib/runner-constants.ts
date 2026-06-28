@@ -332,6 +332,52 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   wifiphisher: "wifiphisher", // evil-twin + captive-portal (authorized testing)
 };
 
+/**
+ * Install method per tool when apt is NOT the way to get it. Tools not listed
+ * here install via apt using their INSTALLABLE_PKGS package. The runner mirrors
+ * this map and uses its OWN copy (it never runs a command string sent by the
+ * portal) — the portal only ever names an allowlisted tool id.
+ *   - "go":  `go install <source>` (ProjectDiscovery etc.); apt has no package.
+ *   - "pipx": `pipx install <source>` (Python tools not packaged for apt).
+ */
+export const INSTALL_METHODS: Record<
+  string,
+  { method: "go" | "pipx"; source: string }
+> = {
+  // httpx has no apt package — install the ProjectDiscovery binary via Go.
+  httpx: { method: "go", source: "github.com/projectdiscovery/httpx/cmd/httpx@latest" },
+};
+
+/** Every tool that can be installed from the portal (apt OR an alt method). */
+export function installableTools(): string[] {
+  return Array.from(
+    new Set([...Object.keys(INSTALLABLE_PKGS), ...Object.keys(INSTALL_METHODS)]),
+  ).sort();
+}
+
+export function isInstallable(tool: string): boolean {
+  return tool in INSTALLABLE_PKGS || tool in INSTALL_METHODS;
+}
+
+/** The resolved install spec sent to the runner: method + apt pkg + alt source. */
+export function installSpec(tool: string): {
+  method: "apt" | "go" | "pipx";
+  pkg: string | null;
+  source: string | null;
+} {
+  const alt = INSTALL_METHODS[tool];
+  if (alt) return { method: alt.method, pkg: null, source: alt.source };
+  return { method: "apt", pkg: INSTALLABLE_PKGS[tool] ?? null, source: null };
+}
+
+/** Short human label for how a tool installs, shown in the Machines UI. */
+export function installLabel(tool: string): string {
+  const s = installSpec(tool);
+  if (s.method === "apt") return `apt ${s.pkg ?? tool}`;
+  if (s.method === "go") return "go install";
+  return "pipx";
+}
+
 /** Serialize the tool specs for the runner (incl. apt package for installs). */
 export function runnerToolSpecs(): {
   id: string;
@@ -388,11 +434,23 @@ export const JOB_STATUSES = [
 ] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+/**
+ * Queue priority levels (higher runs first). The runner claims queued jobs by
+ * priority desc, then oldest-first. Automation uses these so confirming/
+ * exploiting a finding jumps ahead of routine recon/scan; a user clicking
+ * "↑ Run next" bumps a job above even these (it sets priority above the queue).
+ */
+export const JOB_PRIORITY = {
+  normal: 0, // routine recon/scan/bug-bounty automation
+  exploit: 20, // pipeline exploit-stage validation (ahead of recon/scan)
+  manual: 40, // user-triggered "Exploit it" / a technique on a finding
+} as const;
+
 // Current runner script version. Bump when rdaisec_runner.py changes in a way
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "25";
+export const RUNNER_VERSION = "26";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

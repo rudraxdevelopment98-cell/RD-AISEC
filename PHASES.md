@@ -455,6 +455,23 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       rest of that machine's queue; a **⚡ priority** badge marks it and **Reset**
       puts it back to normal. The Active list shows the real claim order.
 
+## ✅ Priority automation + non-apt installs + Machines UI
+- ✅ **Automation auto-prioritizes the right work.** The pipeline's **exploit
+      stage** and a per-finding **⚔ Exploit it** now queue at higher priority than
+      routine recon/scan, so confirming/exploiting a finding jumps the queue
+      without you touching it. (Levels: manual exploit 40 > exploit stage 20 >
+      normal 0; "↑ Run next" still tops everything.)
+- ✅ **One-click install for tools not in apt.** Tools with no apt package (e.g.
+      **httpx**) install via **`go install`** straight from the machine card — the
+      runner bootstraps the Go toolchain if needed and drops the binary on PATH.
+      The recipe is a fixed allowlist on the runner (never a portal-supplied
+      command), so it stays injection-safe. Runner v26.
+- ✅ **Machines page redesign (same theme/glass).** Each card reorganized into
+      clear zones: header (name · online/offline · Revoke), an at-a-glance badge
+      row (🧰 tools, N missing, version w/ self-update note, Tor, live installs),
+      then a divided controls area (a **Tools** section for one-click installs +
+      live status, and the **Tor** toggle). Much less cramped.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

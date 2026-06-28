@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateRunner } from "@/lib/runner-auth";
-import { INSTALLABLE_PKGS } from "@/lib/runner-constants";
+import { installSpec } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +27,15 @@ export async function GET(req: Request) {
       data: { status: "installing" },
     });
     if (claimed.count === 1) {
-      // Send the apt package name so the runner doesn't need its own map.
+      // Send how to install it (apt pkg, or an alt method like `go install`).
+      // The runner mirrors this and uses its OWN recipe — this is just a hint.
+      const spec = installSpec(next.tool);
       return NextResponse.json({
         id: next.id,
         tool: next.tool,
-        pkg: INSTALLABLE_PKGS[next.tool] ?? null,
+        method: spec.method,
+        pkg: spec.pkg,
+        source: spec.source,
       });
     }
   }

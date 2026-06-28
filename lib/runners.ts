@@ -10,7 +10,7 @@ import {
   isSafeValue,
   normalizeTarget,
   validateTarget,
-  INSTALLABLE_PKGS,
+  isInstallable,
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
@@ -63,8 +63,9 @@ export async function createRunner(
 /**
  * Request installing a missing tool on a runner. Requires explicit authorization
  * ("proof") — the user must confirm they may install software on that machine.
- * Only known, allowlisted packages (INSTALLABLE_PKGS) can be requested; the
- * runner runs apt for that package only — never an arbitrary command.
+ * Only known, allowlisted tools (isInstallable) can be requested; the runner
+ * installs that tool via apt or its fixed alt method (e.g. `go install` for
+ * httpx) — never an arbitrary command.
  */
 export async function requestInstall(formData: FormData) {
   const session = await auth();
@@ -81,7 +82,7 @@ export async function requestInstall(formData: FormData) {
       )}`,
     );
   }
-  if (!runnerId || !INSTALLABLE_PKGS[tool]) {
+  if (!runnerId || !isInstallable(tool)) {
     redirect(`/dashboard/runners?error=${encodeURIComponent("That tool can't be installed from here.")}`);
   }
 
@@ -123,7 +124,7 @@ export async function installRequiredTools(formData: FormData) {
   for (const r of online) {
     const have = new Set((r.installed || "").split(",").map((s) => s.trim()).filter(Boolean));
     for (const tool of REQUIRED_TOOL_IDS) {
-      if (have.has(tool) || !INSTALLABLE_PKGS[tool]) continue;
+      if (have.has(tool) || !isInstallable(tool)) continue;
       const existing = await prisma.install.findFirst({
         where: { runnerId: r.id, tool, status: { in: ["pending", "installing"] } },
       });
