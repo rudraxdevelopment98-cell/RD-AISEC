@@ -506,6 +506,18 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
 - ✅ **gau wired into the recon stage** — engagements now auto-discover a domain's
       known URLs (Wayback/CommonCrawl/OTX) during recon (skipped if not installed).
 
+## ✅ One-click Auto Evil-Twin (WiFi)
+- ✅ **🪤 Auto Evil-Twin** button in the WiFi inspect panel — the evil-twin
+      captive-portal attack, fully automated in one click (was a copy-paste
+      interactive command). It stands up a fake AP with the target SSID + a
+      phishing captive portal via **wifiphisher**, run **headless in a PTY**
+      (`script -qec …`), **quit-on-success** (`-qS`), bounded to ~5 min, single
+      adapter → no-jam / two+ → jams the real AP. The submitted password is
+      parsed from the session log and shown in a **🪤 captured-password banner**
+      (with a live "running…" state + page banner). SSID is charset-validated
+      (no shell injection); authorized networks only; needs wifiphisher + root on
+      the runner. Manual command kept as a fallback in the details panel.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)
