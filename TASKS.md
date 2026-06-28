@@ -56,15 +56,12 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ Surface a real activity feed in the right rail from AuditEvent
 
 ## I. Bug reports (human-quality) — IN PROGRESS
-- 🔄 **Two report formats**: `lib/report-narrative.ts` done + verified — pure,
-  deterministic `buildHumanReport` (first-person, varied, no AI tells) +
-  `buildStructuredReport`. UI toggle next.
-- ✅ **Validity heuristic** (`assessValidity`): confirmed / severity / repro depth
-  / evidence / scope-match → ready | review | weak. (surface in UI)
-- ⬜ **UI**: ReportBuilder component (toggle human/structured, copy each, show
-  validity) wired into the finding/exploit page.
+- ✅ **Two report formats**: `lib/report-narrative.ts` (human + structured) +
+  `ReportBuilder` UI (toggle, copy, validity) wired into the Exploit page.
+- ✅ **Validity heuristic** surfaced in the UI (ready | review | weak + reasons).
 - ⬜ **Submission**: HackerOne API submit where possible, else prefilled deep-link
-  + copy-ready draft + hints.
+  + copy-ready draft + hints. (programUrl wired; real submit next)
+- ⬜ Surface ReportBuilder on the Findings page + per-finding exploit page too.
 - ⬜ Better bug discovery feeding the report (tie into pipeline/exploit).
 
 ## H. Misc small fixes (rolling)
