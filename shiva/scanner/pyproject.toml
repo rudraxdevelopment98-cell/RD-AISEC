@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shiva-scanner"
+version = "0.1.0"
+description = "Static + live security scanner for MCP servers (the Shiva scanner)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Shiva project" }]
+keywords = ["mcp", "security", "scanner", "ai-agents", "tool-poisoning"]
+
+# The static scanner is stdlib-only. Live MCP introspection is optional.
+dependencies = []
+
+[project.optional-dependencies]
+live = ["mcp[cli]>=1.2.0"]
+
+[project.scripts]
+shiva-scan = "shiva_scanner.cli:main"
+
+[tool.setuptools]
+packages = ["shiva_scanner"]
