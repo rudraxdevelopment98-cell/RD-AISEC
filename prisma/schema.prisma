@@ -271,6 +271,20 @@ model BugAccount {
   createdAt      DateTime  @default(now())
 }
 
+// Per-user progress on a learning topic (topics themselves live in data/learn.ts).
+model LearnProgress {
+  id         String   @id @default(cuid())
+  key        String // topic id from data/learn.ts
+  ownerEmail String   @default("")
+  // "todo" | "learning" | "done"
+  status     String   @default("todo")
+  notes      String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([key, ownerEmail])
+}
+
 // A bug-bounty program the user is working: its scope (pasted or linked) and an
 // optional link to an engagement so the portal's scanning/exploitation applies.
 model BugProgram {

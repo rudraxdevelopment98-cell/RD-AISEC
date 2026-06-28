@@ -17,6 +17,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
       { href: "/dashboard/guide", label: "How it works", icon: "book" },
+      { href: "/dashboard/learn", label: "Learn", icon: "book" },
     ],
   },
   // The daily bug-hunting flow, top to bottom.
