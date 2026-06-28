@@ -318,3 +318,22 @@ model BugProgram {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
+
+// SIEM / audit trail: a security-relevant event recorded for the activity
+// timeline — logins, logouts, jobs queued, findings created, report exports, etc.
+// Append-only; surfaced at /dashboard/siem and feeds the rail's activity view.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  // Dotted event type, e.g. "auth.login" | "auth.logout" | "job.queued" |
+  // "finding.created" | "report.exported".
+  type      String
+  actor     String   @default("") // email of who did it ("" = system/cron)
+  summary   String   @default("") // human-readable one-liner
+  target    String   @default("") // optional subject (host, finding id, …)
+  severity  String   @default("info") // info | low | medium | high | critical
+  meta      String   @default("")     // small JSON blob (capped)
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([actor, createdAt])
+}

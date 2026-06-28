@@ -49,10 +49,22 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ More scanner checks / Range attacks; CI packaging
 
 ## G. SIEM (new)
-- ⬜ **Scope a lightweight SIEM**: an `AuditEvent` model (login/logout/job/finding
-  events), write hooks in auth + actions, and a `/dashboard/siem` timeline with
-  filters (actor/type/date). Feeds the rail's real activity log.
-- ⚠️ Needs a Prisma migration (generate via `prisma migrate diff` — see ROADMAP).
+- ✅ **AuditEvent model + additive migration** (CREATE TABLE only), `lib/audit.ts`
+  (best-effort logger), login/logout hooks, owner-only `/dashboard/siem` timeline
+  with type/actor/severity/date filters.
+- ⬜ More event sources (job.queued, finding.created, report.exported)
+- ⬜ Surface a real activity feed in the right rail from AuditEvent
+
+## I. Bug reports (human-quality) — NEXT
+- ⬜ **Two report formats from a finding/engagement**: an "engine/structured"
+  view AND a **human-written-style** narrative (the one we send). Human style
+  must read naturally — no "AI-generated" tells, varied phrasing, first-person
+  researcher voice, platform-appropriate (HackerOne/Bugcrowd) sections.
+- ⬜ **Submission**: automate submit where an API exists (HackerOne), else a
+  prefilled deep-link / copy-ready draft + step hints.
+- ⬜ **Validity suggestion**: heuristic check (scope match, severity sanity,
+  repro completeness, dupe risk) → "looks submittable / needs X".
+- ⬜ Better bug discovery feeding the report (tie into pipeline/exploit).
 
 ## H. Misc small fixes (rolling)
 - ⬜ Sweep for stale-data spots that need AutoRefresh

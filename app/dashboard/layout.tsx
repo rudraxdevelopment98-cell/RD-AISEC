@@ -12,6 +12,7 @@ import { OpsRailShell } from "@/components/ops-rail-shell";
 import { canAccess } from "@/lib/access";
 import { NAV } from "@/lib/nav";
 import { getMemberAccess } from "@/lib/members";
+import { logAudit } from "@/lib/audit";
 
 export default async function DashboardLayout({
   children,
@@ -85,6 +86,7 @@ export default async function DashboardLayout({
           <form
             action={async () => {
               "use server";
+              await logAudit({ type: "auth.logout", actor: user?.email, summary: "Signed out" });
               await signOut({ redirectTo: "/" });
             }}
           >
@@ -135,6 +137,7 @@ export default async function DashboardLayout({
             <form
               action={async () => {
                 "use server";
+                await logAudit({ type: "auth.logout", actor: user?.email, summary: "Signed out" });
                 await signOut({ redirectTo: "/" });
               }}
               className="lg:hidden"

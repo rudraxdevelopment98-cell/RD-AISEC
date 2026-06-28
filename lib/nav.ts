@@ -83,6 +83,7 @@ export const NAV: NavGroup[] = [
     section: "Admin",
     items: [
       { href: "/dashboard/members", label: "Members", icon: "server", access: "owner" },
+      { href: "/dashboard/siem", label: "SIEM · Activity", icon: "clock", access: "owner" },
       { href: "/dashboard/settings", label: "Settings", icon: "wrench", access: "owner" },
     ],
   },
