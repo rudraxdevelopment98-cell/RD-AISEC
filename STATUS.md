@@ -39,8 +39,12 @@ results back; the portal parses them into findings.
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
 ## Runner
-- Current version: **28** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). v28 = **ffuf** (web fuzzer) + **gau** (known-URL
+- Current version: **29** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). v29 = **audit-hardening**: self-update TOCTOU
+  closed (idle re-check + re-exec hold WORKERS_LOCK), apt→go fallback resolves
+  the binary name robustly, INSTALL_PKGS mirrors the portal (tor/torsocks/
+  aircrack), ffuf output parsed correctly (payload→URL reconstruction).
+  v28 = **ffuf** (web fuzzer) + **gau** (known-URL
   discovery) as one-click tools; **nuclei** gains a `go install` fallback.
   v27 = **go fallback** for subfinder/naabu/katana/
   dalfox (apt-primary; falls back to `go install` if apt fails/unavailable).
