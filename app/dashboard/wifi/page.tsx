@@ -9,6 +9,7 @@ import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/net
 import { wifiSecurityAdvice, wifiAdviceText, extractCrackedKey, extractEvilTwinKey } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
 import { CopyText } from "@/components/copy-text";
+import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 const RISK_TONE: Record<string, string> = {
@@ -225,6 +226,14 @@ export default async function WifiPage({
                       )}
                     </div>
 
+                    <Tabs
+                      defaultTab="networks"
+                      tabs={[
+                        { id: "networks", label: "📡 Networks" },
+                        { id: "tools", label: "🛠 Tools & monitor" },
+                      ]}
+                    >
+                    <TabPanel id="networks">
                     {/* Results */}
                     {scanning && (
                       <p className="mt-3 text-sm text-sky-300">
@@ -603,6 +612,9 @@ export default async function WifiPage({
                       );
                     })()}
 
+                    </TabPanel>
+
+                    <TabPanel id="tools">
                     {/* Install WiFi tooling (capture/crack/evil-twin) */}
                     {(!hasAircrack || wifiTools.length > 0) && (
                       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -672,6 +684,8 @@ export default async function WifiPage({
                         </p>
                       </div>
                     </details>
+                  </TabPanel>
+                  </Tabs>
                   </>
                 )}
               </div>
