@@ -466,6 +466,9 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
       runner bootstraps the Go toolchain if needed and drops the binary on PATH.
       The recipe is a fixed allowlist on the runner (never a portal-supplied
       command), so it stays injection-safe. Runner v26.
+- ✅ **Go fallback for the other ProjectDiscovery tools** (subfinder, naabu,
+      katana, dalfox): apt-primary, but if apt fails or apt-get isn't there the
+      runner falls back to `go install` for that tool. Runner v27.
 - ✅ **Machines page redesign (same theme/glass).** Each card reorganized into
       clear zones: header (name · online/offline · Revoke), an at-a-glance badge
       row (🧰 tools, N missing, version w/ self-update note, Tor, live installs),

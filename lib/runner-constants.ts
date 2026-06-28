@@ -333,49 +333,63 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
 };
 
 /**
- * Install method per tool when apt is NOT the way to get it. Tools not listed
- * here install via apt using their INSTALLABLE_PKGS package. The runner mirrors
- * this map and uses its OWN copy (it never runs a command string sent by the
- * portal) — the portal only ever names an allowlisted tool id.
- *   - "go":  `go install <source>` (ProjectDiscovery etc.); apt has no package.
- *   - "pipx": `pipx install <source>` (Python tools not packaged for apt).
+ * `go install` sources for Go-based tools. Used two ways:
+ *   - as the PRIMARY method when apt has no package (httpx), and
+ *   - as a FALLBACK when apt fails or apt-get is unavailable (the other
+ *     ProjectDiscovery tools, which apt ships on Kali but not everywhere).
+ * The runner mirrors this map and uses its OWN copy — it never runs a command
+ * or source string sent by the portal; the portal only names a tool id.
  */
-export const INSTALL_METHODS: Record<
-  string,
-  { method: "go" | "pipx"; source: string }
-> = {
-  // httpx has no apt package — install the ProjectDiscovery binary via Go.
-  httpx: { method: "go", source: "github.com/projectdiscovery/httpx/cmd/httpx@latest" },
+export const GO_SOURCES: Record<string, string> = {
+  httpx: "github.com/projectdiscovery/httpx/cmd/httpx@latest",
+  subfinder: "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+  naabu: "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest",
+  katana: "github.com/projectdiscovery/katana/cmd/katana@latest",
+  dalfox: "github.com/hahwul/dalfox/v2@latest",
+};
+
+/** Tools whose PRIMARY install method isn't apt (apt has no package for them). */
+export const INSTALL_METHODS: Record<string, { method: "go" | "pipx" }> = {
+  httpx: { method: "go" }, // no apt package — Go is the only way
 };
 
 /** Every tool that can be installed from the portal (apt OR an alt method). */
 export function installableTools(): string[] {
   return Array.from(
-    new Set([...Object.keys(INSTALLABLE_PKGS), ...Object.keys(INSTALL_METHODS)]),
+    new Set([
+      ...Object.keys(INSTALLABLE_PKGS),
+      ...Object.keys(INSTALL_METHODS),
+      ...Object.keys(GO_SOURCES),
+    ]),
   ).sort();
 }
 
 export function isInstallable(tool: string): boolean {
-  return tool in INSTALLABLE_PKGS || tool in INSTALL_METHODS;
+  return tool in INSTALLABLE_PKGS || tool in INSTALL_METHODS || tool in GO_SOURCES;
 }
 
-/** The resolved install spec sent to the runner: method + apt pkg + alt source. */
+/**
+ * The resolved install spec sent to the runner: primary method + apt pkg + a Go
+ * source (set whenever one exists, so the runner can fall back to `go install`
+ * if apt fails). httpx has method "go" (no apt); the rest are apt-primary.
+ */
 export function installSpec(tool: string): {
   method: "apt" | "go" | "pipx";
   pkg: string | null;
   source: string | null;
 } {
+  const go = GO_SOURCES[tool] ?? null;
   const alt = INSTALL_METHODS[tool];
-  if (alt) return { method: alt.method, pkg: null, source: alt.source };
-  return { method: "apt", pkg: INSTALLABLE_PKGS[tool] ?? null, source: null };
+  if (alt?.method === "go") return { method: "go", pkg: null, source: go };
+  return { method: "apt", pkg: INSTALLABLE_PKGS[tool] ?? null, source: go };
 }
 
 /** Short human label for how a tool installs, shown in the Machines UI. */
 export function installLabel(tool: string): string {
   const s = installSpec(tool);
-  if (s.method === "apt") return `apt ${s.pkg ?? tool}`;
   if (s.method === "go") return "go install";
-  return "pipx";
+  if (s.method === "pipx") return "pipx";
+  return s.source ? `apt ${s.pkg ?? tool} · go fallback` : `apt ${s.pkg ?? tool}`;
 }
 
 /** Serialize the tool specs for the runner (incl. apt package for installs). */
@@ -450,7 +464,7 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "26";
+export const RUNNER_VERSION = "27";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;
