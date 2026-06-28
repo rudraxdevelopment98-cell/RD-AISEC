@@ -22,7 +22,7 @@ pattern-mirrored, and verified on the Vercel deploy.
 
 ## B. Filters & sorting
 - ✅ Findings: engagement + date + status filters (NavSelect)
-- ⬜ **Findings: sorting** (severity / date / status) + category filter polish
+- ✅ **Findings: sorting** (severity / oldest / status; default newest)
   - ⚠️ tool/command/machine filters N/A on Findings (no such fields on the model)
 - ✅ **Jobs/History: filter by tool · machine · engagement · status (+ command via search) + sort by date/tool/machine/status** (date-range filter optional later)
 - ⬜ Apply the same NavSelect filter bar to other list pages (Engagements, Bug Bounty, Runners)

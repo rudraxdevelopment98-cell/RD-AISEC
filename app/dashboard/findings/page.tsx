@@ -20,9 +20,24 @@ type SP = {
   q?: string;
   engagement?: string;
   since?: string;
+  sort?: string;
   ok?: string;
   error?: string;
 };
+
+// Severity rank for sorting (critical first).
+const SEV_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
+const SORT_OPTIONS = [
+  { value: "severity", label: "Severity (high→low)" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "status", label: "Status" },
+];
 
 // Finding statuses (schema enum-as-string) — for the status filter chips.
 const FINDING_STATUSES = ["open", "fixed", "accepted", "false_positive"] as const;
@@ -124,6 +139,16 @@ export default async function FindingsPage({
   if (sp.engagement) exportQs.set("engagement", sp.engagement);
   const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
 
+  // Sort the loaded set (query is createdAt desc = "recent" default).
+  const sorted =
+    sp.sort === "oldest"
+      ? [...findings].reverse()
+      : sp.sort === "severity"
+        ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+        : sp.sort === "status"
+          ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
+          : findings;
+
   return (
     <div className="mx-auto max-w-5xl">
       <div className="flex items-start justify-between gap-3">
@@ -192,6 +217,7 @@ export default async function FindingsPage({
           {sp.category && <input type="hidden" name="category" value={sp.category} />}
           {sp.engagement && <input type="hidden" name="engagement" value={sp.engagement} />}
           {sp.since && <input type="hidden" name="since" value={sp.since} />}
+          {sp.sort && <input type="hidden" name="sort" value={sp.sort} />}
           <input
             name="q"
             defaultValue={sp.q ?? ""}
@@ -215,6 +241,13 @@ export default async function FindingsPage({
           label="Created"
           allLabel="Any time"
           options={SINCE_OPTIONS}
+        />
+        <NavSelect
+          param="sort"
+          value={sp.sort}
+          label="Sort"
+          allLabel="Newest first"
+          options={SORT_OPTIONS}
         />
       </div>
 
@@ -325,7 +358,7 @@ export default async function FindingsPage({
         </div>
       ) : (
         <FindingsBulk
-          findings={findings.map((f) => ({
+          findings={sorted.map((f) => ({
             id: f.id,
             title: f.title,
             severity: f.severity,
