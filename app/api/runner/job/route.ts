@@ -15,13 +15,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
 
-  // Tell the runner its desired anonymity state on every poll (idle or not).
+  // Tell the runner its desired anonymity + parallelism on every poll (idle or
+  // not), so changing them in the portal takes effect without restarting it.
   const anon = runner.anonymity ? "on" : "off";
-  const idle = () => {
-    const r = new NextResponse(null, { status: 204 });
+  const workers = String(Math.min(16, Math.max(1, runner.maxWorkers || 3)));
+  const setHeaders = (r: NextResponse) => {
     r.headers.set("X-Runner-Anonymity", anon);
+    r.headers.set("X-Runner-Max-Workers", workers);
     return r;
   };
+  const idle = () => setHeaders(new NextResponse(null, { status: 204 }));
 
   // Claim the highest-priority queued job for this runner (ties broken by age),
   // with a guarded update so two concurrent polls can't grab the same job.
@@ -38,14 +41,14 @@ export async function GET(req: Request) {
       data: { status: "running", startedAt: new Date() },
     });
     if (claimed.count === 1) {
-      const r = NextResponse.json({
-        id: next.id,
-        tool: next.tool,
-        target: next.target,
-        args: next.args,
-      });
-      r.headers.set("X-Runner-Anonymity", anon);
-      return r;
+      return setHeaders(
+        NextResponse.json({
+          id: next.id,
+          tool: next.tool,
+          target: next.target,
+          args: next.args,
+        }),
+      );
     }
     // Lost the race; loop and try the next queued job.
   }

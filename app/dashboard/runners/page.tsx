@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { CreateRunnerForm } from "@/components/runner-create";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
-import { deleteRunner, setRunnerAnonymity, requestInstall } from "@/lib/runners";
+import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, requestInstall } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
@@ -306,6 +306,9 @@ python3 rdaisec_runner.py`}
                               : " · connecting…"}
                         </span>
                       )}
+                      <span className="tag" title="Jobs this machine runs in parallel">
+                        ⚙ {r.maxWorkers}× parallel
+                      </span>
                       {activeInstalls > 0 && (
                         <span className="tag ring-sky accent-sky">
                           <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
@@ -410,6 +413,24 @@ python3 rdaisec_runner.py`}
                         </p>
                       </details>
                     )}
+
+                    {/* Parallelism — how many jobs run at once on this machine */}
+                    <form action={setRunnerWorkers} className="flex items-center gap-2 text-xs text-gray-400">
+                      <input type="hidden" name="id" value={r.id} />
+                      <label htmlFor={`w-${r.id}`}>⚙ Run</label>
+                      <select
+                        id={`w-${r.id}`}
+                        name="workers"
+                        defaultValue={String(r.maxWorkers)}
+                        className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 8, 10, 12, 16].map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <span>job(s) at once</span>
+                      <button className="btn-ghost px-2 py-1 text-xs">Apply</button>
+                    </form>
 
                     {/* Anonymity (Tor) */}
                     <div>

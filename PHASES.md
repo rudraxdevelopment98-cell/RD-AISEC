@@ -493,6 +493,19 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
   - "↑ Run next" gates **per-runner** and hides on the job already first.
   - ffuf job without `FUZZ` is rejected with a clear message; no "0 tools" badge.
 
+## ✅ Per-machine concurrency + faster self-update + gau recon (v30)
+- ✅ **Configurable parallelism per machine.** Each runner has a `maxWorkers`
+      (how many jobs it runs at once). Set it on the **Machines** card (1..16);
+      the runner reads it live from the `X-Runner-Max-Workers` poll header and
+      adjusts without a restart. Badge shows `⚙ N× parallel`. (Env `MAX_WORKERS`
+      is now just the starting value.)
+- ✅ **Self-update is much faster.** Checks every **5 min** (was hourly) AND
+      opportunistically the moment the runner goes idle, so a new version lands
+      promptly instead of waiting up to an hour. (Tune with UPDATE_CHECK_SECONDS;
+      restarting the runner still updates instantly.)
+- ✅ **gau wired into the recon stage** — engagements now auto-discover a domain's
+      known URLs (Wayback/CommonCrawl/OTX) during recon (skipped if not installed).
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

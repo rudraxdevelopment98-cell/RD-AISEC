@@ -185,6 +185,22 @@ export async function setRunnerAnonymity(formData: FormData) {
 }
 
 /**
+ * Set how many jobs a machine runs in parallel. The runner reads this on its
+ * next poll (X-Runner-Max-Workers) and adjusts live — no restart needed.
+ * Clamped 1..16 so a typo can't spawn hundreds of concurrent tools.
+ */
+export async function setRunnerWorkers(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  const n = Math.min(16, Math.max(1, parseInt(String(formData.get("workers") ?? ""), 10) || 1));
+  if (id) {
+    await prisma.runner.update({ where: { id }, data: { maxWorkers: n } }).catch(() => {});
+  }
+  revalidatePath("/dashboard/runners");
+}
+
+/**
  * Queue a tool execution for a runner to pick up.
  * Guardrails: engagement must be authorized; tool + preset must be allowlisted;
  * target must be in scope and contain no shell metacharacters.
