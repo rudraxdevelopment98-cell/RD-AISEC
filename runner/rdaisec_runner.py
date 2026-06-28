@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "26"
+RUNNER_VERSION = "27"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -252,12 +252,17 @@ INSTALL_PKGS = {
 }
 
 
-# Tools with NO apt package — installed via `go install`. The source is fixed
-# here (an allowlist), so the portal can only name a tool id; it can never make
-# the runner `go install` an arbitrary module. Mirrors INSTALL_METHODS in the
-# portal.
+# `go install` sources, used as the PRIMARY method for tools with no apt package
+# (httpx) and as a FALLBACK for the other ProjectDiscovery tools when apt fails
+# or apt-get is unavailable. The source is fixed here (an allowlist), so the
+# portal can only name a tool id — it can never make the runner `go install` an
+# arbitrary module. Mirrors GO_SOURCES in the portal.
 GO_INSTALL = {
     "httpx": "github.com/projectdiscovery/httpx/cmd/httpx@latest",
+    "subfinder": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+    "naabu": "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest",
+    "katana": "github.com/projectdiscovery/katana/cmd/katana@latest",
+    "dalfox": "github.com/hahwul/dalfox/v2@latest",
 }
 
 
@@ -933,8 +938,15 @@ def run_install(inst):
         return _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
 
     if not pkg:
+        # No apt package, but a Go source may exist (shouldn't reach here for
+        # those — the branch above handles them — but stay safe).
+        if go_source:
+            return _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
         return f"'{tool}' isn't installable from here — install it manually.", 1
     if not shutil.which("apt-get"):
+        # Not a Debian/Kali box — fall back to `go install` if we can.
+        if go_source:
+            return _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
     buf: list[str] = [f"$ apt-get install {pkg}\n"]
@@ -946,10 +958,20 @@ def run_install(inst):
             sudo + ["apt-get", "install", "-y", pkg], stdin_in, env, INSTALL_TIMEOUT, inst_id, buf, state
         )
     except FileNotFoundError:
+        if go_source:
+            return _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
     text = "".join(buf)
     low = text.lower()
+
+    # apt couldn't find/install the package, but we have a Go source → try it.
+    if code != 0 and go_source and shutil.which(spec.get("bin", tool)) is None:
+        note = f"\n— apt install failed (exit {code}); falling back to `go install` for {tool} —\n"
+        post_install_progress(inst_id, (text + note)[:MAX_OUTPUT])
+        gtext, gcode = _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
+        return (text + note + gtext)[:MAX_OUTPUT], gcode
+
     if code != 0 and ("password is required" in low or "sudo:" in low or "incorrect password" in low):
         text += (
             "\n\nThe runner needs root to install. Either run it as root, set "
