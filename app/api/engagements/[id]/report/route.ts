@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { buildMarkdown, reportFilename } from "@/lib/report";
+import { guardApi } from "@/lib/api-guard";
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const g = await guardApi("/dashboard/engagements");
+  if (g.res) return g.res;
 
   const engagement = await prisma.engagement.findUnique({
     where: { id: params.id },

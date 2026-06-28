@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { guardApi } from "@/lib/api-guard";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Quick-jump search: matches engagements and bug-bounty programs by name.
- * Section/nav matches are handled client-side. Auth required.
+ * Section/nav matches are handled client-side. Requires engagements access.
  */
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const g = await guardApi("/dashboard/engagements");
+  if (g.res) return g.res;
 
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   if (q.length < 1) return NextResponse.json({ engagements: [], programs: [] });

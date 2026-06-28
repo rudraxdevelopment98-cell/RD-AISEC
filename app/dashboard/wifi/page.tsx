@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requestInstall } from "@/lib/runners";
-import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, crackHandshake, crackHashcat, capturePmkid, saveWifiFindings } from "@/lib/wifi";
+import { scanWifi, runWifiCommand, inspectNetwork, captureHandshake, deauthClient, autoHandshake, autoPwn, crackHandshake, crackHashcat, capturePmkid, saveWifiFindings } from "@/lib/wifi";
 import { parseWifiNetworks, parseWifiInspect, estimateDistance } from "@/lib/network";
 import { wifiSecurityAdvice, wifiAdviceText, extractCrackedKey } from "@/lib/wifi-advice";
 import { lookupVendor, deviceType } from "@/data/oui";
@@ -39,7 +39,7 @@ const SEC_TONE: Record<string, string> = {
 export default async function WifiPage({
   searchParams,
 }: {
-  searchParams: { error?: string; scanned?: string; inspected?: string };
+  searchParams: { error?: string; scanned?: string; inspected?: string; pwning?: string };
 }) {
   const [runners, engagements] = await Promise.all([
     prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
@@ -109,6 +109,12 @@ export default async function WifiPage({
           ✓ Inspecting the network (~30s capture) — connected devices appear below.
         </div>
       )}
+      {searchParams.pwning && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+          💥 Auto-pwn running — capture (~2 min) then crack. The password appears in
+          the network&apos;s 🔓 banner below when done (this page auto-refreshes).
+        </div>
+      )}
 
       {runners.length === 0 ? (
         <p className="mt-6 card text-sm text-gray-500">
@@ -121,7 +127,12 @@ export default async function WifiPage({
             const online = r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
             const ifaces = (r.wifi ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             const iface = ifaces[0] ?? "wlan1";
-            const mon = `${iface}mon`;
+            // If an interface is already in monitor mode (wlanXmon), use it as-is
+            // — don't append "mon" again (that produced "wlan0monmon").
+            const monIface = ifaces.find((i) => /mon$/i.test(i));
+            const mon = monIface ?? `${iface}mon`;
+            // The managed base name to enable monitor mode on (strip a trailing "mon").
+            const baseIface = iface.replace(/mon$/i, "");
             const hasAircrack = (r.installed ?? "").split(",").map((s) => s.trim()).includes("aircrack");
             const inMonitor = ifaces.some((i) => /mon$/i.test(i));
             const job = latestByRunner.get(r.id);
@@ -326,6 +337,14 @@ export default async function WifiPage({
                               )}
                               {/* Attack actions for the inspected AP (authorized only). */}
                               <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <form action={autoPwn}>
+                                  <input type="hidden" name="runnerId" value={r.id} />
+                                  <input type="hidden" name="bssid" value={target} />
+                                  <input type="hidden" name="channel" value={apChan} />
+                                  <button className="btn-primary px-2 py-1" title="Capture → crack → reveal, all in one (authorized networks only)">
+                                    💥 Auto-pwn (capture → crack → reveal)
+                                  </button>
+                                </form>
                                 <form action={autoHandshake}>
                                   <input type="hidden" name="runnerId" value={r.id} />
                                   <input type="hidden" name="bssid" value={target} />
@@ -559,7 +578,7 @@ export default async function WifiPage({
                         <div className="flex flex-wrap gap-2 text-xs">
                           <form action={runWifiCommand}>
                             <input type="hidden" name="runnerId" value={r.id} />
-                            <input type="hidden" name="command" value={`airmon-ng start ${iface}`} />
+                            <input type="hidden" name="command" value={`airmon-ng start ${baseIface}`} />
                             <button className="btn-ghost px-2 py-1">Enable monitor mode</button>
                           </form>
                           <form action={runWifiCommand}>

