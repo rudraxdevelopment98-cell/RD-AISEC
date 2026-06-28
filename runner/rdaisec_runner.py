@@ -35,14 +35,15 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "29"
+RUNNER_VERSION = "30"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
 PING_SECONDS = int(os.environ.get("PING_SECONDS", "30"))
 
 # How many jobs to run at once on this machine. Each claimed job runs in its own
-# worker thread; raise MAX_WORKERS on a beefier box. 1 = the old serial behavior.
+# worker thread; 1 = serial. This env var is just the STARTING value — the portal
+# (Machines page) controls it live via the X-Runner-Max-Workers poll header.
 MAX_WORKERS = max(1, int(os.environ.get("MAX_WORKERS", "3")))
 ACTIVE_WORKERS = 0
 WORKERS_LOCK = threading.Lock()
@@ -355,8 +356,10 @@ def post_with_retry(path: str, body, what: str) -> bool:
 # overwrites this file and re-execs itself. Default on; set RUNNER_AUTO_UPDATE=0
 # to disable (e.g. if you run from a pinned/edited copy).
 AUTO_UPDATE = os.environ.get("RUNNER_AUTO_UPDATE", "1") not in ("0", "false", "no")
-# Check for a newer script this often (in addition to once at startup).
-UPDATE_CHECK_SECONDS = int(os.environ.get("UPDATE_CHECK_SECONDS", str(3600)))
+# Check for a newer script this often (in addition to once at startup, and
+# opportunistically whenever the runner goes idle). Kept short so updates land
+# quickly; it's just a cheap HTTPS GET.
+UPDATE_CHECK_SECONDS = int(os.environ.get("UPDATE_CHECK_SECONDS", str(300)))
 _VERSION_RE = re.compile(r'^RUNNER_VERSION\s*=\s*["\'](\d+)["\']', re.MULTILINE)
 
 
@@ -422,21 +425,13 @@ def self_update() -> bool:
     return _apply_update(content) if content else False
 
 
-def auto_update_loop():
-    """Background: periodically check for a newer runner and apply it only while
-    idle. The slow fetch happens outside the lock; the idle re-check and re-exec
-    happen while HOLDING WORKERS_LOCK so main() can't claim a job in the gap (it
-    increments ACTIVE_WORKERS under the same lock)."""
-    if not AUTO_UPDATE:
-        return
-    while True:
-        time.sleep(UPDATE_CHECK_SECONDS)
-        content = _fetch_update()
-        if not content:
-            continue
-        with WORKERS_LOCK:
-            if ACTIVE_WORKERS == 0:
-                _apply_update(content)  # writes + re-execs; won't return
+def maybe_self_update():
+    """Called from the main loop only when the runner is idle (no jobs running).
+    Throttled to UPDATE_CHECK_SECONDS. Safe to apply here: we're on the main
+    thread with zero active workers, so nothing gets interrupted."""
+    content = _fetch_update()
+    if content:
+        _apply_update(content)  # writes + re-execs; won't return
 
 
 # ---- Tor anonymity ---------------------------------------------------------
@@ -596,10 +591,25 @@ def nuclei_template_loop():
         time.sleep(NUCLEI_UPDATE_SECONDS)
 
 
+def _apply_workers(headers):
+    """Update parallelism live from the portal's X-Runner-Max-Workers header, so
+    changing it on the Machines page takes effect without restarting the runner."""
+    global MAX_WORKERS
+    try:
+        n = int(headers.get("X-Runner-Max-Workers", ""))
+    except (TypeError, ValueError):
+        return
+    n = max(1, min(16, n))
+    if n != MAX_WORKERS:
+        print(f"⚙ concurrency changed: {MAX_WORKERS} → {n} parallel job(s)")
+        MAX_WORKERS = n
+
+
 def poll():
     """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
     try:
         resp = request("GET", "/api/runner/job")
+        _apply_workers(resp.headers)
         anon = resp.headers.get("X-Runner-Anonymity") == "on"
         if resp.status == 204:
             return None, anon
@@ -609,6 +619,7 @@ def poll():
             sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
         print(f"  poll error: HTTP {e.code}")
         try:
+            _apply_workers(e.headers)
             return None, (e.headers.get("X-Runner-Anonymity") == "on")
         except Exception:  # noqa: BLE001
             return None, None
@@ -1065,13 +1076,12 @@ def main():
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
 
-    # Keep the runner itself current — checks the portal hourly and self-updates
-    # when idle, so you never have to re-pull/re-run it by hand.
-    threading.Thread(target=auto_update_loop, daemon=True).start()
-
-    print(f"Concurrency: up to {MAX_WORKERS} job(s) at once.\n")
+    print(f"Concurrency: up to {MAX_WORKERS} job(s) at once (portal-controlled).\n")
 
     last_refresh = time.monotonic()
+    # Self-update is checked whenever the runner is idle (throttled). Seed the
+    # timer now since startup already did one check above.
+    last_update_check = time.monotonic()
     while True:
         # Refresh the allowlist periodically so new portal tools appear here.
         if time.monotonic() - last_refresh > TOOL_REFRESH_SECONDS:
@@ -1110,7 +1120,7 @@ def main():
             time.sleep(1)
             continue
 
-        # Idle this pass. Only handle installs when nothing is running.
+        # Idle this pass. Only handle installs/self-update when nothing is running.
         with WORKERS_LOCK:
             busy = ACTIVE_WORKERS
         if busy == 0:
@@ -1121,6 +1131,10 @@ def main():
                 post_install_result(inst["id"], out, code)
                 print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
                 continue
+            # While genuinely idle, apply a newer runner promptly (throttled).
+            if AUTO_UPDATE and time.monotonic() - last_update_check > UPDATE_CHECK_SECONDS:
+                last_update_check = time.monotonic()
+                maybe_self_update()  # re-execs if a newer version is available
 
         time.sleep(POLL_SECONDS)
 

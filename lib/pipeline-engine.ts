@@ -40,6 +40,9 @@ function stageSteps(stage: string, deep: boolean): Step[] {
     return [
       { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
       { tool: "whatweb", args: "-a 3", mode: "host" },
+      // gau pulls historically-known URLs (Wayback/CommonCrawl/OTX) so scan/
+      // exploit have real endpoints to work with. Skipped silently if not installed.
+      { tool: "gau", args: "--subs", mode: "host" },
     ];
   }
   if (stage === "scan") {

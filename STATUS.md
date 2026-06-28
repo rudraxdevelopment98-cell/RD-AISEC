@@ -39,8 +39,12 @@ results back; the portal parses them into findings.
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
 ## Runner
-- Current version: **29** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). v29 = **audit-hardening**: self-update TOCTOU
+- Current version: **30** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). v30 = **per-machine concurrency** (portal-controlled
+  via X-Runner-Max-Workers poll header, live, clamp 1..16 — Machines page picks
+  how many jobs run in parallel) + **faster self-update** (checks every 5 min and
+  whenever the runner goes idle, default UPDATE_CHECK_SECONDS=300). v29 =
+  **audit-hardening**: self-update TOCTOU
   closed (idle re-check + re-exec hold WORKERS_LOCK), apt→go fallback resolves
   the binary name robustly, INSTALL_PKGS mirrors the portal (tor/torsocks/
   aircrack), ffuf output parsed correctly (payload→URL reconstruction).

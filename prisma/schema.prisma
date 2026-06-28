@@ -103,6 +103,7 @@ model Runner {
   lastSeenAt DateTime?
   version    String    @default("") // runner script version it reports
   toolCount  Int       @default(0)  // number of tools the runner has loaded
+  maxWorkers Int       @default(3)  // how many jobs this machine runs in parallel
   anonymity  Boolean   @default(false) // desired: route tool traffic via Tor
   exitIp     String    @default("")    // Tor exit IP the runner reports when on
   anonStatus String    @default("")    // off | connecting | on | no-tor (reported)
