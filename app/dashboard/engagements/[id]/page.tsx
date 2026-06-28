@@ -9,6 +9,7 @@ import {
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Collapsible } from "@/components/collapsible";
+import { Tabs, TabPanel } from "@/components/tabs";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -207,19 +208,6 @@ export default async function EngagementDetail({
         </div>
       )}
 
-      {/* Quick jump — this is a long page; let people leap to the part they want. */}
-      <nav className="mt-4 flex flex-wrap gap-2 text-xs">
-        {[
-          { href: "#command", label: "⚡ Actions" },
-          { href: "#pipeline", label: "🤖 Pipeline" },
-          { href: "#findings", label: "🐞 Findings" },
-          { href: "#resources", label: "📎 Resources" },
-        ].map((j) => (
-          <a key={j.href} href={j.href} className="tag text-gray-400 transition hover:border-brand/50 hover:text-gray-200">
-            {j.label}
-          </a>
-        ))}
-      </nav>
 
       {/* Authorization */}
       <section
@@ -272,8 +260,20 @@ export default async function EngagementDetail({
       {/* Readiness — why bug-finding might be producing nothing */}
       <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
 
+      {/* Sub-sections as tabs (ProjectDiscovery-style) so the workspace isn't one long scroll. */}
+      <div className="mt-6">
+      <Tabs
+        defaultTab="command"
+        tabs={[
+          { id: "command", label: "⚡ Command" },
+          { id: "pipeline", label: "🤖 Pipeline" },
+          { id: "findings", label: `🐞 Findings (${e.findings.length})` },
+          { id: "resources", label: `📎 Resources (${e.resources.length})` },
+        ]}
+      >
+      <TabPanel id="command">
       {/* Command center — drive every workflow for this engagement */}
-      <section id="command" className="mt-6 scroll-mt-20">
+      <section id="command" className="scroll-mt-20">
         <Collapsible
           defaultOpen
           title={
@@ -345,7 +345,9 @@ export default async function EngagementDetail({
         )}
         </Collapsible>
       </section>
+      </TabPanel>
 
+      <TabPanel id="pipeline">
       {/* Guided assessment pipeline */}
       <div id="pipeline" className="scroll-mt-20">
         <PipelinePanel
@@ -368,9 +370,11 @@ export default async function EngagementDetail({
           </section>
         </details>
       )}
+      </TabPanel>
 
+      <TabPanel id="findings">
       {/* Findings */}
-      <div id="findings" className="mt-8 flex items-center justify-between gap-3 scroll-mt-20">
+      <div id="findings" className="flex items-center justify-between gap-3 scroll-mt-20">
         <h2 className="text-lg font-semibold">
           Findings{" "}
           <span className="text-sm font-normal text-gray-500">
@@ -484,8 +488,11 @@ export default async function EngagementDetail({
         ))}
       </div>
 
+      </TabPanel>
+
+      <TabPanel id="resources">
       {/* Resources */}
-      <h2 id="resources" className="mt-10 scroll-mt-20 text-lg font-semibold">
+      <h2 id="resources" className="scroll-mt-20 text-lg font-semibold">
         Resources{" "}
         <span className="text-sm font-normal text-gray-500">
           ({e.resources.length})
@@ -572,6 +579,10 @@ export default async function EngagementDetail({
             </form>
           </div>
         ))}
+      </div>
+
+      </TabPanel>
+      </Tabs>
       </div>
 
       {/* Danger zone */}
