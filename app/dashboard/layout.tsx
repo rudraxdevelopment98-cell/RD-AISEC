@@ -2,77 +2,13 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
+import { SidebarNav } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NeuralBg } from "@/components/neural-bg";
 import { CommandPalette } from "@/components/command-palette";
 import { canAccess } from "@/lib/access";
+import { NAV } from "@/lib/nav";
 import { getMemberAccess } from "@/lib/members";
-
-// Full navigation, reorganized by what you're doing: plan work → run offensive
-// ops → reference knowledge → admin. Items are filtered per-user by access.
-const NAV: NavGroup[] = [
-  {
-    section: "Overview",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: "grid" },
-      { href: "/dashboard/guide", label: "How it works", icon: "book" },
-      { href: "/dashboard/learn", label: "Learn", icon: "book" },
-    ],
-  },
-  // The daily bug-hunting flow, top to bottom.
-  {
-    section: "Hunt",
-    items: [
-      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
-      { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
-      { href: "/dashboard/findings", label: "Findings", icon: "alert" },
-      { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
-      { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
-    ],
-  },
-  // Running the scans behind the hunt.
-  {
-    section: "Scanning",
-    items: [
-      { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
-      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
-      { href: "/dashboard/network", label: "Network Map", icon: "globe" },
-      { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
-      { href: "/dashboard/runners", label: "Machines", icon: "server" },
-      { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
-    ],
-  },
-  // The three consulting pillars.
-  {
-    section: "Services",
-    items: [
-      { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
-      { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
-      { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
-    ],
-  },
-  {
-    section: "Insights & tools",
-    items: [
-      { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
-      { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
-      { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
-      { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
-      { href: "/dashboard/frameworks", label: "Frameworks", icon: "shield" },
-      { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
-      { href: "/dashboard/library", label: "Resource Vault", icon: "lock" },
-      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
-    ],
-  },
-  {
-    section: "Admin",
-    items: [
-      { href: "/dashboard/members", label: "Members", icon: "server" },
-      { href: "/dashboard/settings", label: "Settings", icon: "wrench" },
-    ],
-  },
-];
 
 export default async function DashboardLayout({
   children,
