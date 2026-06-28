@@ -8,7 +8,6 @@ import {
 } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { Collapsible } from "@/components/collapsible";
 import { Tabs, TabPanel } from "@/components/tabs";
 import {
   getEngagement,
@@ -274,17 +273,11 @@ export default async function EngagementDetail({
       <TabPanel id="command">
       {/* Command center — drive every workflow for this engagement */}
       <section id="command" className="scroll-mt-20">
-        <Collapsible
-          defaultOpen
-          title={
-            <span className="flex items-center gap-2">
-              <Icon name="grid" className="h-4 w-4 text-brand" />
-              Command center
-            </span>
-          }
-          subtitle="Everything you can do for this engagement — scan, exploit, fix, research, hunt, check, and report."
-        >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <p className="text-sm text-gray-400">
+          Everything you can do for this engagement — scan, exploit, fix,
+          research, hunt, check, and report.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {commandTiles.map((t) => {
             const inner = (
               <>
@@ -343,7 +336,6 @@ export default async function EngagementDetail({
             Scanning &amp; exploitation are locked until written authorization is recorded above.
           </p>
         )}
-        </Collapsible>
       </section>
       </TabPanel>
 
