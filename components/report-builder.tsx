@@ -8,6 +8,7 @@ import {
   assessValidity,
   type ReportInput,
 } from "@/lib/report-narrative";
+import { submitUrl, submissionHints } from "@/lib/submission";
 
 const LEVEL_STYLE: Record<string, string> = {
   ready: "ring-emerald accent-emerald",
@@ -25,7 +26,9 @@ const LEVEL_LABEL: Record<string, string> = {
  * (what we submit) and a structured engine writeup (for records) — shows a
  * "submittable yet?" assessment, and one-click copy. Deterministic; no AI.
  */
-export function ReportBuilder(props: ReportInput & { programUrl?: string | null }) {
+export function ReportBuilder(
+  props: ReportInput & { programUrl?: string | null; platform?: string },
+) {
   const [format, setFormat] = useState<"human" | "structured">("human");
   const [copied, setCopied] = useState(false);
 
@@ -33,6 +36,12 @@ export function ReportBuilder(props: ReportInput & { programUrl?: string | null 
   const structured = useMemo(() => buildStructuredReport(props), [props]);
   const validity = useMemo(() => assessValidity(props), [props]);
   const text = format === "human" ? human : structured;
+  const submit = submitUrl(props.platform ?? "", props.programUrl);
+  const hints = useMemo(() => submissionHints(props.platform ?? ""), [props.platform]);
+
+  function copyAndGo() {
+    navigator.clipboard?.writeText(human); // always submit the human voice
+  }
 
   function copy() {
     navigator.clipboard?.writeText(text).then(() => {
@@ -81,12 +90,33 @@ export function ReportBuilder(props: ReportInput & { programUrl?: string | null 
           <button type="button" onClick={copy} className="btn-ghost px-2 py-1">
             {copied ? "Copied ✓" : "Copy"}
           </button>
-          {props.programUrl && (
-            <a href={props.programUrl} target="_blank" rel="noopener noreferrer" className="btn-primary px-2 py-1">
-              Submit ↗
+          {submit && (
+            <a
+              href={submit}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={copyAndGo}
+              title="Copies the human draft and opens the submit page"
+              className="btn-primary px-2 py-1"
+            >
+              Copy + Submit ↗
             </a>
           )}
         </div>
+
+        {/* Before-you-submit reminders (platforms don't allow silent API submit). */}
+        <details>
+          <summary className="cursor-pointer text-[11px] text-gray-500 hover:text-brand">
+            Before you submit
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {hints.map((h, i) => (
+              <li key={i} className="text-[11px] text-gray-400">
+                • {h}
+              </li>
+            ))}
+          </ul>
+        </details>
 
         <textarea
           readOnly

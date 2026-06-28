@@ -65,8 +65,10 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ **Two report formats**: `lib/report-narrative.ts` (human + structured) +
   `ReportBuilder` UI (toggle, copy, validity) wired into the Exploit page.
 - ✅ **Validity heuristic** surfaced in the UI (ready | review | weak + reasons).
-- ⬜ **Submission**: HackerOne API submit where possible, else prefilled deep-link
-  + copy-ready draft + hints. (programUrl wired; real submit next)
+- ✅ **Submission** (`lib/submission.ts`): platform-aware deep-link (the platforms
+  don't allow a researcher API submit, so it's Copy + Submit ↗ to the right page)
+  + "Before you submit" hints. Wired into ReportBuilder (platform from engagement
+  category). [PR: claude/report-submission]
 - ⬜ Surface ReportBuilder on the Findings page + per-finding exploit page too.
 - ⬜ Better bug discovery feeding the report (tie into pipeline/exploit).
 
