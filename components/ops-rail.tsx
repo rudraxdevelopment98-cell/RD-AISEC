@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { canAccess, isOwnerRole, type AccessInfo } from "@/lib/access";
 
@@ -63,6 +64,10 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
 
   return (
     <div className="space-y-5 text-sm">
+      {/* Keep the rail live so counts (active jobs, online) update without a
+          manual reload — the layout otherwise renders once per navigation. */}
+      <AutoRefresh seconds={15} />
+
       {/* Needs attention — high-criticised work */}
       {showFindings && (
         <section>

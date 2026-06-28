@@ -33,7 +33,7 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ Audit other long pages for tab/inner-scroll treatment
 
 ## D. Right-rail correctness
-- 🔄 **Bug: rail shows 0/0 active jobs while a job runs** (layout doesn't refresh) → add periodic refresh
+- ✅ **Bug: rail showed 0/0 while a job runs** → rail now auto-refreshes (15s)
 - ✅ Rail content: Needs-attention (critical), Machines, Active jobs, Team (owners)
 
 ## E. Runner tools
