@@ -8,7 +8,9 @@ import { deleteRunner, setRunnerAnonymity, requestInstall } from "@/lib/runners"
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
-  INSTALLABLE_PKGS,
+  installableTools,
+  installLabel,
+  isInstallable,
 } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +68,7 @@ export default async function RunnersPage({
   );
   const seenSug = new Set<string>();
   const suggestions = missingFromJobs
-    .filter((j) => j.runner && INSTALLABLE_PKGS[j.tool])
+    .filter((j) => j.runner && isInstallable(j.tool))
     .map((j) => ({ runnerId: j.runner!.id, runnerName: j.runner!.name, tool: j.tool }))
     .filter((s) => {
       const key = `${s.runnerId}:${s.tool}`;
@@ -106,8 +108,9 @@ export default async function RunnersPage({
           </h2>
           <p className="mt-1 text-xs text-gray-400">
             A job failed because a tool isn&apos;t installed on the machine.
-            Approve the install — it runs <code className="font-mono">apt</code>{" "}
-            for that package on the machine (needs your authorization).
+            Approve the install — one click runs <code className="font-mono">apt</code>{" "}
+            (or <code className="font-mono">go install</code> for tools with no apt
+            package, like httpx) on the machine (needs your authorization).
           </p>
           <div className="mt-3 space-y-2">
             {suggestions.map((s) => (
@@ -169,9 +172,13 @@ curl -O https://raw.githubusercontent.com/rudraxdevelopment98-cell/rd-aisec/main
           <div>
             <p className="font-semibold text-white">3. Install the tools</p>
             <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`sudo apt update && sudo apt install -y nmap whois dnsutils
-# optional (ProjectDiscovery): httpx, nuclei`}
+{`sudo apt update && sudo apt install -y nmap whois dnsutils`}
             </pre>
+            <p className="mt-1 text-gray-400">
+              Or skip this — once the machine is online you can install every tool{" "}
+              <strong>one-click</strong> from its card below (apt, or{" "}
+              <code className="font-mono">go install</code> for tools like httpx).
+            </p>
           </div>
 
           <div>
@@ -228,35 +235,59 @@ python3 rdaisec_runner.py`}
             const installedSet = new Set(
               (r.installed ?? "").split(",").map((s) => s.trim()).filter(Boolean),
             );
-            const missing = Object.keys(INSTALLABLE_PKGS).filter(
+            const missing = installableTools().filter(
               (t) => !installedSet.has(t),
             );
+            const activeInstalls = r.installs.filter(
+              (i) => i.status === "pending" || i.status === "installing",
+            ).length;
+            const outdated = !!r.version && r.version !== RUNNER_VERSION;
             return (
-              <div key={r.id} className="card flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Icon name="server" className="h-4 w-4 text-brand" />
-                    <span className="font-semibold text-white">{r.name}</span>
+              <div key={r.id} className="card flex flex-col gap-3">
+                {/* ── Header: name · status · revoke ── */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Icon name="server" className="h-4 w-4 shrink-0 text-brand" />
+                    <span className="truncate font-semibold text-white">{r.name}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
                     <span
                       className={`tag ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
                     >
-                      ● {online ? "online" : "offline"}
+                      <span
+                        className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`}
+                      />
+                      {online ? "online" : "offline"}
                     </span>
+                    <form action={deleteRunner}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button className="text-xs text-gray-600 hover:text-red-400">Revoke</button>
+                    </form>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                </div>
+
+                {/* ── Meta: last seen + at-a-glance badges ── */}
+                <div>
+                  <p className="text-xs text-gray-500">
                     {r.lastSeenAt
                       ? `Last seen ${new Date(r.lastSeenAt).toLocaleString()}`
-                      : "Never connected yet"}
+                      : "Never connected yet — run the agent on the machine."}
                   </p>
                   {r.lastSeenAt && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {r.toolCount > 0 && (
-                        <span className="tag">{r.toolCount} tools</span>
-                      )}
-                      {r.version && <span className="tag">v{r.version}</span>}
-                      {r.version && r.version !== RUNNER_VERSION && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="tag">🧰 {r.toolCount} tools</span>
+                      {missing.length > 0 && (
                         <span className="tag border-amber-500/40 text-amber-300">
-                          update available — git pull
+                          {missing.length} missing
+                        </span>
+                      )}
+                      {r.version && (
+                        <span
+                          className={`tag ${outdated ? "border-amber-500/40 text-amber-300" : ""}`}
+                          title={outdated ? "A newer runner is out — it updates itself automatically" : undefined}
+                        >
+                          v{r.version}
+                          {outdated ? " · self-updating…" : ""}
                         </span>
                       )}
                       {r.anonymity && (
@@ -275,132 +306,146 @@ python3 rdaisec_runner.py`}
                               : " · connecting…"}
                         </span>
                       )}
-                    </div>
-                  )}
-
-                  {/* Anonymity toggle */}
-                  <form action={setRunnerAnonymity} className="mt-2">
-                    <input type="hidden" name="id" value={r.id} />
-                    <input type="hidden" name="on" value={(!r.anonymity).toString()} />
-                    <button
-                      className={`text-xs ${
-                        r.anonymity
-                          ? "text-violet-300 hover:text-violet-200"
-                          : "text-gray-500 hover:text-violet-300"
-                      }`}
-                    >
-                      {r.anonymity ? "Turn off Tor" : "🧅 Turn on Tor (anonymize)"}
-                    </button>
-                  </form>
-
-                  {/* Tor not installed → one-click install */}
-                  {r.anonymity && r.anonStatus === "no-tor" && r.lastSeenAt && (
-                    <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-200">
-                      Tor isn&apos;t installed on this machine, so traffic can&apos;t be
-                      anonymized. Install it:
-                      <div className="mt-1.5 flex gap-2">
-                        {(["tor", "torsocks"] as const).map((pkg) => (
-                          <form key={pkg} action={requestInstall}>
-                            <input type="hidden" name="runnerId" value={r.id} />
-                            <input type="hidden" name="tool" value={pkg} />
-                            <input type="hidden" name="confirm" value="true" />
-                            <button className="btn-ghost px-2 py-1 text-xs">Install {pkg}</button>
-                          </form>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Install missing tools (authorized) */}
-                  {r.lastSeenAt && (missing.length > 0 || r.installs.length > 0) && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-brand">
-                        <Icon name="wrench" className="mr-1 inline h-3 w-3" />
-                        Install tools{missing.length > 0 ? ` (${missing.length} missing)` : ""}
-                      </summary>
-
-                      {missing.length > 0 ? (
-                        <form action={requestInstall} className="mt-2 space-y-2">
-                          <input type="hidden" name="runnerId" value={r.id} />
-                          <select
-                            name="tool"
-                            className="w-full rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
-                          >
-                            {missing.map((t) => (
-                              <option key={t} value={t}>
-                                {t} → apt {INSTALLABLE_PKGS[t]}
-                              </option>
-                            ))}
-                          </select>
-                          <label className="flex items-start gap-2 text-xs text-gray-400">
-                            <input
-                              type="checkbox"
-                              name="confirm"
-                              value="true"
-                              required
-                              className="mt-0.5 h-3.5 w-3.5 accent-emerald-500"
-                            />
-                            I authorize installing software on this machine (I have permission).
-                          </label>
-                          <button className="btn-ghost px-2 py-1 text-xs">Install</button>
-                        </form>
-                      ) : (
-                        <p className="mt-2 text-xs text-gray-500">
-                          All installable tools are present.
-                        </p>
+                      {activeInstalls > 0 && (
+                        <span className="tag ring-sky accent-sky">
+                          <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+                          installing {activeInstalls}
+                        </span>
                       )}
-
-                      {r.installs.length > 0 && (
-                        <ul className="mt-2 space-y-1.5">
-                          {r.installs.map((ins) => (
-                            <li key={ins.id} className="text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-gray-300">{ins.tool}</span>
-                                <span
-                                  className={
-                                    ins.status === "failed"
-                                      ? "text-red-300"
-                                      : ins.status === "installing"
-                                        ? "text-sky-300"
-                                        : ins.status === "done"
-                                          ? "text-emerald-300"
-                                          : "text-amber-300"
-                                  }
-                                >
-                                  {ins.status === "installing" && (
-                                    <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
-                                  )}
-                                  {ins.status}
-                                </span>
-                              </div>
-                              {ins.output && (
-                                <details className="mt-1" open={ins.status === "installing"}>
-                                  <summary className="cursor-pointer text-[11px] text-gray-500 hover:text-brand">
-                                    {ins.status === "installing" ? "Live output" : "Output"}
-                                  </summary>
-                                  <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-surface-border bg-black/50 p-2 font-mono text-[10px] leading-relaxed text-gray-300">
-                                    {ins.output}
-                                  </pre>
-                                </details>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      <p className="mt-2 text-[11px] text-gray-600">
-                        httpx isn&apos;t an apt package — install it manually. Installs
-                        need the machine to run the runner as root, set{" "}
-                        <code className="font-mono">RUNNER_SUDO_PASS</code>, or have
-                        passwordless sudo for apt. (Never put a sudo password in the portal.)
-                      </p>
-                    </details>
+                    </div>
                   )}
                 </div>
-                <form action={deleteRunner}>
-                  <input type="hidden" name="id" value={r.id} />
-                  <button className="text-xs text-gray-600 hover:text-red-400">Revoke</button>
-                </form>
+
+                {/* ── Controls: tools + anonymity ── */}
+                {r.lastSeenAt && (
+                  <div className="flex flex-col gap-2 border-t border-surface-border pt-3">
+                    {/* Install tools (authorized) */}
+                    {(missing.length > 0 || r.installs.length > 0) && (
+                      <details>
+                        <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-gray-300 hover:text-brand">
+                          <Icon name="wrench" className="h-3.5 w-3.5" />
+                          Tools
+                          {missing.length > 0 && (
+                            <span className="text-xs font-normal text-amber-300">
+                              · {missing.length} to install
+                            </span>
+                          )}
+                        </summary>
+
+                        {missing.length > 0 ? (
+                          <form action={requestInstall} className="mt-3 space-y-2">
+                            <input type="hidden" name="runnerId" value={r.id} />
+                            <select
+                              name="tool"
+                              className="w-full rounded-md border border-surface-border bg-surface px-2 py-1.5 text-xs outline-none focus:border-brand"
+                            >
+                              {missing.map((t) => (
+                                <option key={t} value={t}>
+                                  {t} → {installLabel(t)}
+                                </option>
+                              ))}
+                            </select>
+                            <label className="flex items-start gap-2 text-xs text-gray-400">
+                              <input
+                                type="checkbox"
+                                name="confirm"
+                                value="true"
+                                required
+                                className="mt-0.5 h-3.5 w-3.5 accent-emerald-500"
+                              />
+                              I authorize installing software on this machine (I have permission).
+                            </label>
+                            <button className="btn-ghost px-3 py-1 text-xs">Install one-click</button>
+                          </form>
+                        ) : (
+                          <p className="mt-2 text-xs text-emerald-300/80">
+                            ✓ All installable tools are present.
+                          </p>
+                        )}
+
+                        {r.installs.length > 0 && (
+                          <ul className="mt-3 space-y-1.5">
+                            {r.installs.map((ins) => (
+                              <li key={ins.id} className="text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-gray-300">{ins.tool}</span>
+                                  <span
+                                    className={
+                                      ins.status === "failed"
+                                        ? "text-red-300"
+                                        : ins.status === "installing"
+                                          ? "text-sky-300"
+                                          : ins.status === "done"
+                                            ? "text-emerald-300"
+                                            : "text-amber-300"
+                                    }
+                                  >
+                                    {ins.status === "installing" && (
+                                      <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                    )}
+                                    {ins.status}
+                                  </span>
+                                </div>
+                                {ins.output && (
+                                  <details className="mt-1" open={ins.status === "installing"}>
+                                    <summary className="cursor-pointer text-[11px] text-gray-500 hover:text-brand">
+                                      {ins.status === "installing" ? "Live output" : "Output"}
+                                    </summary>
+                                    <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-surface-border bg-black/50 p-2 font-mono text-[10px] leading-relaxed text-gray-300">
+                                      {ins.output}
+                                    </pre>
+                                  </details>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        <p className="mt-2 text-[11px] text-gray-600">
+                          One-click installs use <code className="font-mono">apt</code>, or{" "}
+                          <code className="font-mono">go install</code> for tools with no apt
+                          package (e.g. httpx). They need the runner to run as root, set{" "}
+                          <code className="font-mono">RUNNER_SUDO_PASS</code>, or have
+                          passwordless sudo. (Never put a sudo password in the portal.)
+                        </p>
+                      </details>
+                    )}
+
+                    {/* Anonymity (Tor) */}
+                    <div>
+                      <form action={setRunnerAnonymity}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <input type="hidden" name="on" value={(!r.anonymity).toString()} />
+                        <button
+                          className={`text-xs ${
+                            r.anonymity
+                              ? "text-violet-300 hover:text-violet-200"
+                              : "text-gray-500 hover:text-violet-300"
+                          }`}
+                        >
+                          {r.anonymity ? "🧅 Turn off Tor" : "🧅 Turn on Tor (anonymize traffic)"}
+                        </button>
+                      </form>
+
+                      {/* Tor not installed → one-click install */}
+                      {r.anonymity && r.anonStatus === "no-tor" && (
+                        <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-200">
+                          Tor isn&apos;t installed, so traffic can&apos;t be anonymized. Install it:
+                          <div className="mt-1.5 flex gap-2">
+                            {(["tor", "torsocks"] as const).map((pkg) => (
+                              <form key={pkg} action={requestInstall}>
+                                <input type="hidden" name="runnerId" value={r.id} />
+                                <input type="hidden" name="tool" value={pkg} />
+                                <input type="hidden" name="confirm" value="true" />
+                                <button className="btn-ghost px-2 py-1 text-xs">Install {pkg}</button>
+                              </form>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

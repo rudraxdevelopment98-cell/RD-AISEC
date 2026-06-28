@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "25"
+RUNNER_VERSION = "26"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -249,6 +249,15 @@ INSTALL_PKGS = {
     "hcxtools": "hcxtools",
     "hcxdumptool": "hcxdumptool",
     "wifiphisher": "wifiphisher",
+}
+
+
+# Tools with NO apt package — installed via `go install`. The source is fixed
+# here (an allowlist), so the portal can only name a tool id; it can never make
+# the runner `go install` an arbitrary module. Mirrors INSTALL_METHODS in the
+# portal.
+GO_INSTALL = {
+    "httpx": "github.com/projectdiscovery/httpx/cmd/httpx@latest",
 }
 
 
@@ -845,33 +854,89 @@ def _stream_install_cmd(argv, stdin_in, env, timeout, inst_id, buf, state):
     return proc.returncode if proc.returncode is not None else 0
 
 
+def _sudo_prefix():
+    """Privilege escalation, in order of preference. Returns (argv_prefix, stdin):
+      - running as root                  -> no sudo
+      - RUNNER_SUDO_PASS set (LOCAL env) -> sudo -S (password piped from here)
+      - otherwise                        -> sudo -n (fails if a password is needed)
+    The password lives ONLY in this machine's env — it is never sent to the portal."""
+    pw = os.environ.get("RUNNER_SUDO_PASS")
+    if os.geteuid() == 0:
+        return [], None
+    if pw:
+        return ["sudo", "-S", "-p", ""], pw + "\n"
+    return ["sudo", "-n"], None
+
+
+def _ensure_go(sudo, stdin_in, env, inst_id, buf, state):
+    """Return a path to `go`, installing the golang-go apt package if missing."""
+    go = shutil.which("go")
+    if go:
+        return go
+    buf.append("\n$ installing Go toolchain (golang-go) via apt…\n")
+    if shutil.which("apt-get"):
+        _stream_install_cmd(sudo + ["apt-get", "update"], stdin_in, env, 300, inst_id, buf, state)
+        _stream_install_cmd(
+            sudo + ["apt-get", "install", "-y", "golang-go"], stdin_in, env, INSTALL_TIMEOUT, inst_id, buf, state
+        )
+    return shutil.which("go")
+
+
+def _go_install(tool, source, sudo, stdin_in, env, inst_id):
+    """Install a Go-based tool (e.g. httpx) into /usr/local/bin via `go install`,
+    bootstrapping the Go toolchain first if needed. Streams output like apt."""
+    buf: list[str] = [f"$ go install {source}\n"]
+    state = {"size": len(buf[0]), "last": 0.0}
+    go = _ensure_go(sudo, stdin_in, env, inst_id, buf, state)
+    if not go:
+        return "".join(buf) + "\nGo toolchain isn't installed and apt couldn't install it.", 1
+    # Pass the Go env via the `env` command (AFTER sudo) so the vars survive sudo's
+    # environment reset. GOBIN puts the binary on the shared PATH.
+    goenv = [
+        "env",
+        "GOBIN=/usr/local/bin",
+        "GOPATH=/root/go",
+        "GOCACHE=/root/.cache/go-build",
+        "HOME=/root",
+        "GOFLAGS=-mod=mod",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    ]
+    code = _stream_install_cmd(
+        sudo + goenv + [go, "install", "-v", source], stdin_in, env, INSTALL_TIMEOUT, inst_id, buf, state
+    )
+    text = "".join(buf)
+    if code == 0:
+        text += f"\n✓ installed {tool} → /usr/local/bin\n"
+    else:
+        text += "\nGo install failed. The runner needs network access and root (run as root or set RUNNER_SUDO_PASS).\n"
+    return text[:MAX_OUTPUT], code
+
+
 def run_install(inst):
-    # Package name resolution, most authoritative first:
+    tool = inst["tool"]
+    # The runner uses its OWN recipe keyed by tool id — it never runs a command or
+    # source string sent by the portal. The portal only names an allowlisted tool.
+    go_source = GO_INSTALL.get(tool)
+    sudo, stdin_in = _sudo_prefix()
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    inst_id = inst["id"]
+
+    # Package name resolution for apt, most authoritative first:
     #   1. pkg sent with the install request (server-driven — always current)
     #   2. pkg from the fetched tool spec
     #   3. the built-in fallback map
-    spec = TOOLS.get(inst["tool"], {})
-    pkg = inst.get("pkg") or spec.get("pkg") or INSTALL_PKGS.get(inst["tool"])
+    spec = TOOLS.get(tool, {})
+    pkg = inst.get("pkg") or spec.get("pkg") or INSTALL_PKGS.get(tool)
+
+    # Tools with no apt package (e.g. httpx) install via `go install`.
+    if go_source and (inst.get("method") == "go" or not pkg):
+        return _go_install(tool, go_source, sudo, stdin_in, env, inst_id)
+
     if not pkg:
-        return f"'{inst['tool']}' isn't installable via apt — install it manually.", 1
+        return f"'{tool}' isn't installable from here — install it manually.", 1
     if not shutil.which("apt-get"):
         return "apt-get not found — this runner isn't a Debian/Kali system.", 127
 
-    # Privilege escalation, in order of preference:
-    #   - running as root                  -> no sudo
-    #   - RUNNER_SUDO_PASS set (LOCAL env) -> sudo -S (password piped from here)
-    #   - otherwise                        -> sudo -n (fails if a password is needed)
-    # The password lives ONLY in this machine's env — it is never sent to the portal.
-    pw = os.environ.get("RUNNER_SUDO_PASS")
-    if os.geteuid() == 0:
-        sudo, stdin_in = [], None
-    elif pw:
-        sudo, stdin_in = ["sudo", "-S", "-p", ""], pw + "\n"
-    else:
-        sudo, stdin_in = ["sudo", "-n"], None
-
-    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
-    inst_id = inst["id"]
     buf: list[str] = [f"$ apt-get install {pkg}\n"]
     state = {"size": len(buf[0]), "last": 0.0}
     code = 0

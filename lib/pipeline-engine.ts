@@ -12,7 +12,7 @@ import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { exploitActions } from "@/lib/exploit-core";
 import { playbookFor } from "@/data/exploit-playbook";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
-import { JOB_STALE_MS } from "@/lib/runner-constants";
+import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
 
 const TERMINAL = ["done", "failed", "canceled"];
 
@@ -106,9 +106,12 @@ export async function queueStageJobs(
     autoImport: boolean;
     stage: string;
     queuedBy: string;
+    priority: number;
   };
   const data: NewJob[] = [];
   const by = queuedBy || "pipeline";
+  // Exploit-stage validation jumps ahead of routine recon/scan in the queue.
+  const prio = stage === "exploit" ? JOB_PRIORITY.exploit : JOB_PRIORITY.normal;
 
   if (stage === "exploit") {
     const findings = await prisma.finding.findMany({
@@ -123,7 +126,7 @@ export async function queueStageJobs(
       const k = `${a.tool}|${target}|${a.args}`;
       if (seen.has(k) || pendingKeyArgs.has(k)) continue;
       seen.add(k);
-      data.push({ engagementId, runnerId, tool: a.tool, target, args: a.args, autoImport: true, stage, queuedBy: by });
+      data.push({ engagementId, runnerId, tool: a.tool, target, args: a.args, autoImport: true, stage, queuedBy: by, priority: prio });
       if (data.length >= 10) break;
     }
   } else {
@@ -136,7 +139,7 @@ export async function queueStageJobs(
     if (stage === "recon") {
       for (const d of wildcards) {
         if (validateTarget("amass", d) && !pendingKey.has(`amass|${d}`)) {
-          data.push({ engagementId, runnerId, tool: "amass", target: d, args: "enum -passive", autoImport: true, stage, queuedBy: by });
+          data.push({ engagementId, runnerId, tool: "amass", target: d, args: "enum -passive", autoImport: true, stage, queuedBy: by, priority: prio });
         }
       }
     }
@@ -147,7 +150,7 @@ export async function queueStageJobs(
         const t = step.mode === "url" ? `http://${bare}` : bare;
         const target = normalizeTarget(step.tool, t);
         if (!validateTarget(step.tool, target) || pendingKey.has(`${step.tool}|${target}`)) continue;
-        data.push({ engagementId, runnerId, tool: step.tool, target, args: step.args, autoImport: true, stage, queuedBy: by });
+        data.push({ engagementId, runnerId, tool: step.tool, target, args: step.args, autoImport: true, stage, queuedBy: by, priority: prio });
       }
     }
   }

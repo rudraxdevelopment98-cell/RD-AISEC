@@ -33,16 +33,19 @@ results back; the portal parses them into findings.
   **Readiness check**, **How-it-works guide**, runner cancellation (v24).
 - **Job priority**: jobs have a `priority` (claimed priority-desc then oldest-first);
   "⚡ Run first" when queuing and "↑ Run next" on a queued job jump the queue.
+  Automation auto-prioritizes too: per-finding "Exploit it" (40) and the pipeline
+  exploit stage (20) outrank routine recon/scan (0).
 - Security headers/CSP, encrypted secrets, RBAC, cron fail-closed, API per-section
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
 ## Runner
-- Current version: **25** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). v25 = **self-update**: the runner pulls the latest
-  script from the portal (`/api/runner/script`, runner-token authed) at startup
-  and hourly-when-idle, then re-execs itself. **One final manual re-pull to v25**
-  on the Kali box, after which it updates automatically — no more re-pulls.
-  Disable with `RUNNER_AUTO_UPDATE=0`. v24 = job cancellation kills the process.
+- Current version: **26** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). v26 = **non-apt installs**: tools with no apt
+  package (httpx) install via `go install` (allowlisted source on the runner;
+  bootstraps Go if missing). v25 = **self-update**: the runner pulls the latest
+  script from the portal (`/api/runner/script`) at startup and hourly-when-idle,
+  then re-execs. After the v25 re-pull it auto-updates to v26 itself — no manual
+  pull. Disable with `RUNNER_AUTO_UPDATE=0`. v24 = job cancellation kills procs.
 
 ## Required env (Vercel)
 - `DATABASE_URL`, `DIRECT_URL` (Neon pooled + direct), `AUTH_SECRET`,
