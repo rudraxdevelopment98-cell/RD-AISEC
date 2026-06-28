@@ -246,6 +246,33 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     presets: [{ id: "scan", label: "Scan URL params", args: ["--silence", "--no-spinner"] }],
   },
   {
+    id: "ffuf",
+    label: "ffuf — fast web fuzzer",
+    description:
+      "Brute-force paths/params with a wordlist. Put FUZZ in the URL where to fuzz, e.g. https://site/FUZZ.",
+    active: true,
+    presets: [
+      {
+        id: "dir",
+        label: "Directory fuzz (put FUZZ in the URL path)",
+        args: ["-w", "/usr/share/wordlists/dirb/common.txt", "-mc", "200,204,301,302,307,401,403", "-s"],
+      },
+      {
+        id: "dirbig",
+        label: "Bigger list (dirbuster medium — put FUZZ in the URL)",
+        args: ["-w", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", "-mc", "200,204,301,302,307,401,403", "-s"],
+      },
+    ],
+  },
+  {
+    id: "gau",
+    label: "gau — known URL discovery",
+    description:
+      "Fetch a domain's historical URLs from Wayback/CommonCrawl/OTX (passive — feeds deeper testing).",
+    active: false,
+    presets: [{ id: "urls", label: "Fetch known URLs (incl. subdomains)", args: ["--subs"] }],
+  },
+  {
     id: "searchsploit",
     label: "searchsploit — Exploit-DB search",
     description:
@@ -293,6 +320,8 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   katana: { bin: "katana", flag: "-u" },
   // dalfox runs `dalfox url <url>` — the "url" subcommand is the flag token.
   dalfox: { bin: "dalfox", flag: "url" },
+  ffuf: { bin: "ffuf", flag: "-u" },
+  gau: { bin: "gau", flag: null },
 };
 
 // Tools we can install from the portal, mapped to their apt package. Only these
@@ -322,6 +351,7 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   naabu: "naabu",
   katana: "katana",
   dalfox: "dalfox",
+  ffuf: "ffuf", // fast web fuzzer (Kali apt; go fallback elsewhere)
   metasploit: "metasploit-framework", // for the Exploitation section (no auto-find tool)
   tor: "tor", // for anonymity
   torsocks: "torsocks", // for anonymity
@@ -346,11 +376,15 @@ export const GO_SOURCES: Record<string, string> = {
   naabu: "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest",
   katana: "github.com/projectdiscovery/katana/cmd/katana@latest",
   dalfox: "github.com/hahwul/dalfox/v2@latest",
+  nuclei: "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
+  ffuf: "github.com/ffuf/ffuf/v2@latest",
+  gau: "github.com/lc/gau/v2/cmd/gau@latest",
 };
 
 /** Tools whose PRIMARY install method isn't apt (apt has no package for them). */
 export const INSTALL_METHODS: Record<string, { method: "go" | "pipx" }> = {
   httpx: { method: "go" }, // no apt package — Go is the only way
+  gau: { method: "go" }, // not packaged for apt — install via Go
 };
 
 /** Every tool that can be installed from the portal (apt OR an alt method). */
@@ -427,6 +461,7 @@ const HOST_TARGET_TOOLS = new Set([
   "searchsploit",
   "subfinder",
   "naabu",
+  "gau",
 ]);
 
 /** Normalize a target for a given tool (strip scheme/path for host-based tools). */
@@ -464,7 +499,7 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "27";
+export const RUNNER_VERSION = "28";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

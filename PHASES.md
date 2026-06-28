@@ -469,6 +469,11 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
 - ✅ **Go fallback for the other ProjectDiscovery tools** (subfinder, naabu,
       katana, dalfox): apt-primary, but if apt fails or apt-get isn't there the
       runner falls back to `go install` for that tool. Runner v27.
+- ✅ **More tools** (runner v28): **ffuf** (fast web fuzzer — put FUZZ in the URL)
+      and **gau** (fetch a domain's known URLs from Wayback/CommonCrawl/OTX, feeds
+      deeper testing) added as queueable + one-click-installable tools (ffuf apt
+      + go fallback; gau go-install). **nuclei** also gains a go-install fallback.
+      Both parse into endpoint findings (+ leaked-secret scan).
 - ✅ **Machines page redesign (same theme/glass).** Each card reorganized into
       clear zones: header (name · online/offline · Revoke), an at-a-glance badge
       row (🧰 tools, N missing, version w/ self-update note, Tor, live installs),
