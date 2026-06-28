@@ -137,7 +137,7 @@ export async function engagementReadiness(eng: {
       label: missingExp.length
         ? `Missing validation tools: ${missingExp.map((t) => t.name).join(", ")}`
         : "Exploit/validation tools installed",
-      level: missingExp.length >= 3 ? "warn" : missingExp.length ? "warn" : "ok",
+      level: missingExp.length >= 3 ? "fail" : missingExp.length ? "warn" : "ok",
       detail: missingExp.length
         ? "Without these the exploit stage can't confirm issues (searchsploit/sqlmap/wpscan/metasploit)."
         : "searchsploit, sqlmap, wpscan and metasploit are present.",

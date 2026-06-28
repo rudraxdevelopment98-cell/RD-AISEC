@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { toCsv, slug } from "@/lib/csv";
+import { getMemberAccess } from "@/lib/members";
+import { canAccess } from "@/lib/access";
 import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 
 const ATTACK_NAME = new Map(MITRE_TACTICS.map((t) => [t.id, t.name]));
@@ -17,6 +19,11 @@ export async function GET(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Enforce the same per-section access as the dashboard nav (API wasn't gated).
+  const info = await getMemberAccess(session.user.email);
+  if (!canAccess("/dashboard/findings", info)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const url = new URL(req.url);
   const p = url.searchParams;
@@ -26,6 +33,7 @@ export async function GET(req: Request) {
   if (p.get("owasp")) where.owasp = p.get("owasp");
   if (p.get("severity")) where.severity = p.get("severity");
   if (p.get("status")) where.status = p.get("status");
+  if (p.get("category")) where.category = p.get("category");
   if (p.get("q")) where.title = { contains: p.get("q"), mode: "insensitive" };
 
   const findings = await prisma.finding.findMany({

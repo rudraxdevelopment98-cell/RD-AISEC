@@ -87,7 +87,7 @@ export default async function FindingsPage({
 
   // CSV export honors the current filters (real filter keys only).
   const exportQs = new URLSearchParams();
-  for (const k of ["attack", "owasp", "severity", "status", "q"] as const) {
+  for (const k of ["attack", "owasp", "severity", "status", "category", "q"] as const) {
     if (sp[k]) exportQs.set(k, sp[k]!);
   }
   const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
@@ -156,6 +156,7 @@ export default async function FindingsPage({
         {sp.owasp && <input type="hidden" name="owasp" value={sp.owasp} />}
         {sp.severity && <input type="hidden" name="severity" value={sp.severity} />}
         {sp.status && <input type="hidden" name="status" value={sp.status} />}
+        {sp.category && <input type="hidden" name="category" value={sp.category} />}
         <input
           name="q"
           defaultValue={sp.q ?? ""}

@@ -12,6 +12,7 @@ import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { exploitActions } from "@/lib/exploit-core";
 import { playbookFor } from "@/data/exploit-playbook";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
+import { JOB_STALE_MS } from "@/lib/runner-constants";
 
 const TERMINAL = ["done", "failed", "canceled"];
 
@@ -89,9 +90,12 @@ export async function queueStageJobs(
 
   const pending = await prisma.job.findMany({
     where: { engagementId, status: { in: ["queued", "running"] } },
-    select: { tool: true, target: true },
+    select: { tool: true, target: true, args: true },
   });
   const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
+  // Args-aware key for the exploit stage, so a focused re-scan (same tool+target,
+  // different args) isn't dropped just because a recon scan is still pending.
+  const pendingKeyArgs = new Set(pending.map((j) => `${j.tool}|${j.target}|${j.args}`));
 
   type NewJob = {
     engagementId: string;
@@ -117,7 +121,7 @@ export async function queueStageJobs(
       const target = normalizeTarget(a.tool, a.target);
       if (!validateTarget(a.tool, target)) continue;
       const k = `${a.tool}|${target}|${a.args}`;
-      if (seen.has(k) || pendingKey.has(`${a.tool}|${target}`)) continue;
+      if (seen.has(k) || pendingKeyArgs.has(k)) continue;
       seen.add(k);
       data.push({ engagementId, runnerId, tool: a.tool, target, args: a.args, autoImport: true, stage, queuedBy: by });
       if (data.length >= 10) break;
@@ -354,9 +358,47 @@ export async function onPipelineJobFinished(job: {
   const prog = await stageJobProgress(job.engagementId, job.stage);
   if (!prog.complete) return;
 
+  // Atomically claim this stage's completion so two jobs finishing at once can't
+  // both advance the pipeline (which would double-queue / skip a stage).
+  const claimed = await prisma.pipeline.updateMany({
+    where: { id: p.id, status: "running", currentKey: job.stage },
+    data: { status: "advancing" },
+  });
+  if (claimed.count !== 1) return; // another completion is handling it
+
   await setStage(p.id, job.stage, { summary: `${prog.done}/${prog.total} jobs complete` });
   if (p.autoApprove) await advancePipeline(p.id);
   else await prisma.pipeline.update({ where: { id: p.id }, data: { status: "awaiting_approval" } });
+}
+
+/**
+ * Fail jobs that can never finish — running too long (dead runner/hung tool) or
+ * queued but orphaned (their runner was deleted → runnerId nulled → unclaimable)
+ * — then advance any pipeline whose current stage is now complete. Meant to run
+ * from the cron so pipelines don't hang waiting on a human to open the Jobs page.
+ */
+export async function sweepStaleJobs(): Promise<number> {
+  const cutoff = new Date(Date.now() - JOB_STALE_MS);
+  const [staleRunning, orphanQueued] = await Promise.all([
+    prisma.job.findMany({
+      where: { status: "running", startedAt: { lt: cutoff } },
+      select: { id: true, engagementId: true, stage: true },
+    }),
+    prisma.job.findMany({
+      where: { status: "queued", OR: [{ runnerId: null }, { runnerId: "" }] },
+      select: { id: true, engagementId: true, stage: true },
+    }),
+  ]);
+  const all = [...staleRunning, ...orphanQueued];
+  if (all.length === 0) return 0;
+  await prisma.job.updateMany({
+    where: { id: { in: all.map((j) => j.id) } },
+    data: { status: "failed", finishedAt: new Date() },
+  });
+  // Advance pipelines whose current stage just became complete.
+  const engs = [...new Set(all.filter((j) => j.stage && j.engagementId).map((j) => j.engagementId as string))];
+  for (const e of engs) await recheckPipeline(e);
+  return all.length;
 }
 
 /** Pause / resume / cancel controls. */

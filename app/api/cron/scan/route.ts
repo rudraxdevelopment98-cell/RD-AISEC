@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runDueSchedules } from "@/lib/scheduled-core";
 import { runDueHackerOneSyncs, runDueBugPrograms } from "@/lib/bug-pipeline";
+import { sweepStaleJobs } from "@/lib/pipeline-engine";
 
 // Long-running: scanning several targets can take a while.
 export const maxDuration = 300;
@@ -8,17 +9,25 @@ export const dynamic = "force-dynamic";
 
 /**
  * Vercel Cron entry point (see vercel.json). Runs every enabled schedule whose
- * interval has elapsed. Protected by CRON_SECRET: Vercel automatically sends
- * `Authorization: Bearer <CRON_SECRET>` on scheduled invocations when that env
- * var is set, so we reject anything that doesn't match.
+ * interval has elapsed. Protected by CRON_SECRET — Vercel sends
+ * `Authorization: Bearer <CRON_SECRET>` on scheduled invocations. Fails CLOSED:
+ * if CRON_SECRET isn't configured, the endpoint is disabled (never public).
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Recover jobs/pipelines stuck on dead runners before running new work.
+  let swept = 0;
+  try {
+    swept = await sweepStaleJobs();
+  } catch {
+    /* don't let the sweep break the rest of the cron */
   }
 
   const result = await runDueSchedules();
@@ -33,5 +42,5 @@ export async function GET(req: Request) {
     /* don't let bug automation break the posture-scan cron */
   }
 
-  return NextResponse.json({ ok: true, ...result, bug });
+  return NextResponse.json({ ok: true, swept, ...result, bug });
 }

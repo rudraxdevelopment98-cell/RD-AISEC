@@ -148,7 +148,17 @@ export async function deleteRunner(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
-  if (id) await prisma.runner.delete({ where: { id } }).catch(() => {});
+  if (id) {
+    // Cancel its outstanding jobs first — otherwise onDelete:SetNull orphans them
+    // (runnerId becomes null and no runner can ever claim them → stuck forever).
+    await prisma.job
+      .updateMany({
+        where: { runnerId: id, status: { in: ["queued", "running"] } },
+        data: { status: "canceled", finishedAt: new Date() },
+      })
+      .catch(() => {});
+    await prisma.runner.delete({ where: { id } }).catch(() => {});
+  }
   revalidatePath("/dashboard/runners");
 }
 

@@ -32,34 +32,45 @@ export async function bulkSetStatus(formData: FormData) {
   revalidatePath("/dashboard/findings");
 }
 
-/** Bulk set category/tag on selected findings. */
+/** Bulk set category/tag on selected findings. Empty input is ignored so a
+ * stray click can't wipe everyone's tags. */
 export async function bulkSetCategory(formData: FormData) {
   await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const category = String(formData.get("category") ?? "").trim().slice(0, 60);
-  if (ids.length) {
+  if (ids.length && category) {
     await prisma.finding.updateMany({ where: { id: { in: ids } }, data: { category } });
   }
   revalidatePath("/dashboard/findings");
 }
 
-/** Parse one CSV line respecting quotes. */
-function csvLine(line: string): string[] {
-  const out: string[] = [];
+/** Parse a whole CSV into records, honoring quoted fields that span newlines. */
+function parseCsvRecords(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = "";
   let q = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
+  const pushRow = () => {
+    row.push(cur);
+    cur = "";
+    if (row.length > 1 || row[0].trim() !== "") rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
     if (q) {
-      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
       else if (c === '"') q = false;
       else cur += c;
     } else if (c === '"') q = true;
-    else if (c === ",") { out.push(cur); cur = ""; }
-    else cur += c;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      pushRow();
+    } else cur += c;
   }
-  out.push(cur);
-  return out;
+  if (cur !== "" || row.length) pushRow();
+  return rows;
 }
 
 /**
@@ -79,31 +90,33 @@ export async function importFindingsCsv(formData: FormData) {
   if (file.size > 5_000_000) redirect("/dashboard/findings?error=File+too+large");
 
   const text = (await file.text()).replace(/^﻿/, "");
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) redirect("/dashboard/findings?error=CSV+has+no+rows");
+  const records = parseCsvRecords(text);
+  if (records.length < 2) redirect("/dashboard/findings?error=CSV+has+no+rows");
 
-  const header = csvLine(lines[0]).map((h) => h.trim().toLowerCase());
+  const header = records[0].map((h) => h.trim().toLowerCase());
   const idx = (name: string) => header.findIndex((h) => h === name);
   const ti = idx("title");
   if (ti < 0) redirect("/dashboard/findings?error=CSV+needs+a+Title+column");
   const si = idx("severity"), sti = idx("status"), ci = idx("category"),
     di = idx("description"), ri = idx("recommendation");
   const SEV = new Set(["info", "low", "medium", "high", "critical"]);
+  const STA = new Set(STATUSES);
 
-  const rows = lines.slice(1).map(csvLine);
-  const data = rows
+  const data = records
+    .slice(1)
     .map((r) => {
       const title = (r[ti] ?? "").trim();
       if (!title) return null;
       const severity = SEV.has((r[si] ?? "").trim().toLowerCase())
         ? (r[si] ?? "").trim().toLowerCase()
         : "medium";
+      const rawStatus = (r[sti] ?? "").trim().toLowerCase();
       const description = di >= 0 ? (r[di] ?? "").trim() : "";
       return {
         engagementId,
-        title,
+        title: title.slice(0, 300),
         severity,
-        status: sti >= 0 && r[sti] ? (r[sti] ?? "").trim().toLowerCase() : "open",
+        status: sti >= 0 && STA.has(rawStatus) ? rawStatus : "open",
         category: ci >= 0 ? (r[ci] ?? "").trim().slice(0, 60) : "",
         description,
         recommendation: ri >= 0 ? (r[ri] ?? "").trim() : "",
