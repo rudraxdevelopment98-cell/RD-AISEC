@@ -166,6 +166,9 @@ model Job {
   createdAt    DateTime   @default(now())
   startedAt    DateTime?
   finishedAt   DateTime?
+
+  // Serves the runner's claim query (per runner, queued, by priority then age).
+  @@index([runnerId, status, priority(sort: Desc), createdAt])
 }
 
 // A single issue discovered during an engagement.

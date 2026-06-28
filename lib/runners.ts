@@ -221,6 +221,15 @@ export async function queueJob(formData: FormData) {
     );
   }
 
+  // ffuf fuzzes wherever the FUZZ keyword is — without it the run fails instantly.
+  if (tool!.id === "ffuf" && !finalTarget.includes("FUZZ")) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        "ffuf needs FUZZ in the target URL to mark where to fuzz, e.g. https://site/FUZZ.",
+      )}`,
+    );
+  }
+
   const engagement = await prisma.engagement.findUnique({
     where: { id: engagementId },
     select: { authorized: true, scope: true },
