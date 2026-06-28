@@ -8,10 +8,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Calm, desaturated cool-slate accent (was loud emerald green). Keeps the
+        // UI mostly monochrome so the liquid-glass frost is the main look, not a
+        // wash of colour. Semantic status colours (red/amber/emerald/sky) stay
+        // vivid since they carry meaning and are used sparingly.
         brand: {
-          DEFAULT: "#10b981",
-          dark: "#059669",
-          glow: "#34d399",
+          DEFAULT: "#9db4c4",
+          dark: "#6f8696",
+          glow: "#c3d4df",
         },
         surface: {
           DEFAULT: "#0b0f17",
