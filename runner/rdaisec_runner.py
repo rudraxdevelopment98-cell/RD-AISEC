@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "23"
+RUNNER_VERSION = "24"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -444,6 +444,8 @@ def heartbeat_loop():
             request("GET", "/api/runner/ping")
         except Exception:  # noqa: BLE001
             pass
+        # Kill any jobs canceled from the portal so their worker slots free up.
+        check_cancellations()
         time.sleep(PING_SECONDS)
 
 
@@ -578,6 +580,35 @@ def run_savefile(job):
         return f"Write failed: {e}", 1
 
 
+# Track running job processes so cancellations from the portal can kill them and
+# free the worker slot (otherwise a canceled job keeps running and blocks new ones).
+RUNNING_PROCS: dict = {}
+PROCS_LOCK = threading.Lock()
+CANCELED_IDS: set = set()
+
+
+def check_cancellations():
+    """Kill any running job the portal has marked canceled. Best-effort."""
+    with PROCS_LOCK:
+        if not RUNNING_PROCS:
+            return
+    try:
+        resp = request("GET", "/api/runner/job/canceled", timeout=10)
+        ids = json.loads(resp.read().decode()).get("ids", [])
+    except Exception:  # noqa: BLE001
+        return
+    with PROCS_LOCK:
+        for jid in ids:
+            proc = RUNNING_PROCS.get(jid)
+            if proc is not None:
+                CANCELED_IDS.add(jid)
+                try:
+                    proc.kill()
+                    print(f"  ✖ job {jid} canceled from portal — killed")
+                except Exception:  # noqa: BLE001
+                    pass
+
+
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
@@ -600,6 +631,10 @@ def run_job(job):
         )
     except FileNotFoundError:
         return f"'{argv[0]}' is not installed on this runner.", 127
+
+    # Register so a portal cancellation can find & kill this process.
+    with PROCS_LOCK:
+        RUNNING_PROCS[job_id] = proc
 
     # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
@@ -639,8 +674,15 @@ def run_job(job):
         proc.wait()
     finally:
         timer.cancel()
+        with PROCS_LOCK:
+            RUNNING_PROCS.pop(job_id, None)
 
     out = "".join(buf)[:MAX_OUTPUT]
+    with PROCS_LOCK:
+        was_canceled = job_id in CANCELED_IDS
+        CANCELED_IDS.discard(job_id)
+    if was_canceled:
+        return out + "\n\nJob canceled from the portal.", 130
     if killed["v"]:
         return out + f"\n\nJob timed out after {to}s and was stopped.", 124
     return out, proc.returncode if proc.returncode is not None else 0
@@ -841,6 +883,9 @@ def main():
             if f:
                 TOOLS = f
             last_refresh = time.monotonic()
+
+        # Free worker slots from any portal-canceled jobs before claiming more.
+        check_cancellations()
 
         # Claim and dispatch jobs until we hit the worker cap or the queue empties.
         started = 0

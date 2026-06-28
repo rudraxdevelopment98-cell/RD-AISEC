@@ -280,6 +280,13 @@ build that item, verify, commit, and merge to `main`.
       Portal stale-job cutoff raised to 45 min to match. Readiness check now
       explains timeout failures (and that CDN-fronted hosts favour web scans).
 
+## ✅ Job cancellation actually stops the runner (v24)
+- ✅ **Fix**: canceling a job previously only marked it canceled in the DB — the
+      runner kept running the tool, holding its worker slot, so new jobs sat
+      "queued". Now the runner polls `/api/runner/job/canceled`, kills the
+      canceled process, and frees the slot (within ~5s), so new jobs start.
+      Workaround for older runners: restart the runner to free slots.
+
 ## ✅ Learn — personal skill roadmap
 - ✅ A **Learn** section (sidebar) with a curated catalog of techniques/tactics
       across Recon, Web exploitation, Network/infra, WiFi, Exploitation, and
