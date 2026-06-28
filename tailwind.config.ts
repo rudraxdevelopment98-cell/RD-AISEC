@@ -13,9 +13,9 @@ const config: Config = {
         // wash of colour. Semantic status colours (red/amber/emerald/sky) stay
         // vivid since they carry meaning and are used sparingly.
         brand: {
-          DEFAULT: "#9db4c4",
-          dark: "#6f8696",
-          glow: "#c3d4df",
+          DEFAULT: "#aeb9c2",
+          dark: "#7f8a93",
+          glow: "#ccd4db",
         },
         surface: {
           DEFAULT: "#0b0f17",

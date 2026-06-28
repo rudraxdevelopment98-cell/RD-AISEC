@@ -8,6 +8,7 @@ import {
 } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Collapsible } from "@/components/collapsible";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -273,15 +274,17 @@ export default async function EngagementDetail({
 
       {/* Command center — drive every workflow for this engagement */}
       <section id="command" className="mt-6 scroll-mt-20">
-        <div className="flex items-center gap-2">
-          <Icon name="grid" className="h-4 w-4 text-brand" />
-          <h2 className="text-lg font-semibold">Command center</h2>
-        </div>
-        <p className="mt-1 text-sm text-gray-400">
-          Everything you can do for this engagement — scan, exploit, fix,
-          research, hunt, check, and report.
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Collapsible
+          defaultOpen
+          title={
+            <span className="flex items-center gap-2">
+              <Icon name="grid" className="h-4 w-4 text-brand" />
+              Command center
+            </span>
+          }
+          subtitle="Everything you can do for this engagement — scan, exploit, fix, research, hunt, check, and report."
+        >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {commandTiles.map((t) => {
             const inner = (
               <>
@@ -340,6 +343,7 @@ export default async function EngagementDetail({
             Scanning &amp; exploitation are locked until written authorization is recorded above.
           </p>
         )}
+        </Collapsible>
       </section>
 
       {/* Guided assessment pipeline */}
