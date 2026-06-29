@@ -27,22 +27,39 @@ const ISSUE_TONE: Record<string, string> = {
   info: "text-gray-400",
 };
 
-// Smart monitor-mode commands: auto-detect the real wireless interface on the
-// runner (the portal's reported name can be wrong/stale) and kill the processes
-// (NetworkManager/wpa_supplicant) that fight monitor mode.
+// Smart, SAFE-by-default monitor-mode enable. The dangerous old version ran
+// `airmon-ng check kill` (which kills NetworkManager globally — taking down
+// ETHERNET too) and converted whatever managed wireless interface it found,
+// including the one carrying THIS runner's uplink — severing it from the portal
+// with no way back but a reboot. This version instead:
+//   • finds the uplink interface (default route) and NEVER touches it;
+//   • only converts a managed wireless card that is NOT the uplink;
+//   • if the only wireless card IS the uplink, it refuses and asks for a USB
+//     dongle (so the runner can never cut its own connection);
+//   • scopes the change with `nmcli dev set <if> managed no` instead of killing
+//     NetworkManager process-wide, so ethernet / other Wi-Fi stay online.
 const ENABLE_MONITOR_CMD =
-  `bash -lc 'M=""; G=""; for d in /sys/class/net/*; do n=$(basename "$d"); ` +
-  `t=$(iw dev "$n" info 2>/dev/null | grep -oE "type [a-z]+" | head -1); ` +
-  `if [ "$t" = "type monitor" ]; then M="$n"; elif [ "$t" = "type managed" ]; then G="$n"; fi; done; ` +
+  `bash -lc 'UP=$(ip route show default 2>/dev/null | grep -oE "dev [a-z0-9]+" | head -1 | cut -d" " -f2); ` +
+  `M=""; CAND=""; for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `t=$(iw dev "$n" info 2>/dev/null | grep -oE "type [a-z]+" | head -1); [ -z "$t" ] && continue; ` +
+  `if [ "$t" = "type monitor" ]; then M="$n"; elif [ "$t" = "type managed" ]; then ` +
+  `if [ "$n" != "$UP" ] && [ -z "$CAND" ]; then CAND="$n"; fi; fi; done; ` +
   `if [ -n "$M" ]; then echo "Already in monitor mode: $M"; iw dev; exit 0; fi; ` +
-  `if [ -z "$G" ]; then echo "No wireless interface found - plug in the adapter"; iw dev; exit 0; fi; ` +
-  `echo "Killing interfering processes + enabling monitor on $G"; airmon-ng check kill >/dev/null 2>&1; ` +
-  `airmon-ng start "$G"; echo; iw dev'`;
+  `if [ -z "$CAND" ]; then echo "SAFE-STOP: the only wireless card is also this runners uplink ($UP)."; ` +
+  `echo "Enabling monitor on it would cut the runner off the portal and kill networking (no ethernet, no wifi)."; ` +
+  `echo "Plug in a SEPARATE USB WiFi dongle for monitor mode, then retry."; iw dev; exit 0; fi; ` +
+  `echo "Enabling monitor on $CAND (uplink $UP stays online)"; ` +
+  `nmcli dev set "$CAND" managed no >/dev/null 2>&1 || true; ` +
+  `airmon-ng start "$CAND" >/dev/null 2>&1 || { ip link set "$CAND" down; iw dev "$CAND" set type monitor 2>/dev/null; ip link set "$CAND" up; }; ` +
+  `echo; iw dev'`;
 const STOP_MONITOR_CMD =
   `bash -lc 'for d in /sys/class/net/*; do n=$(basename "$d"); ` +
-  `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done; ` +
-  `(systemctl start NetworkManager 2>/dev/null || service NetworkManager start 2>/dev/null || service network-manager start 2>/dev/null); ` +
-  `echo "Monitor stopped, NetworkManager restarted"; iw dev'`;
+  `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n" >/dev/null 2>&1; done; ` +
+  `for d in /sys/class/net/*; do n=$(basename "$d"); ` +
+  `iw dev "$n" info 2>/dev/null | grep -q "type" && nmcli dev set "$n" managed yes >/dev/null 2>&1; done; ` +
+  `rfkill unblock all 2>/dev/null; ` +
+  `(systemctl restart NetworkManager 2>/dev/null || service NetworkManager restart 2>/dev/null || service network-manager restart 2>/dev/null); ` +
+  `echo "Monitor stopped, interfaces re-managed, NetworkManager restarted"; iw dev'`;
 const AIRODUMP_60_CMD =
   `bash -lc 'M=$(for d in /sys/class/net/*; do n=$(basename "$d"); ` +
   `iw dev "$n" info 2>/dev/null | grep -q "type monitor" && echo "$n" && break; done); ` +
@@ -654,8 +671,8 @@ export default async function WifiPage({
                             📡 No monitor-mode adapter detected. Plug a USB WiFi adapter that supports monitor mode into this machine (appears within ~30s). A VM&apos;s built-in WiFi usually can&apos;t capture.
                           </p>
                         )}
-                        <p className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-gray-400">
-                          ⚠ &quot;Enable monitor mode&quot; runs <code className="font-mono">airmon-ng check kill</code> (stops NetworkManager/wpa_supplicant). If this machine&apos;s internet is on the same WiFi card it&apos;ll briefly drop — use a separate USB dongle or a wired/secondary uplink. &quot;Stop monitor mode&quot; restarts NetworkManager.
+                        <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[11px] text-gray-400">
+                          🛡 Safe by default: &quot;Enable monitor mode&quot; only converts a wireless card that is <b className="text-gray-200">not</b> this runner&apos;s uplink, and scopes the change to that one interface (it no longer kills NetworkManager globally, so ethernet stays up). If the <b className="text-gray-200">only</b> WiFi card is also the uplink, it refuses and asks for a separate USB dongle — so the runner can never cut its own link to the portal. &quot;Stop monitor mode&quot; re-manages every interface and restarts NetworkManager.
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs">
                           <form action={runWifiCommand}>

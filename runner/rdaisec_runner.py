@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "33"
+RUNNER_VERSION = "34"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -559,13 +559,70 @@ def fetch_tools():
         return None
 
 
+# --- Network self-recovery ---------------------------------------------------
+# The #1 way this box loses connectivity is a WiFi-attack workflow: monitor mode
+# / `airmon-ng check kill` can take down NetworkManager (and with it ethernet) on
+# the very interface the runner uses to reach the portal — and then it can't
+# receive a "stop monitor" job, so it stays dead until a manual reboot. This
+# watchdog notices a *sustained* portal outage that is also a *local* network
+# outage (not just the portal being down) and restores managed networking on its
+# own: stop monitor mode, re-manage interfaces, unblock rfkill, restart NM.
+PING_FAILS = 0
+_LAST_RECOVERY = 0.0
+RECOVERY_AFTER_FAILS = int(os.environ.get("RECOVERY_AFTER_FAILS", "6"))  # ~2 min @ 20s
+RECOVERY_COOLDOWN = int(os.environ.get("RECOVERY_COOLDOWN", "180"))      # don't thrash
+
+
+def _internet_reachable() -> bool:
+    """True if we can open a TCP socket to a public resolver. Distinguishes a
+    LOCAL network outage (recover) from the portal itself being unreachable
+    (don't touch the network — that would needlessly disrupt a real capture)."""
+    import socket
+
+    for host in (("1.1.1.1", 53), ("8.8.8.8", 53)):
+        try:
+            s = socket.create_connection(host, timeout=4)
+            s.close()
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
+def recover_network() -> None:
+    """Best-effort: bring managed networking back after a sustained LOCAL outage.
+    Rate-limited and never raises."""
+    global _LAST_RECOVERY
+    now = time.time()
+    if now - _LAST_RECOVERY < RECOVERY_COOLDOWN:
+        return
+    _LAST_RECOVERY = now
+    print("⚠ portal + internet unreachable — attempting network self-recovery")
+    steps = [
+        # Drop any monitor-mode interface back to managed.
+        'for d in /sys/class/net/*; do n=$(basename "$d"); '
+        'iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done',
+        "rfkill unblock all",
+        "systemctl restart NetworkManager || service NetworkManager restart || service network-manager restart",
+        # Re-hand every wireless interface to NetworkManager.
+        'for d in /sys/class/net/*; do n=$(basename "$d"); '
+        'iw dev "$n" info 2>/dev/null | grep -q "type" && nmcli dev set "$n" managed yes; done',
+    ]
+    for cmd in steps:
+        try:
+            subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True, timeout=30)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def heartbeat_loop():
     """Background: keep the machine 'online' regardless of what the loop is doing.
     While every worker is busy with a long job, the main loop stops polling, so
     this is the ONLY thing pinging the portal — it must NEVER die. Every pass is
     fully guarded; check_cancellations runs inside the guard too. Also self-heals
-    the Tor exit IP once bootstrapping completes."""
-    global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR
+    the Tor exit IP once bootstrapping completes, and restores managed networking
+    if a WiFi job ever knocks this box off the network."""
+    global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR, PING_FAILS
     while True:
         try:
             # Re-detect WiFi so plugging in a monitor-mode dongle is noticed.
@@ -579,10 +636,18 @@ def heartbeat_loop():
             # Bounded timeout so a slow ping can't delay the next one past the
             # portal's offline window.
             request("GET", "/api/runner/ping", timeout=15)
+            PING_FAILS = 0
             # Kill any jobs canceled from the portal so their worker slots free up.
             check_cancellations()
         except Exception:  # noqa: BLE001 — the heartbeat must NEVER die
-            pass
+            # Sustained outage? If the internet is also gone it's a LOCAL network
+            # problem (likely monitor mode / a killed NetworkManager) — self-heal.
+            try:
+                PING_FAILS += 1
+                if PING_FAILS >= RECOVERY_AFTER_FAILS and not _internet_reachable():
+                    recover_network()
+            except Exception:  # noqa: BLE001
+                pass
         time.sleep(PING_SECONDS)
 
 
