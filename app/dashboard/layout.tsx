@@ -148,9 +148,12 @@ export default async function DashboardLayout({
             </form>
           </div>
         </header>
-        {/* Scrollable content area — the center canvas */}
+        {/* Scrollable content area — the center canvas. Keyed by route so the
+            content gently fades up on each navigation. */}
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 print:overflow-visible">
-          {children}
+          <div key={pathname} className="fade-up">
+            {children}
+          </div>
         </main>
       </div>
 

@@ -195,6 +195,15 @@ body {
 }
 
 .fade-up { animation: fadeUp .5s ease-out both; }
+/* Cascade direct children in (lists / grids): add `stagger-in` to a container. */
+.stagger-in > * { animation: fadeUp .45s ease-out both; }
+.stagger-in > *:nth-child(1) { animation-delay: .02s; }
+.stagger-in > *:nth-child(2) { animation-delay: .06s; }
+.stagger-in > *:nth-child(3) { animation-delay: .10s; }
+.stagger-in > *:nth-child(4) { animation-delay: .14s; }
+.stagger-in > *:nth-child(5) { animation-delay: .18s; }
+.stagger-in > *:nth-child(6) { animation-delay: .22s; }
+.stagger-in > *:nth-child(n+7) { animation-delay: .26s; }
 .float-slow { animation: floaty 6s ease-in-out infinite; }
 .pulse-dot { animation: pulseDot 2.2s ease-out infinite; }
 .pipe-line { stroke-dasharray: 6 6; animation: pipeFlow 1s linear infinite; }
@@ -203,6 +212,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .galaxy-stars, .fade-up, .float-slow, .pulse-dot, .pipe-line, .spin-slow { animation: none; }
+  .stagger-in > * { animation: none; }
   .spark-line { animation: none; stroke-dashoffset: 0; }
 }
 

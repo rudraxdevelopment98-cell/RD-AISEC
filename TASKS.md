@@ -92,8 +92,11 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ Pipeline auto-advance fix: recheckPipeline on engagement page load + AutoRefresh
   while running (so stages move hands-free, not only on a runner result POST);
   scoped stage-completion to the current run so an orphaned old job can't block it
+- ✅ Motion: per-page fade-up entrance (keyed by route) + a `.stagger-in`
+  cascade utility (applied to the dashboard stat grid); reduced-motion guarded
 - ⬜ Sweep for stale-data spots that need AutoRefresh
 - ⬜ Bounded `max-h` + inner scroll on unbounded lists
+- ⬜ Apply `.stagger-in` to more lists (findings, jobs, launchpad groups)
 
 ---
 

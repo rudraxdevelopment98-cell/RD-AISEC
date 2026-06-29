@@ -359,7 +359,7 @@ export default async function DashboardOverview({
       )}
 
       {/* Metric cards */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="stagger-in grid grid-cols-2 gap-4 lg:grid-cols-4">
         {metrics.map((m, i) => (
           <Link
             key={m.label}
