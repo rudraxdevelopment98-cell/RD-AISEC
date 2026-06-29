@@ -56,6 +56,14 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ Surface a real activity feed in the right rail from AuditEvent
 - ℹ️ SIEM empty until events occur AFTER deploy — sign out/in or queue a job to populate
 
+## L. Shiva — MCP security dashboard (in-portal engine)
+- ✅ `lib/mcp-scan.ts` — TS port of the scanner (C1–C4), runs live in-browser;
+  verified to match the Python scanner on the Attack Range fixtures.
+- 🔄 Tabbed dashboard at /dashboard/shiva: Overview · Scanner playground ·
+  Gateway simulator · Attack Range · Benchmark · Docs (action bar, sub-nav, icons).
+- ⬜ Gateway policy simulator (allow/flag/block over pasted tools + calls).
+- ⬜ Save a scan as findings on an engagement.
+
 ## K. Runner reliability & self-healing (v32)
 - ✅ **Stop going offline during long jobs**: the heartbeat is the only pinger
   while all workers are busy, and it could die if check_cancellations threw — now
