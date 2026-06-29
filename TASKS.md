@@ -64,8 +64,8 @@ pattern-mirrored, and verified on the Vercel deploy.
   raises, and a watchdog in the main loop revives the heartbeat if it ever dies.
 - ✅ **Auto-start on boot is the default** in setup.sh (systemd Restart=always +
   WantedBy=multi-user.target; prompt now [Y/n]).
-- ⬜ Auto-install a job's tool if its binary is missing (then run) — reduce
-  "failure because of the runner"
+- ✅ Auto-install a job's tool if its binary is missing (apt), then run — so a
+  missing tool stops causing job failures (v33; note prepended to the output)
 - ⬜ Portal self-healing: on a runner-caused job failure, diagnose + auto-retry
   (optionally after an install), surface the action
 

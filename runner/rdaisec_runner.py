@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "32"
+RUNNER_VERSION = "33"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -763,12 +763,40 @@ def check_cancellations():
         return
 
 
+def ensure_installed(tool):
+    """Auto-install a missing allowlisted tool via apt so a job doesn't fail just
+    because the binary isn't present yet. Best-effort, never raises; returns a
+    short note prepended to the job output ('' when there's nothing to do)."""
+    try:
+        spec = TOOLS.get(tool, {})
+        bin_name = spec.get("bin") or EXTRA_INSTALL_BINS.get(tool) or tool
+        if shutil.which(bin_name):
+            return ""
+        pkg = spec.get("pkg") or INSTALL_PKGS.get(tool)
+        if not pkg or not shutil.which("apt-get"):
+            return ""  # go-only or non-Debian — leave it to the manual installer
+        sudo, stdin_in = _sudo_prefix()
+        env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+        print(f"  ⬇ '{tool}' not installed — auto-installing ({pkg})…")
+        subprocess.run(
+            sudo + ["apt-get", "install", "-y", pkg],
+            stdin=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT,
+        )
+        if shutil.which(bin_name):
+            return f"[runner] auto-installed missing tool '{tool}'.\n\n"
+        return f"[runner] could not auto-install '{tool}' — install it from the Machines page.\n\n"
+    except Exception:  # noqa: BLE001 — auto-install is best-effort
+        return ""
+
+
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
     argv, err = build_argv(job)
     if err:
         return err, 1
+    # Auto-install a missing allowlisted tool so the job doesn't just fail 127.
+    install_note = "" if job.get("tool") == "custom" else ensure_installed(job.get("tool", ""))
     # Anonymize TCP-connect traffic through Tor when enabled.
     if ANON_ON and shutil.which("torsocks"):
         argv = ["torsocks", *argv]
@@ -784,7 +812,7 @@ def run_job(job):
             bufsize=1,  # line-buffered
         )
     except FileNotFoundError:
-        return f"'{argv[0]}' is not installed on this runner.", 127
+        return install_note + f"'{argv[0]}' is not installed on this runner.", 127
 
     # Register so a portal cancellation can find & kill this process.
     with PROCS_LOCK:
@@ -831,7 +859,7 @@ def run_job(job):
         with PROCS_LOCK:
             RUNNING_PROCS.pop(job_id, None)
 
-    out = "".join(buf)[:MAX_OUTPUT]
+    out = (install_note + "".join(buf))[:MAX_OUTPUT]
     with PROCS_LOCK:
         was_canceled = job_id in CANCELED_IDS
         CANCELED_IDS.discard(job_id)
