@@ -8,6 +8,7 @@ import { NavSelect } from "@/components/nav-select";
 import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { importFindingsCsv } from "@/lib/finding-actions";
+import { classifyConfidence } from "@/lib/exploit-confidence";
 
 export const dynamic = "force-dynamic";
 
@@ -366,6 +367,11 @@ export default async function FindingsPage({
             attack: f.attack,
             owasp: f.owasp,
             confirmed: f.confirmed,
+            confidence: classifyConfidence({
+              title: f.title,
+              description: f.description,
+              confirmedFlag: f.confirmed,
+            }).level,
             category: f.category,
             engagementId: f.engagementId,
             engagementName: f.engagement?.name ?? null,

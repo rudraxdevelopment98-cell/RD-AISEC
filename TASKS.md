@@ -89,8 +89,9 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
   downstream by the targeted exploit actions instead.
 - ✅ **Report validity gate**: an un-validated ("reported") finding can never be
   "ready" to submit; proof level drives the ready/review/weak suggestion.
-- ⬜ Surface the proof level (reported/validated/proven badge) on the Findings +
-  Exploit pages.
+- ✅ **Proof-level badge** (`ConfidenceBadge`) on the Findings list, Exploit page
+  (confirmed + exploitable rows), and the per-finding exploit page; the glow dot
+  now means "proven" (not just a confirmed flag).
 - ⬜ Per-class exploit agents (injection · XSS · SSRF · broken auth · IDOR/mass-
   assignment) — structured playbooks per OWASP class.
 - ⬜ White-box / source-aware recon: ingest the target's repo to map frameworks,

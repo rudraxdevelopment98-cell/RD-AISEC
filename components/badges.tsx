@@ -1,3 +1,5 @@
+import type { Confidence } from "@/lib/exploit-confidence";
+
 const SEVERITY_STYLES: Record<string, string> = {
   info: "border-gray-500/40 text-gray-200 bg-gray-500/10",
   low: "border-sky-500/40 text-sky-200 bg-sky-500/10",
@@ -21,6 +23,25 @@ const ENGAGEMENT_STATUS_STYLES: Record<string, string> = {
 
 function label(s: string) {
   return s.replace(/_/g, " ");
+}
+
+// Proof-by-exploitation confidence (see lib/exploit-confidence.ts).
+const CONFIDENCE_STYLES: Record<Confidence, string> = {
+  proven: "border-red-500/60 text-red-200 bg-red-500/15",
+  validated: "border-emerald-500/50 text-emerald-200 bg-emerald-500/10",
+  reported: "border-gray-500/40 text-gray-400",
+};
+const CONFIDENCE_TITLE: Record<Confidence, string> = {
+  proven: "Proven — a working exploit ran",
+  validated: "Validated — an active check demonstrated it",
+  reported: "Reported — detected by a scanner, not yet validated",
+};
+export function ConfidenceBadge({ value }: { value: Confidence }) {
+  return (
+    <span className={`tag ${CONFIDENCE_STYLES[value]}`} title={CONFIDENCE_TITLE[value]}>
+      {value}
+    </span>
+  );
 }
 
 export function SeverityBadge({ value }: { value: string }) {

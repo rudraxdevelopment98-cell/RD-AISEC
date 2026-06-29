@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
-import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
+import { SeverityBadge, FindingStatusBadge, ConfidenceBadge } from "@/components/badges";
+import type { Confidence } from "@/lib/exploit-confidence";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { bulkDeleteFindings, bulkSetStatus, bulkSetCategory } from "@/lib/finding-actions";
 
@@ -15,6 +16,7 @@ export type FindingRow = {
   attack: string;
   owasp: string;
   confirmed: boolean;
+  confidence: Confidence;
   category: string;
   engagementId: string;
   engagementName: string | null;
@@ -104,15 +106,15 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                   className="mt-1 shrink-0"
                   aria-label="Select finding"
                 />
-                {f.confirmed && (
-                  <span className="dot-blink mt-1.5 shrink-0" title="Confirmed exploitable" />
+                {f.confidence === "proven" && (
+                  <span className="dot-blink mt-1.5 shrink-0" title="Proven exploitable" />
                 )}
                 <Link href={`/dashboard/engagements/${f.engagementId}`} className="font-semibold text-white hover:text-brand">
                   {f.title}
                 </Link>
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                {f.confirmed && <span className="tag border-red-500/50 text-red-300">confirmed</span>}
+                <ConfidenceBadge value={f.confidence} />
                 {f.category && <span className="tag">{f.category}</span>}
                 <span className="flex items-center gap-1">
                   <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
