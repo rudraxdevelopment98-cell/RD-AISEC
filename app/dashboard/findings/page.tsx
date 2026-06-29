@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { EmptyState } from "@/components/empty-state";
 import { FindingsBulk } from "@/components/findings-bulk";
+import { NavSelect } from "@/components/nav-select";
 import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { importFindingsCsv } from "@/lib/finding-actions";
@@ -17,9 +18,41 @@ type SP = {
   status?: string;
   category?: string;
   q?: string;
+  engagement?: string;
+  since?: string;
+  sort?: string;
   ok?: string;
   error?: string;
 };
+
+// Severity rank for sorting (critical first).
+const SEV_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
+const SORT_OPTIONS = [
+  { value: "severity", label: "Severity (high→low)" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "status", label: "Status" },
+];
+
+// Finding statuses (schema enum-as-string) — for the status filter chips.
+const FINDING_STATUSES = ["open", "fixed", "accepted", "false_positive"] as const;
+
+// "Created within" presets → how far back to include (ms).
+const SINCE_MS: Record<string, number> = {
+  "1d": 86_400_000,
+  "7d": 604_800_000,
+  "30d": 2_592_000_000,
+};
+const SINCE_OPTIONS = [
+  { value: "1d", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+];
 
 // Build a /dashboard/findings URL with one filter toggled (or cleared).
 function withParam(sp: SP, key: keyof SP, value: string | undefined): string {
@@ -65,6 +98,10 @@ export default async function FindingsPage({
   if (sp.severity) where.severity = sp.severity;
   if (sp.status) where.status = sp.status;
   if (sp.category) where.category = sp.category;
+  if (sp.engagement) where.engagementId = sp.engagement;
+  if (sp.since && SINCE_MS[sp.since]) {
+    where.createdAt = { gte: new Date(Date.now() - SINCE_MS[sp.since]) };
+  }
   if (sp.q) where.title = { contains: sp.q, mode: "insensitive" };
 
   const [findings, present, cats, engagements] = await Promise.all([
@@ -83,14 +120,34 @@ export default async function FindingsPage({
   const owaspInUse = new Set(present.map((p) => p.owasp).filter(Boolean));
   const categoriesInUse = cats.map((c) => c.category).filter(Boolean);
 
-  const anyFilter = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.category || sp.q);
+  const anyFilter = !!(
+    sp.attack ||
+    sp.owasp ||
+    sp.severity ||
+    sp.status ||
+    sp.category ||
+    sp.q ||
+    sp.engagement ||
+    sp.since
+  );
 
   // CSV export honors the current filters (real filter keys only).
   const exportQs = new URLSearchParams();
-  for (const k of ["attack", "owasp", "severity", "status", "category", "q"] as const) {
+  for (const k of ["attack", "owasp", "severity", "status", "category", "q", "since"] as const) {
     if (sp[k]) exportQs.set(k, sp[k]!);
   }
+  if (sp.engagement) exportQs.set("engagement", sp.engagement);
   const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
+
+  // Sort the loaded set (query is createdAt desc = "recent" default).
+  const sorted =
+    sp.sort === "oldest"
+      ? [...findings].reverse()
+      : sp.sort === "severity"
+        ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+        : sp.sort === "status"
+          ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
+          : findings;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -149,22 +206,50 @@ export default async function FindingsPage({
         <p>• Export/Import findings as CSV. Confirmed-exploitable findings glow red.</p>
       </HelpBanner>
 
-      {/* Search */}
-      <form className="mt-5 flex gap-2" action="/dashboard/findings">
-        {/* preserve other filters on search */}
-        {sp.attack && <input type="hidden" name="attack" value={sp.attack} />}
-        {sp.owasp && <input type="hidden" name="owasp" value={sp.owasp} />}
-        {sp.severity && <input type="hidden" name="severity" value={sp.severity} />}
-        {sp.status && <input type="hidden" name="status" value={sp.status} />}
-        {sp.category && <input type="hidden" name="category" value={sp.category} />}
-        <input
-          name="q"
-          defaultValue={sp.q ?? ""}
-          placeholder="Search finding titles…"
-          className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+      {/* Action bar: search + scope filters (engagement · created-within) */}
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <form className="flex min-w-[14rem] flex-1 gap-2" action="/dashboard/findings">
+          {/* preserve other filters on search */}
+          {sp.attack && <input type="hidden" name="attack" value={sp.attack} />}
+          {sp.owasp && <input type="hidden" name="owasp" value={sp.owasp} />}
+          {sp.severity && <input type="hidden" name="severity" value={sp.severity} />}
+          {sp.status && <input type="hidden" name="status" value={sp.status} />}
+          {sp.category && <input type="hidden" name="category" value={sp.category} />}
+          {sp.engagement && <input type="hidden" name="engagement" value={sp.engagement} />}
+          {sp.since && <input type="hidden" name="since" value={sp.since} />}
+          {sp.sort && <input type="hidden" name="sort" value={sp.sort} />}
+          <input
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder="Search finding titles…"
+            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <button className="btn-ghost text-sm">Search</button>
+        </form>
+        {engagements.length > 0 && (
+          <NavSelect
+            param="engagement"
+            value={sp.engagement}
+            label="Engagement"
+            allLabel="All engagements"
+            options={engagements.map((e) => ({ value: e.id, label: e.name }))}
+          />
+        )}
+        <NavSelect
+          param="since"
+          value={sp.since}
+          label="Created"
+          allLabel="Any time"
+          options={SINCE_OPTIONS}
         />
-        <button className="btn-ghost text-sm">Search</button>
-      </form>
+        <NavSelect
+          param="sort"
+          value={sp.sort}
+          label="Sort"
+          allLabel="Newest first"
+          options={SORT_OPTIONS}
+        />
+      </div>
 
       {/* Filter groups */}
       <div className="mt-4 space-y-3">
@@ -207,6 +292,18 @@ export default async function FindingsPage({
               href={withParam(sp, "severity", sp.severity === s ? undefined : s)}
             >
               {s}
+            </Chip>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-semibold text-gray-500">Status</span>
+          {FINDING_STATUSES.map((s) => (
+            <Chip
+              key={s}
+              active={sp.status === s}
+              href={withParam(sp, "status", sp.status === s ? undefined : s)}
+            >
+              {s.replace("_", " ")}
             </Chip>
           ))}
         </div>
@@ -261,7 +358,7 @@ export default async function FindingsPage({
         </div>
       ) : (
         <FindingsBulk
-          findings={findings.map((f) => ({
+          findings={sorted.map((f) => ({
             id: f.id,
             title: f.title,
             severity: f.severity,

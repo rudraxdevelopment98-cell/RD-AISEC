@@ -506,6 +506,37 @@ Ran a 5-agent audit (WiFi · pipeline/jobs · findings/engagements/programs · r
 - ✅ **gau wired into the recon stage** — engagements now auto-discover a domain's
       known URLs (Wayback/CommonCrawl/OTX) during recon (skipped if not installed).
 
+## ✅ One-click Auto Evil-Twin (WiFi)
+- ✅ **🪤 Auto Evil-Twin** button in the WiFi inspect panel — the evil-twin
+      captive-portal attack, fully automated in one click (was a copy-paste
+      interactive command). It stands up a fake AP with the target SSID + a
+      phishing captive portal via **wifiphisher**, run **headless in a PTY**
+      (`script -qec …`), **quit-on-success** (`-qS`), bounded to ~5 min, single
+      adapter → no-jam / two+ → jams the real AP. The submitted password is
+      parsed from the session log and shown in a **🪤 captured-password banner**
+      (with a live "running…" state + page banner). SSID is charset-validated
+      (no shell injection); authorized networks only; needs wifiphisher + root on
+      the runner. Manual command kept as a fallback in the details panel.
+
+## ✅ Calmer palette + collapsible UI (liquid-glass kept)
+- ✅ **Toned down the colour.** The loud emerald-green accent (`brand`) is now a
+      calm, desaturated cool-slate; the body glow, the morphing "liquid glass"
+      blobs, and the scene backdrop (grid/rays/particles/radar/scanline/galaxy)
+      were all neutralised + dimmed. The **liquid-glass frost is unchanged**
+      (same `.card`/`.glass-panel` blur). Semantic status colours (red/amber/
+      emerald/sky risk + live cues) stay vivid since they carry meaning.
+- ✅ **Less scrolling.** `HelpBanner` now defaults **collapsed** on all ~12 pages
+      (one click to show). The big "Queue a job" form collapses. New reusable
+      `Collapsible` card component (header + chevron, open/close) for dense
+      sections — the pattern to fold more panels going forward.
+
+## ✅ In-workspace tabs (ProjectDiscovery-style)
+- ✅ Reusable `Tabs`/`TabPanel` component (underline strip, all panels stay
+      mounted so forms keep state). The **engagement workspace** now groups its
+      sub-sections into tabs — **⚡ Command · 🤖 Pipeline · 🐞 Findings (n) · 📎
+      Resources (n)** — instead of one long scroll (replaces the old quick-jump
+      chips). Header/authorization/diagnostics stay pinned above as context.
+
 ## ⬜ Phase 8 — Optional AI *(needs `ANTHROPIC_API_KEY`; off unless you ask)*
 - ⬜ **P8.1** — Live Claude report polish (grounded on findings)
 - ⬜ **P8.2** — AI finding triage (severity + remediation suggestions)

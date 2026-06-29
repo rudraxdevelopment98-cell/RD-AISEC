@@ -8,15 +8,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ProjectDiscovery-style: deep near-black canvas + crisp white primary
+        // buttons (see .btn-primary) + a clean green accent used SPARINGLY for
+        // links, active nav, status and progress. Not a green wash — the canvas
+        // and backdrops stay near-monochrome; green is the single bright accent.
         brand: {
-          DEFAULT: "#10b981",
-          dark: "#059669",
-          glow: "#34d399",
+          DEFAULT: "#34d399",
+          dark: "#10b981",
+          glow: "#6ee7b7",
         },
         surface: {
-          DEFAULT: "#0b0f17",
-          card: "#111827",
-          border: "#1f2937",
+          DEFAULT: "#08090c",
+          card: "#101216",
+          border: "#222730",
         },
       },
       fontFamily: {

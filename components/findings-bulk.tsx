@@ -93,7 +93,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
         {findings.map((f) => (
           <div
             key={f.id}
-            className={`card ${f.confirmed ? "glow-danger" : SEV_GLOW[f.severity] ?? ""}`}
+            className={`card ${SEV_GLOW[f.severity] ?? ""}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2">
@@ -104,12 +104,15 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                   className="mt-1 shrink-0"
                   aria-label="Select finding"
                 />
+                {f.confirmed && (
+                  <span className="dot-blink mt-1.5 shrink-0" title="Confirmed exploitable" />
+                )}
                 <Link href={`/dashboard/engagements/${f.engagementId}`} className="font-semibold text-white hover:text-brand">
                   {f.title}
                 </Link>
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                {f.confirmed && <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>}
+                {f.confirmed && <span className="tag border-red-500/50 text-red-300">confirmed</span>}
                 {f.category && <span className="tag">{f.category}</span>}
                 <span className="flex items-center gap-1">
                   <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>

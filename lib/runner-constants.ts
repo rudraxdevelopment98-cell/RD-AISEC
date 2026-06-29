@@ -280,6 +280,86 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     active: false,
     presets: [{ id: "search", label: "Search term", args: [] }],
   },
+  {
+    id: "feroxbuster",
+    label: "feroxbuster — content discovery",
+    description:
+      "Fast recursive directory/file brute-forcing over HTTP(S) to find hidden paths.",
+    active: true,
+    presets: [{ id: "scan", label: "Recursive scan", args: ["--silent", "-d", "2"] }],
+  },
+  {
+    id: "dirsearch",
+    label: "dirsearch — web path scanner",
+    description: "Brute-force web paths and files with a built-in wordlist.",
+    active: true,
+    presets: [{ id: "scan", label: "Scan", args: ["-q"] }],
+  },
+  {
+    id: "testssl",
+    label: "testssl.sh — TLS/SSL audit",
+    description:
+      "Check a server's TLS/SSL configuration, protocols, ciphers and known flaws.",
+    active: false,
+    presets: [{ id: "scan", label: "Full TLS check", args: ["--quiet"] }],
+  },
+  {
+    id: "sslyze",
+    label: "sslyze — TLS scanner",
+    description: "Fast, deep analysis of a server's TLS configuration and certificate.",
+    active: false,
+    presets: [{ id: "scan", label: "Scan (host[:port])", args: [] }],
+  },
+  {
+    id: "nbtscan",
+    label: "nbtscan — NetBIOS scan",
+    description: "Scan a host or network for NetBIOS name info (Windows hosts/shares).",
+    active: true,
+    presets: [{ id: "scan", label: "Scan host/CIDR", args: [] }],
+  },
+  {
+    id: "smbmap",
+    label: "smbmap — SMB share enum",
+    description: "Enumerate SMB shares, permissions and contents on a host.",
+    active: true,
+    presets: [{ id: "scan", label: "List shares", args: [] }],
+  },
+  {
+    id: "fierce",
+    label: "fierce — DNS recon",
+    description: "Discover IP space and hostnames for a domain via DNS (zone walking).",
+    active: false,
+    presets: [{ id: "scan", label: "Recon domain", args: [] }],
+  },
+  {
+    id: "sublist3r",
+    label: "Sublist3r — subdomain enum",
+    description: "Enumerate a domain's subdomains using public search engines (passive).",
+    active: false,
+    presets: [{ id: "scan", label: "Enumerate", args: [] }],
+  },
+  {
+    id: "commix",
+    label: "commix — command injection",
+    description:
+      "Detect and exploit OS command-injection in a URL parameter (authorized only).",
+    active: true,
+    presets: [{ id: "detect", label: "Detect (batch)", args: ["--batch"] }],
+  },
+  {
+    id: "gospider",
+    label: "gospider — web crawler",
+    description: "Fast web spider that collects URLs, JS links and forms from a site.",
+    active: true,
+    presets: [{ id: "crawl", label: "Crawl (depth 2)", args: ["-q", "-d", "2"] }],
+  },
+  {
+    id: "waybackurls",
+    label: "waybackurls — archived URLs",
+    description: "Fetch a domain's historical URLs from the Wayback Machine (passive).",
+    active: false,
+    presets: [{ id: "urls", label: "Fetch URLs", args: [] }],
+  },
 ];
 
 export function findTool(id: string): RunnerTool | undefined {
@@ -322,6 +402,17 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   dalfox: { bin: "dalfox", flag: "url" },
   ffuf: { bin: "ffuf", flag: "-u" },
   gau: { bin: "gau", flag: null },
+  feroxbuster: { bin: "feroxbuster", flag: "-u" },
+  dirsearch: { bin: "dirsearch", flag: "-u" },
+  testssl: { bin: "testssl.sh", flag: null },
+  sslyze: { bin: "sslyze", flag: null },
+  nbtscan: { bin: "nbtscan", flag: null },
+  smbmap: { bin: "smbmap", flag: "-H" },
+  fierce: { bin: "fierce", flag: "--domain" },
+  sublist3r: { bin: "sublist3r", flag: "-d" },
+  commix: { bin: "commix", flag: "--url" },
+  gospider: { bin: "gospider", flag: "-s" },
+  waybackurls: { bin: "waybackurls", flag: null },
 };
 
 // Tools we can install from the portal, mapped to their apt package. Only these
@@ -360,6 +451,15 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   hcxtools: "hcxtools", // convert captures to hashcat 22000 (hcxpcapngtool)
   hcxdumptool: "hcxdumptool", // clientless PMKID capture
   wifiphisher: "wifiphisher", // evil-twin + captive-portal (authorized testing)
+  feroxbuster: "feroxbuster", // recursive content discovery
+  dirsearch: "dirsearch", // web path brute-forcer
+  testssl: "testssl.sh", // TLS/SSL audit
+  sslyze: "sslyze", // TLS scanner
+  nbtscan: "nbtscan", // NetBIOS scan
+  smbmap: "smbmap", // SMB share enumeration
+  fierce: "fierce", // DNS recon
+  sublist3r: "sublist3r", // subdomain enumeration
+  commix: "commix", // command-injection (authorized)
 };
 
 /**
@@ -379,12 +479,16 @@ export const GO_SOURCES: Record<string, string> = {
   nuclei: "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
   ffuf: "github.com/ffuf/ffuf/v2@latest",
   gau: "github.com/lc/gau/v2/cmd/gau@latest",
+  gospider: "github.com/jaeles-project/gospider@latest",
+  waybackurls: "github.com/tomnomnom/waybackurls@latest",
 };
 
 /** Tools whose PRIMARY install method isn't apt (apt has no package for them). */
 export const INSTALL_METHODS: Record<string, { method: "go" | "pipx" }> = {
   httpx: { method: "go" }, // no apt package — Go is the only way
   gau: { method: "go" }, // not packaged for apt — install via Go
+  gospider: { method: "go" }, // not packaged for apt — install via Go
+  waybackurls: { method: "go" }, // not packaged for apt — install via Go
 };
 
 /** Every tool that can be installed from the portal (apt OR an alt method). */
@@ -462,6 +566,13 @@ const HOST_TARGET_TOOLS = new Set([
   "subfinder",
   "naabu",
   "gau",
+  "testssl",
+  "sslyze",
+  "nbtscan",
+  "smbmap",
+  "fierce",
+  "sublist3r",
+  "waybackurls",
 ]);
 
 /** Normalize a target for a given tool (strip scheme/path for host-based tools). */
@@ -499,7 +610,7 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "30";
+export const RUNNER_VERSION = "31";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

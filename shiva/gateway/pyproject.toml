@@ -20,6 +20,7 @@ live = ["mcp[cli]>=1.2.0"]
 
 [project.scripts]
 shiva-gateway = "shiva_gateway.cli:main"
+shiva-gateway-proxy = "shiva_gateway.proxy:main"
 
 [tool.setuptools]
 packages = ["shiva_gateway"]

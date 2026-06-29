@@ -62,7 +62,9 @@ export const authConfig = {
   // "/api/auth") routes every OAuth callback through that one registered URL,
   // which then forwards the session back to the originating preview. So only
   // production's callback needs to be in the provider console, and all previews
-  // work. Unset = normal behaviour (no proxy), so this is safe by default.
+  // work. Set it on BOTH production and preview with the same value: production
+  // (origin matches this URL) does the forwarding; previews use it as their
+  // redirect_uri. Unset = normal behaviour (no proxy), so this is safe by default.
   redirectProxyUrl: process.env.AUTH_REDIRECT_PROXY_URL,
   callbacks: {
     authorized({ auth }) {

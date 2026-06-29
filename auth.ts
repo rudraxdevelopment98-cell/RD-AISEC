@@ -6,6 +6,7 @@ import {
   touchMemberLogin,
   isOwnerEmail,
 } from "@/lib/members";
+import { logAudit } from "@/lib/audit";
 
 /** Re-exported for server-side owner checks. */
 export { isOwnerEmail };
@@ -17,7 +18,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Gate sign-in: only owners and approved members get in.
     async signIn({ user }) {
       const ok = await isApprovedEmail(user?.email);
-      if (ok) await touchMemberLogin(user?.email);
+      if (ok) {
+        await touchMemberLogin(user?.email);
+        await logAudit({ type: "auth.login", actor: user?.email, summary: "Signed in" });
+      }
       return ok;
     },
     // Bake role + access into the token on sign-in so the edge middleware (which

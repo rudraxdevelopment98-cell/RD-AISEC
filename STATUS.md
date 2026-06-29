@@ -28,7 +28,9 @@ results back; the portal parses them into findings.
   PoC in Lab, **verify & confirm yourself**, webhook notify, save to report.
 - **WiFi**: scan (managed nmcli / monitor airodump), inspect (devices, vendor,
   distance, traffic), capture (handshake/PMKID/auto), crack (aircrack/hashcat),
-  **💥 Auto-pwn** (capture→crack→reveal), security assessment → save as findings.
+  **💥 Auto-pwn** (capture→crack→reveal), **🪤 Auto Evil-Twin** (one-click fake-AP
+  captive portal via wifiphisher, headless/PTY, quit-on-capture → reveals the
+  submitted password), security assessment → save as findings.
 - **Network map** (per-scan + full-engagement merged), **Learn** roadmap,
   **Readiness check**, **How-it-works guide**, runner cancellation (v24).
 - **Job priority**: jobs have a `priority` (claimed priority-desc then oldest-first);
@@ -65,6 +67,12 @@ results back; the portal parses them into findings.
   **`CRON_SECRET`** (cron now fails closed without it).
 - Optional: `ANTHROPIC_API_KEY` (AI drafting), `RD_HUNTER_HANDLE`
   (identify-your-traffic header on bug-bounty scans).
+- Optional: `AUTH_REDIRECT_PROXY_URL` (OAuth on Vercel **preview** deploys) —
+  set to `https://<prod-domain>/api/auth` on **both** Production and Preview
+  (same value), with `AUTH_SECRET` identical across both. Fixes preview
+  `redirect_uri_mismatch` by reusing production's one registered callback. See
+  GOOGLE-LOGIN.md → "Preview deployments". (auth.config.ts: `redirectProxyUrl`
+  + `trustHost: true`.)
 
 ## Known follow-ups (not yet done)
 - API access checks added to the main data routes; `assistant` + `lab/ai-draft`

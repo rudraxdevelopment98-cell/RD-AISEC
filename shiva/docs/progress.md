@@ -13,22 +13,20 @@
 ```mermaid
 flowchart LR
     subgraph BACKLOG["📋 Backlog"]
-        b1["Live stdio proxy over the Gateway engine"]
-        b2["Scoring harness: detection-rate vs the Range"]
-        b3["credential_server.py (exfil attack #5)"]
         b4["CI packaging + public release of the scanner"]
+        b5["Live-test the proxy end to end (SDK + a real client)"]
     end
     subgraph DOING["🔨 Doing"]
-        d1["Gateway: live MCP proxy shell"]
-    end
-    subgraph REVIEW["👀 Verify"]
-        r1["FP rate of scanner/gateway on the Range"]
+        d1["Harden detection: more checks + Range attacks"]
     end
     subgraph DONE["✅ Done"]
         e1["Scaffold control-room repo"]
-        e2["Attack Range: poisoning / drift / escalation servers"]
+        e2["Attack Range: poisoning / drift / escalation / exfil servers"]
         e3["Scanner: C1–C4 checks (static + live), CLI, JSON, CI exit codes"]
         e4["Gateway: policy + drift engine, monitor/enforce, replay CLI"]
+        e5["Harness: detection benchmark (100% detect, 0% FP on the Range)"]
+        e6["Gateway: live stdio MCP proxy (runtime enforcement)"]
+        e7["Attack Range: credential_server.py (exfil, attack #5)"]
     end
 ```
 

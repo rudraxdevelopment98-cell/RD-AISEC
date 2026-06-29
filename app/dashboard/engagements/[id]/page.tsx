@@ -8,6 +8,7 @@ import {
 } from "@/components/badges";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Tabs, TabPanel } from "@/components/tabs";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -56,6 +57,16 @@ export default async function EngagementDetail({
   const openCount = e.findings.filter((f) => f.status === "open").length;
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
+
+  // Severity tally for the dashboard stat row (ProjectDiscovery-style).
+  const sevCount = (s: string) => e.findings.filter((f) => f.severity === s).length;
+  const SEV_STATS = [
+    { key: "critical", label: "Critical", dot: "bg-red-500" },
+    { key: "high", label: "High", dot: "bg-orange-500" },
+    { key: "medium", label: "Medium", dot: "bg-amber-500" },
+    { key: "low", label: "Low", dot: "bg-sky-500" },
+    { key: "info", label: "Info", dot: "bg-gray-400" },
+  ];
 
   // Guided-assessment pipeline state, how many runner machines exist, and a
   // readiness diagnostic (why bug-finding might be producing nothing).
@@ -206,19 +217,6 @@ export default async function EngagementDetail({
         </div>
       )}
 
-      {/* Quick jump — this is a long page; let people leap to the part they want. */}
-      <nav className="mt-4 flex flex-wrap gap-2 text-xs">
-        {[
-          { href: "#command", label: "⚡ Actions" },
-          { href: "#pipeline", label: "🤖 Pipeline" },
-          { href: "#findings", label: "🐞 Findings" },
-          { href: "#resources", label: "📎 Resources" },
-        ].map((j) => (
-          <a key={j.href} href={j.href} className="tag text-gray-400 transition hover:border-brand/50 hover:text-gray-200">
-            {j.label}
-          </a>
-        ))}
-      </nav>
 
       {/* Authorization */}
       <section
@@ -271,13 +269,34 @@ export default async function EngagementDetail({
       {/* Readiness — why bug-finding might be producing nothing */}
       <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
 
+      {/* Severity dashboard row (ProjectDiscovery-style) */}
+      <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {SEV_STATS.map((s) => (
+          <div key={s.key} className="card !p-3">
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
+              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+              {s.label}
+            </span>
+            <p className="mt-1 text-2xl font-bold text-white">{sevCount(s.key)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub-sections as tabs (ProjectDiscovery-style) so the workspace isn't one long scroll. */}
+      <div className="mt-6">
+      <Tabs
+        defaultTab="command"
+        tabs={[
+          { id: "command", label: "⚡ Command" },
+          { id: "pipeline", label: "🤖 Pipeline" },
+          { id: "findings", label: `🐞 Findings (${e.findings.length})` },
+          { id: "resources", label: `📎 Resources (${e.resources.length})` },
+        ]}
+      >
+      <TabPanel id="command">
       {/* Command center — drive every workflow for this engagement */}
-      <section id="command" className="mt-6 scroll-mt-20">
-        <div className="flex items-center gap-2">
-          <Icon name="grid" className="h-4 w-4 text-brand" />
-          <h2 className="text-lg font-semibold">Command center</h2>
-        </div>
-        <p className="mt-1 text-sm text-gray-400">
+      <section id="command" className="scroll-mt-20">
+        <p className="text-sm text-gray-400">
           Everything you can do for this engagement — scan, exploit, fix,
           research, hunt, check, and report.
         </p>
@@ -341,7 +360,9 @@ export default async function EngagementDetail({
           </p>
         )}
       </section>
+      </TabPanel>
 
+      <TabPanel id="pipeline">
       {/* Guided assessment pipeline */}
       <div id="pipeline" className="scroll-mt-20">
         <PipelinePanel
@@ -364,9 +385,11 @@ export default async function EngagementDetail({
           </section>
         </details>
       )}
+      </TabPanel>
 
+      <TabPanel id="findings">
       {/* Findings */}
-      <div id="findings" className="mt-8 flex items-center justify-between gap-3 scroll-mt-20">
+      <div id="findings" className="flex items-center justify-between gap-3 scroll-mt-20">
         <h2 className="text-lg font-semibold">
           Findings{" "}
           <span className="text-sm font-normal text-gray-500">
@@ -413,13 +436,18 @@ export default async function EngagementDetail({
         {e.findings.map((f) => (
           <div
             key={f.id}
-            className={`card ${f.confirmed ? "glow-danger" : SEV_GLOW[f.severity] ?? ""}`}
+            className={`card ${SEV_GLOW[f.severity] ?? ""}`}
           >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold text-white">{f.title}</h3>
+              <h3 className="flex items-center gap-2 font-semibold text-white">
+                {f.confirmed && (
+                  <span className="dot-blink shrink-0" title="Confirmed exploitable" />
+                )}
+                {f.title}
+              </h3>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 {f.confirmed && (
-                  <span className="tag border-red-500/50 text-red-300">✅ confirmed</span>
+                  <span className="tag border-red-500/50 text-red-300">confirmed</span>
                 )}
                 <span className="flex items-center gap-1">
                   <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
@@ -480,8 +508,11 @@ export default async function EngagementDetail({
         ))}
       </div>
 
+      </TabPanel>
+
+      <TabPanel id="resources">
       {/* Resources */}
-      <h2 id="resources" className="mt-10 scroll-mt-20 text-lg font-semibold">
+      <h2 id="resources" className="scroll-mt-20 text-lg font-semibold">
         Resources{" "}
         <span className="text-sm font-normal text-gray-500">
           ({e.resources.length})
@@ -568,6 +599,10 @@ export default async function EngagementDetail({
             </form>
           </div>
         ))}
+      </div>
+
+      </TabPanel>
+      </Tabs>
       </div>
 
       {/* Danger zone */}

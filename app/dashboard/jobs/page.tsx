@@ -6,6 +6,7 @@ import { CustomJobForm } from "@/components/custom-job";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { cancelJob, cancelQueuedJobs, prioritizeJob, deprioritizeJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
+import { Tabs, TabPanel } from "@/components/tabs";
 import { HelpBanner } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
 
@@ -144,8 +145,20 @@ export default async function JobsPage({
         defaultEngagementId={searchParams.engagement}
       />
 
+      <div className="mt-8">
+        <Tabs
+          defaultTab={archivedView ? "history" : "active"}
+          tabs={[
+            { id: "active", label: <>Active{active.length > 0 ? ` (${active.length})` : ""}</> },
+            {
+              id: "history",
+              label: <>{archivedView ? "Archived" : "History"}{failedCount > 0 ? ` · ${failedCount} failed` : ""}</>,
+            },
+          ]}
+        >
+          <TabPanel id="active">
       {/* ── Active (live) ───────────────────────────────── */}
-      <div className="mt-10 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-bold">
           Active
           {active.length > 0 && (
@@ -251,8 +264,10 @@ export default async function JobsPage({
         </div>
       )}
 
+          </TabPanel>
+          <TabPanel id="history">
       {/* ── History (searchable / sortable table) ───────── */}
-      <div className="mt-10 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold">{archivedView ? "Archived jobs" : "History"}</h2>
         <Link
           href={archivedView ? "/dashboard/jobs" : "/dashboard/jobs?view=archived"}
@@ -290,6 +305,9 @@ export default async function JobsPage({
           }))}
         />
       )}
+          </TabPanel>
+        </Tabs>
+      </div>
     </div>
   );
 }
