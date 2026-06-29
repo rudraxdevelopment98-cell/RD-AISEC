@@ -75,6 +75,27 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ✅ **Benchmark** (`benchmark.tsx`): detection matrix (scenario × C1–C4) + a live
   detection-rate headline; benign control must not over-flag.
 - ⬜ Save a scan as findings on an engagement.
+- ⬜ More checks: C5 prompt-injection in tool *results* (not just descriptions),
+  C6 over-broad scopes/roots, C7 unpinned/remote tool servers.
+
+## M. Shannon parity — exploit accuracy (white-box AI pentester)
+Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploitation
+(only ship a finding with a working PoC; ~96% on the XBOW benchmark).
+- ✅ **Proof-by-exploitation confidence model** (`lib/exploit-confidence.ts`):
+  reported → validated → proven, from evidence signals (sqlmap/msf/dalfox/TLS =
+  validated; shell/id/data-dump/secret = proven). Unit-verified.
+- ✅ **Stop over-claiming**: a bare nuclei/version MATCH is no longer auto-marked
+  `confirmed` — only when it actually extracted data. Detections get validated
+  downstream by the targeted exploit actions instead.
+- ✅ **Report validity gate**: an un-validated ("reported") finding can never be
+  "ready" to submit; proof level drives the ready/review/weak suggestion.
+- ⬜ Surface the proof level (reported/validated/proven badge) on the Findings +
+  Exploit pages.
+- ⬜ Per-class exploit agents (injection · XSS · SSRF · broken auth · IDOR/mass-
+  assignment) — structured playbooks per OWASP class.
+- ⬜ White-box / source-aware recon: ingest the target's repo to map frameworks,
+  endpoints, and data flows, then focus dynamic testing on real attack paths.
+- ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
 ## K. Runner reliability & self-healing (v32)
 - ✅ **Stop going offline during long jobs**: the heartbeat is the only pinger

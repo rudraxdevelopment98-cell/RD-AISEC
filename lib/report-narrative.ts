@@ -7,6 +7,8 @@
 //                           actually submit); varied per finding, no machine tells
 // Plus assessValidity — a heuristic "is this submittable yet?" check.
 
+import { classifyConfidence, type Confidence } from "./exploit-confidence";
+
 export type ReportInput = {
   title: string;
   severity: string; // info|low|medium|high|critical
@@ -182,8 +184,17 @@ export function assessValidity(i: ReportInput): Validity {
   const sev = (i.severity || "").toLowerCase();
   const desc = (i.description || "").trim();
 
-  if (i.confirmed) notes.push({ kind: "good", text: "Confirmed/reproduced — strongest signal of a valid bug." });
-  else notes.push({ kind: "warn", text: "Not marked confirmed — validate the repro before submitting." });
+  // Proof-by-exploitation: weigh how strongly the issue was actually demonstrated
+  // (proven > validated > reported) rather than a single confirmed flag.
+  const conf: Confidence = classifyConfidence({
+    title: i.title,
+    description: i.description,
+    evidence: i.evidence,
+    confirmedFlag: i.confirmed,
+  }).level;
+  if (conf === "proven") notes.push({ kind: "good", text: "Proven — a working exploit ran. Strongest possible signal." });
+  else if (conf === "validated") notes.push({ kind: "good", text: "Validated — an active check demonstrated the issue." });
+  else notes.push({ kind: "warn", text: "Only detected, not validated — run the exploit/PoC to prove it before submitting." });
 
   if (sev === "info" || sev === "") notes.push({ kind: "warn", text: "Informational severity is often out of scope / not awarded." });
   else notes.push({ kind: "good", text: `Severity (${sev}) is a triable level.` });
@@ -207,6 +218,9 @@ export function assessValidity(i: ReportInput): Validity {
   }
 
   const warns = notes.filter((n) => n.kind === "warn").length;
-  const level: Validity["level"] = warns === 0 ? "ready" : warns <= 2 ? "review" : "weak";
+  let level: Validity["level"] = warns === 0 ? "ready" : warns <= 2 ? "review" : "weak";
+  // Proof-by-exploitation gate: an un-validated ("reported") finding is never
+  // "ready" no matter how clean the rest looks — prove it first.
+  if (conf === "reported" && level === "ready") level = "review";
   return { level, notes };
 }

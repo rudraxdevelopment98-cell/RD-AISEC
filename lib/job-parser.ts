@@ -89,8 +89,13 @@ function parseNuclei(target: string, output: string): ParsedFinding[] {
         title: `${name}${cve ? ` (${cve.toUpperCase()})` : ""} — ${matched}`,
         severity: sev,
         status: "open",
-        // High/critical nuclei matches are template-confirmed exposures.
-        confirmed: sev === "critical" || sev === "high",
+        // A nuclei template MATCH is a detection, not a proven exploit — so it
+        // is only "confirmed" when the template actually extracted concrete data
+        // (a leaked file/secret/version it pulled back) on a high/critical issue.
+        // A bare signature/version match stays unconfirmed ("reported") and gets
+        // validated downstream by the targeted exploit actions. Keeps the engine
+        // from over-claiming confirmed exploits (proof-by-exploitation).
+        confirmed: (sev === "critical" || sev === "high") && extracted.length > 0,
         description:
           `Nuclei template "${tid || name}" matched at ${matched}.` +
           (meta ? `\n\n${meta}` : "") +
