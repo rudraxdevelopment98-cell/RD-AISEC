@@ -11,6 +11,7 @@ const ALL_CHECKS = [
   { id: "C2-broad-permissions", short: "C2", name: "Broad permissions" },
   { id: "C3-dangerous-combo", short: "C3", name: "Dangerous combo" },
   { id: "C4-drift-risk", short: "C4", name: "Drift risk" },
+  { id: "C5-tool-shadowing", short: "C5", name: "Tool shadowing" },
 ];
 
 export function McpBenchmark() {
@@ -44,7 +45,7 @@ export function McpBenchmark() {
         <div className="card">
           <p className="text-xs uppercase tracking-wide text-gray-500">Checks</p>
           <p className="mt-1 text-3xl font-bold text-white">{ALL_CHECKS.length}</p>
-          <p className="text-[11px] text-gray-500">C1 poisoning · C2 perms · C3 combos · C4 drift</p>
+          <p className="text-[11px] text-gray-500">poisoning · perms · combos · drift · shadowing</p>
         </div>
         <div className="card">
           <p className="text-xs uppercase tracking-wide text-gray-500">Scenarios</p>

@@ -205,6 +205,67 @@ export function checkDangerousCombos(target: McpTarget): Finding[] {
   return out;
 }
 
+// --- C5: tool shadowing / look-alike names -----------------------------------
+// A malicious MCP server can register a tool whose name collides with — or looks
+// confusingly like — a trusted tool, so the agent calls the impostor (tool
+// shadowing / namespace confusion). Catch exact duplicates and near-duplicates.
+function normalizeName(n: string): string {
+  return n.toLowerCase().replace(/[\s_\-.]/g, "");
+}
+function levenshtein1(a: string, b: string): boolean {
+  if (a === b) return false;
+  const dl = Math.abs(a.length - b.length);
+  if (dl > 1) return false;
+  // count edits with an early bail at >1
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (a.length < b.length) j++;
+    else { i++; j++; }
+  }
+  if (i < a.length || j < b.length) edits++;
+  return edits === 1;
+}
+
+export function checkToolShadowing(target: McpTarget): Finding[] {
+  const out: Finding[] = [];
+  const tools = target.tools;
+  const reported = new Set<string>();
+  for (let i = 0; i < tools.length; i++) {
+    for (let k = i + 1; k < tools.length; k++) {
+      const a = tools[i].name, b = tools[k].name;
+      if (!a || !b) continue;
+      const na = normalizeName(a), nb = normalizeName(b);
+      const dup = a === b;
+      const collide = !dup && na === nb; // differ only by case/_/-/./space
+      // High precision: a single-character edit on the normalized name (e.g.
+      // read_file vs read_fi1e). Substring matches are intentionally NOT flagged
+      // — get vs get_weather is normal, not shadowing.
+      const lookAlike = !dup && !collide && levenshtein1(na, nb);
+      if (!dup && !collide && !lookAlike) continue;
+      const key = [a, b].sort().join("|");
+      if (reported.has(key)) continue;
+      reported.add(key);
+      out.push({
+        check: "C5-tool-shadowing",
+        severity: dup || collide ? "high" : "medium",
+        tool: b,
+        title: dup
+          ? `Duplicate tool name: ${a}`
+          : `Tool name shadows another: ${b} vs ${a}`,
+        detail:
+          "Two tools share — or nearly share — a name. A malicious or careless server can register a look-alike that the agent calls instead of the trusted tool (tool shadowing / namespace confusion).",
+        evidence: `${a}  ~  ${b}`,
+        recommendation:
+          "Namespace tools per server, reject duplicate/again-similar names at registration, and pin which server owns each tool name.",
+      });
+    }
+  }
+  return out;
+}
+
 export function checkDriftRisk(target: McpTarget): Finding[] {
   const out: Finding[] = [];
   for (const tool of target.tools) {
@@ -229,6 +290,7 @@ export function scan(target: McpTarget): Finding[] {
     ...checkHiddenInstructions(target),
     ...checkBroadPermissions(target),
     ...checkDangerousCombos(target),
+    ...checkToolShadowing(target),
     ...checkDriftRisk(target),
   ].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity] || a.check.localeCompare(b.check));
 }

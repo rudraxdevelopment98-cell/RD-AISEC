@@ -23,11 +23,12 @@ const CHECKS = [
   { id: "C2", name: "Broad permissions", desc: "Tools that expose exec, fs, secrets, network, db", icon: "lock" },
   { id: "C3", name: "Dangerous combos", desc: "Capability pairs that form an exfil / RCE chain", icon: "skull" },
   { id: "C4", name: "Description drift", desc: "Runtime-computed descriptions (rug-pull / re-approval)", icon: "clock" },
+  { id: "C5", name: "Tool shadowing", desc: "Duplicate / look-alike tool names that impersonate a trusted tool", icon: "copy" },
 ];
 
 const PIPELINE = [
   { name: "Discover", desc: "Read the server's tools/list manifest", icon: "search" },
-  { name: "Scan", desc: "Static checks C1–C4 over names, params, descriptions", icon: "radar" },
+  { name: "Scan", desc: "Static checks C1–C5 over names, params, descriptions", icon: "radar" },
   { name: "Gateway", desc: "Admission control + runtime data-flow taint", icon: "shield" },
   { name: "Report", desc: "Severity-ranked findings with fixes", icon: "book" },
 ];
@@ -62,8 +63,8 @@ export default function ShivaIndex() {
         {/* Stat strip */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { k: "Checks", v: "C1–C4", n: "4 detections" },
-            { k: "Scenarios", v: "5", n: "attacks + control" },
+            { k: "Checks", v: "C1–C5", n: "5 detections" },
+            { k: "Scenarios", v: "6", n: "attacks + control" },
             { k: "Gateway", v: "allow/flag/block", n: "+ runtime taint" },
             { k: "Runs", v: "in-browser", n: "nothing leaves the page" },
           ].map((s) => (
