@@ -41,7 +41,14 @@ export async function POST(
   const output = String(body.output ?? "").slice(0, MAX_OUTPUT_CHARS);
   const exitCode =
     typeof body.exitCode === "number" ? body.exitCode : Number(body.exitCode ?? 0) || 0;
-  const status = body.status === "failed" || exitCode !== 0 ? "failed" : "done";
+  // A per-tool timeout (exit 124) that still produced output is a PARTIAL success,
+  // not a failure: long scanners (nuclei, sqlmap, nmap -p-) routinely exhaust their
+  // time budget, but the findings they DID collect are valuable. Count it as done
+  // so those findings import — and so self-heal doesn't burn another full timeout
+  // re-running the same scan.
+  const hasPartialResults = exitCode === 124 && output.trim().length > 0;
+  const status =
+    (body.status === "failed" || exitCode !== 0) && !hasPartialResults ? "failed" : "done";
 
   // Only the first result for a still-active job is processed. A retried POST
   // (network hiccup after a successful save) would otherwise re-auto-import

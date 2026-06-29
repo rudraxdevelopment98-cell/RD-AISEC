@@ -893,7 +893,15 @@ def run_job(job):
 
     def _kill():
         killed["v"] = True
+        # Graceful first: SIGTERM lets scanners (nuclei, sqlmap, nmap) flush the
+        # partial results they've found so far; SIGKILL only if it won't exit.
         try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+                return
+            except Exception:  # noqa: BLE001 — still running, force it
+                pass
             proc.kill()
         except Exception:  # noqa: BLE001
             pass
@@ -984,7 +992,15 @@ def _stream_install_cmd(argv, stdin_in, env, timeout, inst_id, buf, state):
 
     def _kill():
         killed["v"] = True
+        # Graceful first: SIGTERM lets scanners (nuclei, sqlmap, nmap) flush the
+        # partial results they've found so far; SIGKILL only if it won't exit.
         try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+                return
+            except Exception:  # noqa: BLE001 — still running, force it
+                pass
             proc.kill()
         except Exception:  # noqa: BLE001
             pass
