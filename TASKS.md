@@ -73,6 +73,9 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ Better bug discovery feeding the report (tie into pipeline/exploit).
 
 ## H. Misc small fixes (rolling)
+- ✅ Pipeline auto-advance fix: recheckPipeline on engagement page load + AutoRefresh
+  while running (so stages move hands-free, not only on a runner result POST);
+  scoped stage-completion to the current run so an orphaned old job can't block it
 - ⬜ Sweep for stale-data spots that need AutoRefresh
 - ⬜ Bounded `max-h` + inner scroll on unbounded lists
 

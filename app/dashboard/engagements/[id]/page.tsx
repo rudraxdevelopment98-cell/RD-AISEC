@@ -29,7 +29,8 @@ import { EngagementDiagnostics } from "@/components/engagement-diagnostics";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { prisma } from "@/lib/db";
-import { stageProgressMap } from "@/lib/pipeline-engine";
+import { stageProgressMap, recheckPipeline } from "@/lib/pipeline-engine";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { engagementReadiness } from "@/lib/diagnostics";
 import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
 
@@ -67,6 +68,12 @@ export default async function EngagementDetail({
     { key: "low", label: "Low", dot: "bg-sky-500" },
     { key: "info", label: "Info", dot: "bg-gray-400" },
   ];
+
+  // Self-heal the pipeline on view: if the current stage's jobs are all done but
+  // a completion event was missed (runner POST hiccup, cron not firing), nudge it
+  // forward (auto-advance when autoApprove is on, else surface the approval gate)
+  // so stages don't appear stuck. No-op when there's no running pipeline.
+  await recheckPipeline(e.id);
 
   // Guided-assessment pipeline state, how many runner machines exist, and a
   // readiness diagnostic (why bug-finding might be producing nothing).
@@ -363,6 +370,11 @@ export default async function EngagementDetail({
       </TabPanel>
 
       <TabPanel id="pipeline">
+      {/* While the pipeline is actively running, poll so it advances stages
+          hands-free (each refresh re-checks completion via recheckPipeline). */}
+      {(pipeline?.status === "running" || pipeline?.status === "advancing") && (
+        <AutoRefresh seconds={6} />
+      )}
       {/* Guided assessment pipeline */}
       <div id="pipeline" className="scroll-mt-20">
         <PipelinePanel

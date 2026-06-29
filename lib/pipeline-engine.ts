@@ -182,15 +182,26 @@ export async function runTriage(engagementId: string): Promise<string> {
   return `${findings.length} finding(s) triaged · ${filled} remediation(s) added`;
 }
 
-/** Count a job stage's progress for the engagement. */
-async function stageJobProgress(engagementId: string, stage: string) {
+/** Count a job stage's progress for the engagement. `since` scopes the count to
+ * the current run (jobs created at/after the stage started), so an orphaned job
+ * left non-terminal by a previous run can't block this run from completing. */
+async function stageJobProgress(engagementId: string, stage: string, since?: Date | null) {
   const jobs = await prisma.job.findMany({
-    where: { engagementId, stage },
+    where: { engagementId, stage, ...(since ? { createdAt: { gte: since } } : {}) },
     select: { status: true },
   });
   const total = jobs.length;
   const done = jobs.filter((j) => TERMINAL.includes(j.status)).length;
   return { total, done, complete: total > 0 && done === total };
+}
+
+/** The startedAt of a pipeline's current/given stage row (for run-scoping). */
+async function stageStartedAt(pipelineId: string, key: string): Promise<Date | null> {
+  const st = await prisma.pipelineStage.findFirst({
+    where: { pipelineId, key },
+    select: { startedAt: true },
+  });
+  return st?.startedAt ?? null;
 }
 
 /** Mark a stage's row by key. */
@@ -361,7 +372,7 @@ export async function onPipelineJobFinished(job: {
   const p = await prisma.pipeline.findUnique({ where: { engagementId: job.engagementId } });
   if (!p || p.status !== "running" || p.currentKey !== job.stage) return;
 
-  const prog = await stageJobProgress(job.engagementId, job.stage);
+  const prog = await stageJobProgress(job.engagementId, job.stage, await stageStartedAt(p.id, job.stage));
   if (!prog.complete) return;
 
   // Atomically claim this stage's completion so two jobs finishing at once can't
@@ -419,7 +430,7 @@ export async function recheckPipeline(engagementId: string): Promise<void> {
   if (!p || p.status !== "running") return;
   const def = stageDef(p.currentKey);
   if (!def?.jobs) return;
-  const prog = await stageJobProgress(engagementId, p.currentKey);
+  const prog = await stageJobProgress(engagementId, p.currentKey, await stageStartedAt(p.id, p.currentKey));
   if (!prog.complete) return;
   await setStage(p.id, p.currentKey, { summary: `${prog.done}/${prog.total} jobs complete` });
   if (p.autoApprove) await advancePipeline(p.id);
