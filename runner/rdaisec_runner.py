@@ -35,11 +35,11 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "31"
+RUNNER_VERSION = "32"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
-PING_SECONDS = int(os.environ.get("PING_SECONDS", "30"))
+PING_SECONDS = int(os.environ.get("PING_SECONDS", "20"))
 
 # How many jobs to run at once on this machine. Each claimed job runs in its own
 # worker thread; 1 = serial. This env var is just the STARTING value — the portal
@@ -561,7 +561,10 @@ def fetch_tools():
 
 def heartbeat_loop():
     """Background: keep the machine 'online' regardless of what the loop is doing.
-    Also self-heals the Tor exit IP once bootstrapping completes."""
+    While every worker is busy with a long job, the main loop stops polling, so
+    this is the ONLY thing pinging the portal — it must NEVER die. Every pass is
+    fully guarded; check_cancellations runs inside the guard too. Also self-heals
+    the Tor exit IP once bootstrapping completes."""
     global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR
     while True:
         try:
@@ -573,11 +576,13 @@ def heartbeat_loop():
                     EXIT_IP = ip
                     ANON_STATUS = "on"
                     print(f"  Tor exit IP {ip}")
-            request("GET", "/api/runner/ping")
-        except Exception:  # noqa: BLE001
+            # Bounded timeout so a slow ping can't delay the next one past the
+            # portal's offline window.
+            request("GET", "/api/runner/ping", timeout=15)
+            # Kill any jobs canceled from the portal so their worker slots free up.
+            check_cancellations()
+        except Exception:  # noqa: BLE001 — the heartbeat must NEVER die
             pass
-        # Kill any jobs canceled from the portal so their worker slots free up.
-        check_cancellations()
         time.sleep(PING_SECONDS)
 
 
@@ -736,25 +741,26 @@ CANCELED_IDS: set = set()
 
 
 def check_cancellations():
-    """Kill any running job the portal has marked canceled. Best-effort."""
-    with PROCS_LOCK:
-        if not RUNNING_PROCS:
-            return
+    """Kill any running job the portal has marked canceled. Best-effort; this must
+    never raise — both the heartbeat and the main loop call it."""
     try:
+        with PROCS_LOCK:
+            if not RUNNING_PROCS:
+                return
         resp = request("GET", "/api/runner/job/canceled", timeout=10)
         ids = json.loads(resp.read().decode()).get("ids", [])
-    except Exception:  # noqa: BLE001
+        with PROCS_LOCK:
+            for jid in ids:
+                proc = RUNNING_PROCS.get(jid)
+                if proc is not None:
+                    CANCELED_IDS.add(jid)
+                    try:
+                        proc.kill()
+                        print(f"  ✖ job {jid} canceled from portal — killed")
+                    except Exception:  # noqa: BLE001
+                        pass
+    except Exception:  # noqa: BLE001 — cancellation checks never crash a loop
         return
-    with PROCS_LOCK:
-        for jid in ids:
-            proc = RUNNING_PROCS.get(jid)
-            if proc is not None:
-                CANCELED_IDS.add(jid)
-                try:
-                    proc.kill()
-                    print(f"  ✖ job {jid} canceled from portal — killed")
-                except Exception:  # noqa: BLE001
-                    pass
 
 
 def run_job(job):
@@ -1092,8 +1098,10 @@ def main():
 
     print("Anonymity (Tor) is controlled from the portal → Machines.\n")
 
-    # Start the heartbeat so we stay online during long jobs/installs.
-    threading.Thread(target=heartbeat_loop, daemon=True).start()
+    # Start the heartbeat so we stay online during long jobs/installs. Keep the
+    # handle so the watchdog in the main loop can revive it if it ever dies.
+    hb = threading.Thread(target=heartbeat_loop, daemon=True)
+    hb.start()
 
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
@@ -1105,6 +1113,13 @@ def main():
     # timer now since startup already did one check above.
     last_update_check = time.monotonic()
     while True:
+        # Watchdog: revive the heartbeat if it ever died, so the machine can't
+        # silently go offline (e.g. during a long job, when it's the only pinger).
+        if not hb.is_alive():
+            hb = threading.Thread(target=heartbeat_loop, daemon=True)
+            hb.start()
+            print("⤿ heartbeat thread revived")
+
         # Refresh the allowlist periodically so new portal tools appear here.
         if time.monotonic() - last_refresh > TOOL_REFRESH_SECONDS:
             f = fetch_tools()

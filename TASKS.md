@@ -56,6 +56,19 @@ pattern-mirrored, and verified on the Vercel deploy.
 - ⬜ Surface a real activity feed in the right rail from AuditEvent
 - ℹ️ SIEM empty until events occur AFTER deploy — sign out/in or queue a job to populate
 
+## K. Runner reliability & self-healing (v32)
+- ✅ **Stop going offline during long jobs**: the heartbeat is the only pinger
+  while all workers are busy, and it could die if check_cancellations threw — now
+  the whole heartbeat pass is guarded (never dies), ping uses a bounded timeout,
+  PING 30s→20s (more margin under the 90s window), check_cancellations never
+  raises, and a watchdog in the main loop revives the heartbeat if it ever dies.
+- ✅ **Auto-start on boot is the default** in setup.sh (systemd Restart=always +
+  WantedBy=multi-user.target; prompt now [Y/n]).
+- ⬜ Auto-install a job's tool if its binary is missing (then run) — reduce
+  "failure because of the runner"
+- ⬜ Portal self-healing: on a runner-caused job failure, diagnose + auto-retry
+  (optionally after an install), surface the action
+
 ## J. Remote WiFi / multi-site runners
 - ✅ Clarified in the WiFi UI: WiFi is radio (range-limited); place a runner with a
   dongle AT the target site and drive it remotely (already supported per-machine)

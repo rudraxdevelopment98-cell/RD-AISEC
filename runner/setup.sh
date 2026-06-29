@@ -51,9 +51,14 @@ if ! command -v systemctl >/dev/null 2>&1; then
   exit 0
 fi
 
-read -r -p "Install a systemd service so it starts on boot? [y/N]: " INSTALL_SVC
+read -r -p "Install a systemd service so it starts on boot + auto-restarts? [Y/n]: " INSTALL_SVC
 case "$INSTALL_SVC" in
-  y|Y|yes|YES)
+  n|N|no|NO)
+    echo
+    echo "Skipped. Start the runner manually anytime with:"
+    echo "  python3 \"$SCRIPT_DIR/rdaisec_runner.py\""
+    ;;
+  *)
     PY="$(command -v python3)"
     UNIT=/etc/systemd/system/rdaisec-runner.service
     echo "Writing $UNIT (needs sudo)…"
@@ -81,10 +86,5 @@ EOF
     echo "  Status:  sudo systemctl status rdaisec-runner"
     echo "  Logs:    journalctl -u rdaisec-runner -f"
     echo "  Stop:    sudo systemctl disable --now rdaisec-runner"
-    ;;
-  *)
-    echo
-    echo "Skipped. Start the runner manually anytime with:"
-    echo "  python3 \"$SCRIPT_DIR/rdaisec_runner.py\""
     ;;
 esac
