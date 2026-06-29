@@ -7,6 +7,7 @@ import { tagFindings } from "@/lib/finding-map";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
+import { selfHealFailedJob } from "@/lib/self-heal";
 import { notifyFindings } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +102,28 @@ export async function POST(
         }
       }
     }
+  }
+
+  // Self-healing: a recoverable runner-side failure (missing tool, timeout, dead
+  // runner, transient network) → diagnose, fix (queue an install when needed),
+  // and re-queue the work in the background, bounded by Job.retries. Runs BEFORE
+  // the pipeline check so a queued retry keeps the stage from advancing on a
+  // transient failure.
+  if (status === "failed") {
+    await selfHealFailedJob({
+      tool: job.tool,
+      target: job.target,
+      args: job.args,
+      output,
+      exitCode,
+      retries: job.retries,
+      engagementId: job.engagementId,
+      runnerId: job.runnerId,
+      queuedBy: job.queuedBy,
+      stage: job.stage,
+      autoImport: job.autoImport,
+      priority: job.priority,
+    });
   }
 
   // Guided-assessment pipeline: when a staged job reaches a terminal state, let

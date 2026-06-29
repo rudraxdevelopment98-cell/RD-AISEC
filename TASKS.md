@@ -66,8 +66,11 @@ pattern-mirrored, and verified on the Vercel deploy.
   WantedBy=multi-user.target; prompt now [Y/n]).
 - ✅ Auto-install a job's tool if its binary is missing (apt), then run — so a
   missing tool stops causing job failures (v33; note prepended to the output)
-- ⬜ Portal self-healing: on a runner-caused job failure, diagnose + auto-retry
-  (optionally after an install), surface the action
+- ✅ Portal self-healing: on a runner-caused job failure the result route
+  diagnoses the cause (missing tool / timeout / dead runner / transient net) and
+  auto-fixes it — queues a tool install when needed + re-queues the work
+  (Job.retries-bounded, max 2), logged to SIEM as job.autoretry. Pure
+  diagnosis in lib/self-heal-core.ts (unit-verified). Additive migration.
 
 ## J. Remote WiFi / multi-site runners
 - ✅ Clarified in the WiFi UI: WiFi is radio (range-limited); place a runner with a

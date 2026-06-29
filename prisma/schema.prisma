@@ -164,6 +164,9 @@ model Job {
   autoImport   Boolean    @default(false)
   // Archived jobs are hidden from the default History view but kept on record.
   archived     Boolean    @default(false)
+  // Self-healing: how many times the portal has auto-retried this work after a
+  // recoverable runner-side failure. Bounded so it can't loop forever.
+  retries      Int        @default(0)
   createdAt    DateTime   @default(now())
   startedAt    DateTime?
   finishedAt   DateTime?
