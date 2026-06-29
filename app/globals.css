@@ -84,9 +84,13 @@ body {
 .accent-emerald { @apply text-emerald-300; }
 .accent-sky { @apply text-sky-300; }
 .accent-amber { @apply text-amber-300; }
+.accent-red { @apply text-red-300; }
+.accent-fuchsia { @apply text-fuchsia-300; }
 .ring-emerald { @apply border-emerald-500/40 bg-emerald-500/10; }
 .ring-sky { @apply border-sky-500/40 bg-sky-500/10; }
 .ring-amber { @apply border-amber-500/40 bg-amber-500/10; }
+.ring-red { @apply border-red-500/50 bg-red-500/15; }
+.ring-fuchsia { @apply border-fuchsia-500/50 bg-fuchsia-500/15; }
 
 /* ── Cinematic / infographic styling ──────────────────────────────── */
 .text-gradient {

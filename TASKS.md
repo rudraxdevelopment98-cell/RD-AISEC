@@ -59,9 +59,21 @@ pattern-mirrored, and verified on the Vercel deploy.
 ## L. Shiva — MCP security dashboard (in-portal engine)
 - ✅ `lib/mcp-scan.ts` — TS port of the scanner (C1–C4), runs live in-browser;
   verified to match the Python scanner on the Attack Range fixtures.
-- 🔄 Tabbed dashboard at /dashboard/shiva: Overview · Scanner playground ·
-  Gateway simulator · Attack Range · Benchmark · Docs (action bar, sub-nav, icons).
-- ⬜ Gateway policy simulator (allow/flag/block over pasted tools + calls).
+- ✅ `lib/mcp-gateway.ts` — pure policy engine: per-tool allow/flag/block under a
+  toggleable policy + runtime call replay with data-flow taint (read-then-exfil
+  blocked live). Unit-verified via tsx.
+- ✅ **Tabbed dashboard at /dashboard/shiva**: Overview · Scanner · Gateway ·
+  Attack range · Benchmark · Docs. Hero + stat strip, icon tabs, action bars,
+  sectioned cards. Shared fixtures in `components/mcp/fixtures.ts` (5 scenarios:
+  poisoning, benign control, credential exfil, cross-tool escalation, drift).
+- ✅ **Scanner playground** (`scanner-playground.tsx`): sample chips + textarea +
+  findings panel (severity counts, per-finding evidence/fix), runs in-browser.
+- ✅ **Gateway simulator** (`gateway-simulator.tsx`): policy toggles, per-tool
+  admission verdicts, and a runtime call-sequence replay (exfil chain caught live).
+- ✅ **Attack range** (`attack-range.tsx`): scenario gallery, each scans inline and
+  shows caught/missed vs its expected severity.
+- ✅ **Benchmark** (`benchmark.tsx`): detection matrix (scenario × C1–C4) + a live
+  detection-rate headline; benign control must not over-flag.
 - ⬜ Save a scan as findings on an engagement.
 
 ## K. Runner reliability & self-healing (v32)
