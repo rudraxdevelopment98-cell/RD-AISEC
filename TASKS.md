@@ -131,7 +131,12 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
 - ✅ **Queue-flood fix**: auto-exploit now skips informational findings
   (`worthAutomating`) — fewer junk jobs feeding the runner.
 - ✅ **Report validity** now shows state + estimated acceptance %.
-- ⬜ Wire `groupForReport` into the engagement report page (sectioned output).
+- ✅ **Report wired** (`lib/report.ts buildMarkdown`): the exported report now uses
+  `groupForReport` — Executive Summary + a validated-only risk score, then
+  Confirmed Exploitable / Validated / Suspected / Informational sections, each
+  finding showing policy-adjusted severity, state, confidence, and estimated
+  acceptance %. Recon artifacts are listed terse and never weigh risk.
+- ⬜ Mirror the sectioned view on the report PAGE (on-screen), not just the export.
 - ⬜ Persist `state` + confidence + bbProbability on the Finding model (migration)
   so they're filterable/sortable, not just computed at render.
 - ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
