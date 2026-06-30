@@ -15,6 +15,7 @@ export type ParsedFinding = {
 };
 
 import { parseNmapNetwork, hostLabel } from "@/lib/network";
+import { assessNetwork } from "@/lib/iot-core";
 
 const SEVERITIES = new Set(["info", "low", "medium", "high", "critical"]);
 function normSeverity(s: string): string {
@@ -28,7 +29,8 @@ function normSeverity(s: string): string {
  */
 function parseNmap(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
-  for (const h of parseNmapNetwork(output)) {
+  const hosts = parseNmapNetwork(output);
+  for (const h of hosts) {
     const label = hostLabel(h);
     for (const p of h.ports) {
       out.push({
@@ -44,6 +46,36 @@ function parseNmap(target: string, output: string): ParsedFinding[] {
           "Confirm this service is intended to be exposed. Close or firewall it if not, and ensure it is patched and access-controlled.",
       });
     }
+  }
+
+  // IoT / connected-device assessment: classify each host and raise IoT-specific
+  // findings (exposed telnet/RTSP/UPnP/MQTT, default-credential-prone admin
+  // panels, plaintext protocols) with hardening advice. These are hypotheses
+  // ("reported") the exploit engine can then validate.
+  const { inventory, findings } = assessNetwork(hosts);
+  const devices = inventory.filter((d) => d.type !== "host");
+  if (devices.length > 0) {
+    out.push({
+      title: `IoT / device inventory on ${target} (${devices.length})`,
+      severity: "info",
+      status: "open",
+      description:
+        `Classified ${devices.length} connected device(s):\n\n` +
+        devices
+          .map((d) => `• ${d.host} — ${d.type}${d.signals.length ? ` (${d.signals.join(", ")})` : ""}`)
+          .join("\n"),
+      recommendation:
+        "Confirm every device is expected and authorized. Isolate IoT devices on a dedicated VLAN/SSID with no inbound access and restricted internet egress.",
+    });
+  }
+  for (const f of findings) {
+    out.push({
+      title: f.title,
+      severity: f.severity,
+      status: "open",
+      description: `${f.description}\n\nValidate (authorized): ${f.validateWith}`,
+      recommendation: f.recommendation,
+    });
   }
   return out;
 }

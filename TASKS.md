@@ -106,6 +106,21 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
     UI that lists hypotheses and one-click queues their validation actions.
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
+## N. IoT / connected-device security (over WiFi & LAN)
+- ✅ **IoT assessment core** (`lib/iot-core.ts`, pure + tested): classify devices
+  (ip-camera / router / printer / NAS / smart-home hub / media-TV / VoIP / generic
+  IoT) from ports + service banners + hostname, and raise IoT-specific findings
+  (exposed Telnet, RTSP camera streams, unauth MQTT, UPnP/SSDP, CoAP, default-
+  credential admin panels, raw printing 9100, plaintext FTP, SNMP public) each with
+  hardening advice + an authorized validate/exploit hint.
+- ✅ **Auto-wired into the nmap parser**: any nmap network scan now also emits a
+  classified device inventory + IoT findings (no new tool/runner change).
+- ✅ **"IoT device sweep" nmap preset** (telnet/RTSP/printer/NAS/MQTT/UPnP/Dahua
+  ports + -sV) + a discoverability tip on the Network page.
+- ⬜ Per-class IoT exploit actions (RTSP path brute, MQTT subscribe, default-cred
+  login, PRET for printers, SNMP walk) wired into the exploit engine.
+- ⬜ MAC/OUI vendor enrichment in the host parser to sharpen classification.
+
 ## K. Runner reliability & self-healing (v32)
 - ✅ **Stop going offline during long jobs**: the heartbeat is the only pinger
   while all workers are busy, and it could die if check_cancellations threw — now

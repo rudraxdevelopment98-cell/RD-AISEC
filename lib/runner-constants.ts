@@ -47,6 +47,19 @@ export const RUNNER_TOOLS: RunnerTool[] = [
         label: "Network scan (top ports — give a CIDR)",
         args: ["-Pn", "-T4", "--top-ports", "100", "--host-timeout", "10m"],
       },
+      {
+        id: "iot",
+        label: "IoT device sweep (cameras/printers/hubs — give a CIDR)",
+        // The IoT-relevant ports: telnet(23/2323), ftp/ssh/snmp, web admin
+        // (80/443/8080/8443), RTSP(554/8554), printers(515/631/9100), NAS
+        // (445/548/5000/5001), MQTT(1883/8883), CoAP(5683), UPnP(1900/49152),
+        // SIP(5060), Dahua/XiongMai(37777/34567), cast(8008/8009). -sV so the
+        // parser can classify each device and raise IoT-specific findings.
+        args: [
+          "-Pn", "-sV", "-T4", "--host-timeout", "15m",
+          "-p", "21,22,23,53,80,161,443,515,548,554,631,1883,1900,2323,5000,5001,5060,5683,8008,8009,8080,8443,8554,8883,9100,34567,37777,49152",
+        ],
+      },
     ],
   },
   {

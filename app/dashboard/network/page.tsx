@@ -107,6 +107,13 @@ export default async function NetworkPage({
           pre-filled — pick your machine and run. Only scan networks you own or are
           authorized to test.
         </p>
+        <p className="mt-2 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-[11px] text-sky-200">
+          📷 <b>IoT / device assessment:</b> on the Jobs page pick{" "}
+          <b>nmap → &quot;IoT device sweep&quot;</b> against your LAN CIDR. The portal then
+          classifies each device (camera, router, printer, NAS, smart-home hub) and
+          raises IoT-specific findings — exposed Telnet/RTSP/UPnP/MQTT, default-credential
+          admin panels — each with hardening advice and a way to validate it.
+        </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {[
             { label: "WiFi access points", cmd: "nmcli -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list" },
