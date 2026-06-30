@@ -151,6 +151,13 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
 - ✅ **Exploit page** regrouped by policy state — "Confirmed & validated" (proven
   or actively demonstrated), public-exploit-ready, and "Suspected" to validate;
   informational/recon artifacts are excluded as exploit targets.
+- ✅ **Automated validation + guide** (`lib/validation-guide.ts` +
+  `components/validation-guide.tsx`): per finding, a step-by-step plan — technique,
+  why it proves the bug, the exact command, and "confirms if …" — plus
+  `interpretOutput` which reads each finished validation job and shows
+  "✓ Confirmed exploitable — <signal>" / supporting / not-confirmed with an output
+  snippet. Wired into the per-finding exploit page (the one-click auto-run already
+  queues every step). Verified via tsx (sqlmap/msf/nmap interpret correctly).
 - ⬜ Human-review gate for critical/auth/IDOR/SSRF/RCE before any publish.
 - ⬜ Adaptive learning from HackerOne/Bugcrowd outcomes (acceptance/dupe/N-A).
 - ⬜ Competitor parity research (Aikido AI-pentest, Synack) → feature gaps.
