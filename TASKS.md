@@ -106,6 +106,20 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
     UI that lists hypotheses and one-click queues their validation actions.
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
+## O. Engine breadth + comms hardening
+- ✅ **More service tools** (apt, server-driven — no runner bump for the tools):
+  `onesixtyone` + `snmp-check` (SNMP community/enum), `crackmapexec` (SMB/AD:
+  signing/SMBv1/shares/creds), `joomscan` (Joomla). Each with presets, a parser
+  (SNMP default-community = validated finding, SMBv1 = high, valid SMB creds =
+  critical, Joomla CVEs), and auto-exploit wiring (SNMP→onesixtyone+snmp-check,
+  SMB→crackmapexec). Verified via tsx.
+- ✅ **Runner↔portal comms**: confirmed already encrypted (HTTPS/TLS, cert-verified
+  by urllib; token stored only as a SHA-256 hash). Added an HTTPS-enforcement
+  guard (v35): the runner refuses to run against a plaintext `http://` portal
+  (localhost exempt) so it can never silently downgrade to cleartext. No change
+  to the request/response pipeline.
+- ⬜ Optional future: per-tool more presets; pipx-method tools (netexec/arjun).
+
 ## N. IoT / connected-device security (over WiFi & LAN)
 - ✅ **IoT assessment core** (`lib/iot-core.ts`, pure + tested): classify devices
   (ip-camera / router / printer / NAS / smart-home hub / media-TV / VoIP / generic

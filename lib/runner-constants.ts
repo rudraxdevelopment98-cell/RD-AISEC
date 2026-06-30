@@ -373,6 +373,37 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     active: false,
     presets: [{ id: "urls", label: "Fetch URLs", args: [] }],
   },
+  {
+    id: "onesixtyone",
+    label: "onesixtyone — SNMP community scan",
+    description: "Fast SNMP scanner: finds devices answering default community strings (public/private).",
+    active: true,
+    presets: [{ id: "scan", label: "Scan defaults", args: [] }],
+  },
+  {
+    id: "snmpcheck",
+    label: "snmp-check — SNMP enumeration",
+    description: "Enumerate a host over SNMP (system, network, processes) via the default community.",
+    active: true,
+    presets: [{ id: "enum", label: "Enumerate (public)", args: [] }],
+  },
+  {
+    id: "crackmapexec",
+    label: "crackmapexec — SMB/AD enumeration",
+    description: "Enumerate SMB hosts: OS, signing, SMBv1, shares and (with creds) much more.",
+    active: true,
+    presets: [
+      { id: "smb", label: "SMB null-session enum", args: ["smb"] },
+      { id: "smb-shares", label: "SMB shares (null session)", args: ["smb", "--shares"] },
+    ],
+  },
+  {
+    id: "joomscan",
+    label: "joomscan — Joomla scanner",
+    description: "Detect Joomla version, vulnerable components and misconfigurations (like wpscan for Joomla).",
+    active: true,
+    presets: [{ id: "scan", label: "Scan", args: [] }],
+  },
 ];
 
 export function findTool(id: string): RunnerTool | undefined {
@@ -426,6 +457,11 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   commix: { bin: "commix", flag: "--url" },
   gospider: { bin: "gospider", flag: "-s" },
   waybackurls: { bin: "waybackurls", flag: null },
+  onesixtyone: { bin: "onesixtyone", flag: null },
+  snmpcheck: { bin: "snmp-check", flag: null },
+  // crackmapexec runs `crackmapexec smb <host>` — the preset supplies "smb".
+  crackmapexec: { bin: "crackmapexec", flag: null },
+  joomscan: { bin: "joomscan", flag: "-u" },
 };
 
 // Tools we can install from the portal, mapped to their apt package. Only these
@@ -473,6 +509,10 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   fierce: "fierce", // DNS recon
   sublist3r: "sublist3r", // subdomain enumeration
   commix: "commix", // command-injection (authorized)
+  onesixtyone: "onesixtyone", // SNMP community scanner
+  snmpcheck: "snmp-check", // SNMP enumeration (Kali package provides snmp-check)
+  crackmapexec: "crackmapexec", // SMB/AD enumeration & exploitation
+  joomscan: "joomscan", // Joomla vulnerability scanner
 };
 
 /**
@@ -586,6 +626,9 @@ const HOST_TARGET_TOOLS = new Set([
   "fierce",
   "sublist3r",
   "waybackurls",
+  "onesixtyone",
+  "snmpcheck",
+  "crackmapexec",
 ]);
 
 /** Normalize a target for a given tool (strip scheme/path for host-based tools). */
@@ -623,7 +666,7 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "34";
+export const RUNNER_VERSION = "35";
 
 // A runner is considered offline if it hasn't polled within this window.
 export const RUNNER_ONLINE_WINDOW_MS = 90_000;

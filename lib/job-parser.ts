@@ -864,6 +864,121 @@ function parseWifi(output: string): ParsedFinding[] {
   return out;
 }
 
+/** onesixtyone: lines like "192.168.1.1 [public] Linux ...". A host answering a
+ * default community string is leaking config over SNMP. "private" = writable. */
+function parseOnesixtyone(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  const seen = new Set<string>();
+  for (const line of output.split("\n")) {
+    const m = line.match(/^\s*([0-9a-fA-F:.]+)\s+\[([^\]]+)\]/);
+    if (!m) continue;
+    const [, ip, community] = m;
+    const key = `${ip}|${community}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const writable = /private/i.test(community);
+    out.push({
+      title: `SNMP default community "${community}" on ${ip}`,
+      severity: writable ? "high" : "medium",
+      status: "open",
+      confirmed: true, // the device actually answered the community — validated
+      description:
+        `${ip} responds to the SNMP community string "${community}". This exposes device ` +
+        `configuration${writable ? " and may allow WRITING settings (private = read-write)" : ""} to anyone on the network.`,
+      recommendation:
+        "Disable SNMP if unused, or set a strong non-default community and use SNMPv3 (auth+priv). Block 161/udp at the gateway and restrict to a management network.",
+    });
+  }
+  return out;
+}
+
+/** snmp-check: if it enumerated a host (system/network info), SNMP is exposing data. */
+function parseSnmpCheck(target: string, output: string): ParsedFinding[] {
+  if (!/System information|Hostname\s*:|Network information|Connection successful/i.test(output)) return [];
+  const host = (output.match(/for\s+([0-9a-fA-F:.]+)/i)?.[1]) || target;
+  return [
+    {
+      title: `SNMP exposes system information on ${host}`,
+      severity: "medium",
+      status: "open",
+      confirmed: true,
+      description:
+        `snmp-check enumerated ${host} over SNMP — system details, network interfaces and/or running ` +
+        `processes are readable via the community string. This is useful reconnaissance for an attacker.`,
+      recommendation:
+        "Restrict SNMP to a management VLAN, use SNMPv3 with authentication+privacy, and remove default community strings.",
+    },
+  ];
+}
+
+/** crackmapexec smb: parse host line for SMB signing / SMBv1, and any valid creds. */
+function parseCrackmapexec(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  for (const line of output.split("\n")) {
+    if (/signing:\s*False/i.test(line)) {
+      const host = line.match(/\b([0-9]{1,3}(?:\.[0-9]{1,3}){3})\b/)?.[1] || target;
+      out.push({
+        title: `SMB signing not required on ${host}`,
+        severity: "medium",
+        status: "open",
+        confirmed: true,
+        description: `crackmapexec reports SMB message signing is not required on ${host}. This enables SMB relay / NTLM relay attacks on the network.`,
+        recommendation: "Enforce SMB signing (require, not just enable) via Group Policy on servers and clients.",
+      });
+    }
+    if (/SMBv1:\s*True/i.test(line)) {
+      const host = line.match(/\b([0-9]{1,3}(?:\.[0-9]{1,3}){3})\b/)?.[1] || target;
+      out.push({
+        title: `SMBv1 enabled on ${host}`,
+        severity: "high",
+        status: "open",
+        confirmed: true,
+        description: `crackmapexec reports SMBv1 is enabled on ${host}. SMBv1 is obsolete and exploitable (EternalBlue/MS17-010 family).`,
+        recommendation: "Disable SMBv1 entirely; use SMBv2/3. Patch the host and isolate legacy systems that still need it.",
+      });
+    }
+    const cred = line.match(/\[\+\]\s+([^\s\\]+\\[^\s:]+):(\S+)/);
+    if (cred) {
+      out.push({
+        title: `Valid SMB credentials accepted on ${target}`,
+        severity: "critical",
+        status: "open",
+        confirmed: true,
+        description: `crackmapexec authenticated to ${target} with ${cred[1]} — the credentials are valid on this host.`,
+        recommendation: "Rotate the exposed credentials, enforce least privilege, and investigate how they were obtained.",
+      });
+    }
+  }
+  return out;
+}
+
+/** joomscan: "[+] ... Vulnerable" / version lines → findings. */
+function parseJoomscan(target: string, output: string): ParsedFinding[] {
+  const out: ParsedFinding[] = [];
+  for (const line of output.split("\n")) {
+    if (/EDB|exploit-db|Vulnerable|CVE-\d{4}/i.test(line) && /\[\+\]|vuln/i.test(line)) {
+      out.push({
+        title: `Joomla issue on ${target}: ${line.replace(/\[[+*!]\]\s*/g, "").trim().slice(0, 120)}`,
+        severity: "high",
+        status: "open",
+        description: `joomscan reported a potential Joomla vulnerability on ${target}:\n\n${line.trim().slice(0, 300)}`,
+        recommendation: "Update Joomla core and the affected extension to a patched version; remove unused extensions.",
+      });
+    }
+  }
+  const ver = output.match(/Joomla.{0,20}?(\d+\.\d+(?:\.\d+)?)/i);
+  if (ver) {
+    out.push({
+      title: `Joomla ${ver[1]} detected on ${target}`,
+      severity: "info",
+      status: "open",
+      description: `joomscan identified Joomla ${ver[1]} on ${target}. Confirm it is a supported, fully-patched release.`,
+      recommendation: "Keep Joomla core and extensions current; subscribe to Joomla security announcements.",
+    });
+  }
+  return out;
+}
+
 /**
  * Dispatch to the right parser. Lookup-only tools (whois/dig) intentionally
  * produce no auto-findings — their output stays on the job for manual review.
@@ -920,6 +1035,14 @@ export function parseJobFindings(
       return parseWafw00f(target, output);
     case "searchsploit":
       return parseSearchsploit(target, output);
+    case "onesixtyone":
+      return parseOnesixtyone(target, output);
+    case "snmpcheck":
+      return parseSnmpCheck(target, output);
+    case "crackmapexec":
+      return parseCrackmapexec(target, output);
+    case "joomscan":
+      return [...parseJoomscan(target, output), ...parseSecrets(target, output)];
     default:
       // Custom jobs: WiFi scans, Metasploit confirmations, or leaked secrets.
       return [...parseWifi(output), ...parseVulnConfirm(target, output), ...parseSecrets(target, output)];

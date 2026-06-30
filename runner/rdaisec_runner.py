@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "34"
+RUNNER_VERSION = "35"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1184,6 +1184,15 @@ def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
+    # Enforce TLS: refuse to send the token/jobs/output over plaintext HTTP so a
+    # misconfigured PORTAL_URL can never silently downgrade to cleartext. (All
+    # traffic already rides inside HTTPS, which urllib verifies by default;
+    # localhost http is allowed for local development only.)
+    if PORTAL_URL.startswith("http://") and not re.search(r"^http://(localhost|127\.0\.0\.1)\b", PORTAL_URL):
+        sys.exit(
+            "✗ Refusing to run: PORTAL_URL uses plain HTTP. Use https:// so the "
+            "runner↔portal channel is encrypted (localhost is allowed for testing)."
+        )
     print(f"RD-AISEC runner → {PORTAL_URL}")
 
     # Pull the latest runner before doing anything else; if newer this re-execs.
