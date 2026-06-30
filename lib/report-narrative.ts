@@ -8,6 +8,7 @@
 // Plus assessValidity — a heuristic "is this submittable yet?" check.
 
 import { classifyConfidence, type Confidence } from "./exploit-confidence";
+import { assessFinding } from "./bb-engine";
 
 export type ReportInput = {
   title: string;
@@ -195,6 +196,23 @@ export function assessValidity(i: ReportInput): Validity {
   if (conf === "proven") notes.push({ kind: "good", text: "Proven — a working exploit ran. Strongest possible signal." });
   else if (conf === "validated") notes.push({ kind: "good", text: "Validated — an active check demonstrated the issue." });
   else notes.push({ kind: "warn", text: "Only detected, not validated — run the exploit/PoC to prove it before submitting." });
+
+  // Triage policy: state + estimated bug-bounty acceptance probability.
+  const q = assessFinding({
+    title: i.title,
+    description: i.description,
+    severity: i.severity,
+    evidence: i.evidence,
+    confirmedFlag: i.confirmed,
+  });
+  if (q.state === "informational") {
+    notes.push({ kind: "warn", text: "Looks like a recon artifact / informational signal — most programs won't award it unless chained with real impact." });
+  } else {
+    notes.push({
+      kind: q.bugBountyProbability >= 60 ? "good" : "warn",
+      text: `Estimated acceptance ~${q.bugBountyProbability}% (${q.vulnClass ?? "unclassified"}, state: ${q.state.replace(/_/g, " ")}).`,
+    });
+  }
 
   if (sev === "info" || sev === "") notes.push({ kind: "warn", text: "Informational severity is often out of scope / not awarded." });
   else notes.push({ kind: "good", text: `Severity (${sev}) is a triable level.` });

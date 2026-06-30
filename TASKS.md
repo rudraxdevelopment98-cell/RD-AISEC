@@ -106,6 +106,32 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
     UI that lists hypotheses and one-click queues their validation actions.
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
+## P. Bug-bounty accuracy + report engine (master-policy vNext)
+North star = the RD-AISEC master prompt: accuracy over quantity, validation over
+assumptions, evidence over guesses, human approval, real-world exploitability.
+- ✅ **Accuracy engine** (`lib/bb-engine.ts`, pure + tested): per-finding
+  `assessFinding` → state (detected/suspected/validated/confirmed_exploitable/
+  informational/…), confidence 0–100, policy-adjusted severity (conf<50 caps at
+  MEDIUM; conf<75 forbids CRITICAL; CRITICAL needs demonstrated impact), a vuln
+  class, and a **bug-bounty acceptance probability** (open port 1%, missing CSP
+  1%, validated SQLi ~79%, proven RCE ~98%).
+- ✅ **Recon-artifact downgrade**: open ports, missing headers, robots/security.txt,
+  tech/version banners, DNS/CDN/historical URLs → INFORMATIONAL, never elevate.
+- ✅ **Report sections** (`groupForReport`): Confirmed / Validated / Suspected /
+  Informational, with an executive risk score from validated+confirmed ONLY.
+- ✅ **Queue-flood fix**: auto-exploit now skips informational findings
+  (`worthAutomating`) — fewer junk jobs feeding the runner.
+- ✅ **Report validity** now shows state + estimated acceptance %.
+- ⬜ Wire `groupForReport` into the engagement report page (sectioned output).
+- ⬜ Persist `state` + confidence + bbProbability on the Finding model (migration)
+  so they're filterable/sortable, not just computed at render.
+- ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
+  Exploit-DB, OSV, GHSA — version-aware CPE→CVE correlation, exploit-maturity,
+  freshness (dismiss patched/EOL), risk = CVSS+EPSS+KEV+impact.
+- ⬜ Human-review gate for critical/auth/IDOR/SSRF/RCE before any publish.
+- ⬜ Adaptive learning from HackerOne/Bugcrowd outcomes (acceptance/dupe/N-A).
+- ⬜ Competitor parity research (Aikido AI-pentest, Synack) → feature gaps.
+
 ## O. Engine breadth + comms hardening
 - ✅ **More service tools** (apt, server-driven — no runner bump for the tools):
   `onesixtyone` + `snmp-check` (SNMP community/enum), `crackmapexec` (SMB/AD:

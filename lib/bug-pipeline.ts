@@ -9,6 +9,7 @@ import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
 import { exploitActions } from "@/lib/exploit-core";
+import { worthAutomating } from "@/lib/bb-engine";
 
 // Recon tools whose findings should trigger automated exploit validation.
 // (Excludes searchsploit/sslscan etc. so exploit results don't re-trigger.)
@@ -217,7 +218,11 @@ export async function queueExploitJobs(
   queuedBy: string,
   cap = 8,
 ): Promise<number> {
-  const wanted = findings.flatMap((f) => exploitActions(f));
+  // Don't spend runner jobs validating recon artifacts / informational signals
+  // (open ports, missing headers, banners) — that's what floods the queue. Only
+  // automate findings that could actually be a vulnerability.
+  const worth = findings.filter((f) => worthAutomating(f));
+  const wanted = worth.flatMap((f) => exploitActions(f));
   if (wanted.length === 0) return 0;
 
   const existing = await prisma.job.findMany({
