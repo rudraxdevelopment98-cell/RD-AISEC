@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "35"
+RUNNER_VERSION = "36"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1231,67 +1231,76 @@ def main():
     # timer now since startup already did one check above.
     last_update_check = time.monotonic()
     while True:
-        # Watchdog: revive the heartbeat if it ever died, so the machine can't
-        # silently go offline (e.g. during a long job, when it's the only pinger).
-        if not hb.is_alive():
-            hb = threading.Thread(target=heartbeat_loop, daemon=True)
-            hb.start()
-            print("⤿ heartbeat thread revived")
+        # The whole pass is guarded: a transient error (a slow/cold portal DB
+        # under a big queue, an install/self-update hiccup, a thread spawn issue)
+        # must NEVER kill the main loop — that's what made the runner "stop" once
+        # the queue grew. Log it and keep polling. Worker slots are freed in the
+        # worker's own `finally`, and the heartbeat runs on its own thread.
+        try:
+            # Watchdog: revive the heartbeat if it ever died, so the machine can't
+            # silently go offline (e.g. during a long job, when it's the only pinger).
+            if not hb.is_alive():
+                hb = threading.Thread(target=heartbeat_loop, daemon=True)
+                hb.start()
+                print("⤿ heartbeat thread revived")
 
-        # Refresh the allowlist periodically so new portal tools appear here.
-        if time.monotonic() - last_refresh > TOOL_REFRESH_SECONDS:
-            f = fetch_tools()
-            if f:
-                TOOLS = f
-            last_refresh = time.monotonic()
-
-        # Free worker slots from any portal-canceled jobs before claiming more.
-        check_cancellations()
-
-        # Claim and dispatch jobs until we hit the worker cap or the queue empties.
-        started = 0
-        while True:
-            with WORKERS_LOCK:
-                if ACTIVE_WORKERS >= MAX_WORKERS:
-                    break
-            job, anon = poll()
-            if anon is not None:
-                apply_anonymity(anon)
-            if not job:
-                break
-            # Unknown tool? Refresh once immediately before running it.
-            if job["tool"] not in TOOLS:
+            # Refresh the allowlist periodically so new portal tools appear here.
+            if time.monotonic() - last_refresh > TOOL_REFRESH_SECONDS:
                 f = fetch_tools()
                 if f:
                     TOOLS = f
-                    last_refresh = time.monotonic()
-            with WORKERS_LOCK:
-                ACTIVE_WORKERS += 1
-            threading.Thread(target=worker, args=(job,), daemon=True).start()
-            started += 1
+                last_refresh = time.monotonic()
 
-        if started:
-            # Loop back quickly to claim more (a worker may free a slot soon).
-            time.sleep(1)
-            continue
+            # Free worker slots from any portal-canceled jobs before claiming more.
+            check_cancellations()
 
-        # Idle this pass. Only handle installs/self-update when nothing is running.
-        with WORKERS_LOCK:
-            busy = ACTIVE_WORKERS
-        if busy == 0:
-            inst = poll_install()
-            if inst:
-                print(f"⬇ install {inst['tool']}…")
-                out, code = run_install(inst)
-                post_install_result(inst["id"], out, code)
-                print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
+            # Claim and dispatch jobs until we hit the worker cap or the queue empties.
+            started = 0
+            while True:
+                with WORKERS_LOCK:
+                    if ACTIVE_WORKERS >= MAX_WORKERS:
+                        break
+                job, anon = poll()
+                if anon is not None:
+                    apply_anonymity(anon)
+                if not job:
+                    break
+                # Unknown tool? Refresh once immediately before running it.
+                if job["tool"] not in TOOLS:
+                    f = fetch_tools()
+                    if f:
+                        TOOLS = f
+                        last_refresh = time.monotonic()
+                with WORKERS_LOCK:
+                    ACTIVE_WORKERS += 1
+                threading.Thread(target=worker, args=(job,), daemon=True).start()
+                started += 1
+
+            if started:
+                # Loop back quickly to claim more (a worker may free a slot soon).
+                time.sleep(1)
                 continue
-            # While genuinely idle, apply a newer runner promptly (throttled).
-            if AUTO_UPDATE and time.monotonic() - last_update_check > UPDATE_CHECK_SECONDS:
-                last_update_check = time.monotonic()
-                maybe_self_update()  # re-execs if a newer version is available
 
-        time.sleep(POLL_SECONDS)
+            # Idle this pass. Only handle installs/self-update when nothing is running.
+            with WORKERS_LOCK:
+                busy = ACTIVE_WORKERS
+            if busy == 0:
+                inst = poll_install()
+                if inst:
+                    print(f"⬇ install {inst['tool']}…")
+                    out, code = run_install(inst)
+                    post_install_result(inst["id"], out, code)
+                    print(f"  install {'ok' if code == 0 else 'failed'} (exit {code})\n")
+                    continue
+                # While genuinely idle, apply a newer runner promptly (throttled).
+                if AUTO_UPDATE and time.monotonic() - last_update_check > UPDATE_CHECK_SECONDS:
+                    last_update_check = time.monotonic()
+                    maybe_self_update()  # re-execs if a newer version is available
+
+            time.sleep(POLL_SECONDS)
+        except Exception as e:  # noqa: BLE001 — the main loop must NEVER die
+            print(f"  main loop error (continuing): {e}")
+            time.sleep(POLL_SECONDS)
 
 
 if __name__ == "__main__":
