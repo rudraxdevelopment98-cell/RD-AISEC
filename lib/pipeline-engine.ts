@@ -11,6 +11,7 @@ import { parseScopeEntries } from "@/lib/bugbounty-core";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { exploitActions } from "@/lib/exploit-core";
 import { playbookFor } from "@/data/exploit-playbook";
+import { assessFinding, groupForReport } from "@/lib/bb-engine";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
 import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
 
@@ -162,24 +163,100 @@ export async function queueStageJobs(
   return data.length;
 }
 
-/** Triage: fill a remediation recommendation (from the playbook) on any finding
- * that lacks one, so the report has actionable fixes. Returns a summary. */
+/** Map a policy state to a short, filterable category tag for the findings list. */
+function stateCategory(state: string): string {
+  if (state === "confirmed_exploitable") return "confirmed";
+  if (state === "validated") return "validated";
+  if (state === "informational") return "informational";
+  return "suspected";
+}
+
+/**
+ * Triage: grade every finding under the bug-bounty policy engine and persist a
+ * filterable state category, plus fill a remediation recommendation where one is
+ * missing. Non-destructive — it only writes EMPTY fields (never overwrites a
+ * user's category or an existing recommendation) and never changes severity.
+ * Returns a summary including the validated risk score.
+ */
 export async function runTriage(engagementId: string): Promise<string> {
   const findings = await prisma.finding.findMany({
     where: { engagementId },
-    select: { id: true, title: true, description: true, owasp: true, recommendation: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      owasp: true,
+      severity: true,
+      confirmed: true,
+      recommendation: true,
+      category: true,
+    },
   });
-  let filled = 0;
+
+  let filledRec = 0;
+  let categorized = 0;
   for (const f of findings) {
-    if (f.recommendation && f.recommendation.trim()) continue;
-    const pb = playbookFor(f);
-    const rec = pb.hardening.join(" ");
-    if (rec) {
-      await prisma.finding.update({ where: { id: f.id }, data: { recommendation: rec } });
-      filled += 1;
+    const data: { recommendation?: string; category?: string } = {};
+
+    if (!f.recommendation || !f.recommendation.trim()) {
+      const rec = playbookFor(f).hardening.join(" ");
+      if (rec) {
+        data.recommendation = rec;
+        filledRec += 1;
+      }
+    }
+
+    if (!f.category || !f.category.trim()) {
+      const q = assessFinding({
+        title: f.title,
+        description: f.description,
+        severity: f.severity,
+        confirmedFlag: f.confirmed,
+      });
+      data.category = stateCategory(q.state);
+      categorized += 1;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.finding.update({ where: { id: f.id }, data });
     }
   }
-  return `${findings.length} finding(s) triaged · ${filled} remediation(s) added`;
+
+  // Validated risk score (confirmed + validated only) for the summary line.
+  const { riskScore, counts } = groupForReport(
+    findings.map((f) => ({
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      confirmedFlag: f.confirmed,
+    })),
+  );
+
+  return (
+    `${findings.length} finding(s) triaged · ${categorized} categorized · ${filledRec} remediation(s) added · ` +
+    `validated risk ${riskScore}/100 (${counts.confirmed} confirmed, ${counts.validated} validated, ` +
+    `${counts.suspected} suspected, ${counts.informational} informational)`
+  );
+}
+
+/** Report-stage summary: the graded, validated-only risk (matches the report). */
+async function reportSummary(engagementId: string): Promise<string> {
+  const findings = await prisma.finding.findMany({
+    where: { engagementId },
+    select: { title: true, description: true, severity: true, confirmed: true },
+  });
+  const { riskScore, counts } = groupForReport(
+    findings.map((f) => ({
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      confirmedFlag: f.confirmed,
+    })),
+  );
+  return (
+    `Report ready · ${findings.length} finding(s) · validated risk ${riskScore}/100 ` +
+    `(${counts.confirmed} confirmed, ${counts.validated} validated, ${counts.suspected} suspected)`
+  );
 }
 
 /** Count a job stage's progress for the engagement. `since` scopes the count to
@@ -238,9 +315,8 @@ async function runStage(
     return { immediate: true, summary };
   }
 
-  // report
-  const cnt = await prisma.finding.count({ where: { engagementId: pipeline.engagementId } });
-  const summary = `Report ready · ${cnt} finding(s) compiled`;
+  // report — summarize with the graded, validated-only risk (matches the report).
+  const summary = await reportSummary(pipeline.engagementId);
   await setStage(pipeline.id, key, { summary });
   return { immediate: true, summary };
 }
@@ -342,8 +418,7 @@ export async function rerunStage(engagementId: string, stageKey: string, deep: b
   } else if (stageKey === "triage") {
     await setStage(p.id, stageKey, { summary: await runTriage(p.engagementId) });
   } else {
-    const cnt = await prisma.finding.count({ where: { engagementId: p.engagementId } });
-    await setStage(p.id, stageKey, { summary: `Report ready · ${cnt} finding(s) compiled` });
+    await setStage(p.id, stageKey, { summary: await reportSummary(p.engagementId) });
   }
 
   if (immediate) {
