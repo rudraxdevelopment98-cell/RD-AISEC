@@ -94,8 +94,16 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
   now means "proven" (not just a confirmed flag).
 - ⬜ Per-class exploit agents (injection · XSS · SSRF · broken auth · IDOR/mass-
   assignment) — structured playbooks per OWASP class.
-- ⬜ White-box / source-aware recon: ingest the target's repo to map frameworks,
-  endpoints, and data flows, then focus dynamic testing on real attack paths.
+- 🔄 White-box / source-aware recon:
+  - ✅ **Analysis core** (`lib/source-recon-core.ts`, pure + tested): given source
+    files → detect frameworks (Express/Next/Flask/Django/FastAPI/Rails/Spring/
+    Laravel/…), extract endpoints (incl. Next.js file routes), and emit ranked
+    vulnerability HYPOTHESES across 7 classes (injection, rce, ssrf, deser,
+    path-traversal, xss, crypto, secrets, auth) with a taint heuristic + a
+    "validateWith" suggestion. Hypotheses stay "reported" until proof-by-exploit.
+  - ⬜ Ingestion (OPEN DECISION): runner git-clones a repo on an engagement vs.
+    upload/paste an archive vs. infer from black-box crawl. Then a recon stage +
+    UI that lists hypotheses and one-click queues their validation actions.
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
 ## K. Runner reliability & self-healing (v32)
