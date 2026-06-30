@@ -191,3 +191,54 @@ export function hypothesisCounts(hyps: Hypothesis[]): Record<SourceSeverity, num
   for (const h of hyps) c[h.severity] += 1;
   return c;
 }
+
+// --- runner ingestion: validate a repo URL + build the clone command ----------
+// SECURITY: a repo URL is embedded into a bash command the runner executes. It is
+// validated to https:// + [A-Za-z0-9._-/] ONLY — no shell metacharacters, quotes,
+// $, backticks, spaces, or "..". So it is safe to interpolate. Reject everything
+// else. Keep this the single source of truth for both the server action + tests.
+const REPO_RE = /^https:\/\/[A-Za-z0-9.-]+(?:\/[A-Za-z0-9._-]+)+$/;
+export function isValidRepo(u: string): boolean {
+  return u.length > 0 && u.length <= 200 && REPO_RE.test(u) && !u.includes("..");
+}
+
+/**
+ * Build the runner command that shallow-clones the repo, concatenates its source
+ * files (code + manifests, excluding deps) into a delimited blob the portal can
+ * parse (=== FILE markers), then deletes the clone. `repo` MUST pass isValidRepo.
+ * Backslashes are doubled so the template literal emits literal "\(" / "\)" for
+ * find; there are no "${" sequences (only $VAR / $(...), literal in JS).
+ */
+export function buildSourceReconCommand(repo: string): string {
+  return (
+    `bash -lc 'R="${repo}"; D=$(mktemp -d); echo "Cloning $R"; ` +
+    `git clone --depth 1 "$R" "$D" >/tmp/srclone 2>&1; ` +
+    `if [ ! -d "$D/.git" ]; then echo SOURCERECON_CLONE_FAILED; tail -5 /tmp/srclone; rm -rf "$D"; exit 0; fi; ` +
+    `cd "$D" || exit 0; ` +
+    `( find . -type f \\( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" ` +
+    `-o -name "*.py" -o -name "*.rb" -o -name "*.php" -o -name "*.java" -o -name "*.go" ` +
+    `-o -name "package.json" -o -name "requirements.txt" -o -name "pom.xml" -o -name "Gemfile" ` +
+    `-o -name "composer.json" \\) ` +
+    `-not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/vendor/*" ` +
+    `-not -path "*/dist/*" -not -path "*/build/*" 2>/dev/null | head -400 | ` +
+    `while read f; do sz=$(wc -c < "$f" 2>/dev/null || echo 999999); ` +
+    `if [ "$sz" -le 40000 ]; then echo "===FILE:$f==="; cat "$f"; fi; done ) | head -c 180000; ` +
+    `cd /; rm -rf "$D"; echo; echo SOURCERECON_DONE'`
+  );
+}
+
+/** Reconstruct the SourceFile[] from a source-recon job's blob output. */
+export function parseSourceReconBlob(output: string): SourceFile[] {
+  const files: SourceFile[] = [];
+  // Split on the "===FILE:<path>===" markers, capturing the path.
+  const parts = output.split(/^===FILE:(.*)===[ \t]*$/m);
+  // parts[0] = preamble; then [path, content, path, content, ...]
+  for (let i = 1; i < parts.length; i += 2) {
+    let path = (parts[i] ?? "").trim().replace(/^\.\//, "");
+    let content = parts[i + 1] ?? "";
+    // The last file's content carries the trailing SOURCERECON_DONE sentinel.
+    content = content.replace(/\n?SOURCERECON_DONE\s*$/m, "");
+    if (path) files.push({ path, content });
+  }
+  return files;
+}

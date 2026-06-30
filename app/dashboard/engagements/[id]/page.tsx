@@ -33,6 +33,7 @@ import { stageProgressMap, recheckPipeline } from "@/lib/pipeline-engine";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { engagementReadiness } from "@/lib/diagnostics";
 import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
+import { setSourceRepo, queueSourceRecon } from "@/lib/source-recon";
 
 export const dynamic = "force-dynamic";
 
@@ -366,6 +367,47 @@ export default async function EngagementDetail({
             Scanning &amp; exploitation are locked until written authorization is recorded above.
           </p>
         )}
+
+        {/* White-box source recon — clone a repo on a runner and analyze it for
+            frameworks, endpoints, and code-level vulnerability hypotheses. */}
+        <div className="card mt-4">
+          <div className="flex items-center gap-2">
+            <Icon name="search" className="h-4 w-4 text-brand" />
+            <h3 className="text-sm font-semibold text-white">White-box source recon</h3>
+            <span className="tag ring-sky accent-sky text-[10px]">Shannon-style</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Point this at the target&apos;s <b>https git repo</b> (one you&apos;re authorized to
+            test). A runner shallow-clones it, the portal maps frameworks + endpoints and raises
+            code-level vulnerability hypotheses, then deletes the clone. Hypotheses stay
+            &quot;detected&quot; until an exploit validates them.
+          </p>
+          <form action={setSourceRepo} className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="engagementId" value={e.id} />
+            <input
+              type="url"
+              name="repo"
+              defaultValue={e.sourceRepo ?? ""}
+              placeholder="https://github.com/owner/repo"
+              className="min-w-0 flex-1 rounded-lg border border-surface-border bg-black/40 px-3 py-2 font-mono text-xs text-gray-200 outline-none focus:border-brand"
+            />
+            <button type="submit" className="btn-ghost text-xs">Save</button>
+          </form>
+          <form action={queueSourceRecon} className="mt-2">
+            <input type="hidden" name="engagementId" value={e.id} />
+            <button
+              type="submit"
+              disabled={!e.authorized}
+              className="btn-primary text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              title={e.authorized ? "Clone + analyze on a runner" : "Record authorization first"}
+            >
+              <Icon name="radar" className="mr-1 inline h-4 w-4" /> Run source recon
+            </button>
+            <span className="ml-2 text-[11px] text-gray-600">
+              runs on a connected machine · git clone is read-only and auto-deleted
+            </span>
+          </form>
+        </div>
       </section>
       </TabPanel>
 

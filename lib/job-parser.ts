@@ -16,6 +16,7 @@ export type ParsedFinding = {
 
 import { parseNmapNetwork, hostLabel } from "@/lib/network";
 import { assessNetwork } from "@/lib/iot-core";
+import { parseSourceReconBlob, analyzeSource } from "@/lib/source-recon-core";
 
 const SEVERITIES = new Set(["info", "low", "medium", "high", "critical"]);
 function normSeverity(s: string): string {
@@ -979,6 +980,52 @@ function parseJoomscan(target: string, output: string): ParsedFinding[] {
   return out;
 }
 
+/** White-box source recon (custom job, target "sourcerecon:<repo>"): reconstruct
+ * the cloned source from the blob, analyze it, and emit framework/endpoint info
+ * + per-sink vulnerability HYPOTHESES. These are un-validated ("detected"), so a
+ * critical-rated sink is stored at HIGH (no critical without demonstrated impact);
+ * the bug-bounty engine surfaces them as suspected until an exploit proves them. */
+function parseSourceRecon(target: string, output: string): ParsedFinding[] {
+  if (/SOURCERECON_CLONE_FAILED/.test(output)) return [];
+  const files = parseSourceReconBlob(output);
+  if (files.length === 0) return [];
+  const { frameworks, endpoints, hypotheses, stats } = analyzeSource(files);
+  const repo = target.replace(/^sourcerecon:/, "");
+  const out: ParsedFinding[] = [];
+
+  out.push({
+    title: `White-box source recon: ${stats.files} files, ${endpoints.length} endpoints`,
+    severity: "info",
+    status: "open",
+    description:
+      `Cloned and analyzed ${repo}.\n\n` +
+      `Frameworks: ${frameworks.length ? frameworks.map((f) => f.name).join(", ") : "none detected"}\n` +
+      `Endpoints (${endpoints.length}): ` +
+      (endpoints.slice(0, 20).map((e) => `${e.method} ${e.route}`).join(", ") || "none") +
+      (endpoints.length > 20 ? " …" : "") +
+      `\nLines of code scanned: ${stats.loc}`,
+    recommendation: "Use the attack surface above to focus dynamic testing on real, code-backed paths.",
+  });
+
+  for (const h of hypotheses) {
+    // Un-validated source hypothesis — never store as critical (policy: no
+    // critical without demonstrated impact). Critical sinks land at high.
+    const severity = h.severity === "critical" ? "high" : h.severity;
+    out.push({
+      title: `[white-box] Possible ${h.vulnClass} in ${h.file}:${h.line}`,
+      severity,
+      status: "open",
+      description:
+        `Source analysis flagged a potential ${h.vulnClass} sink (hypothesis — not yet validated).\n\n` +
+        `File: ${h.file}:${h.line}\nCode: ${h.evidence}\nWhy: ${h.why}\n\n` +
+        `Validate (authorized): ${h.validateWith}`,
+      recommendation:
+        `Review the data flow at ${h.file}:${h.line} and treat the input as untrusted. ${h.validateWith}`,
+    });
+  }
+  return out;
+}
+
 /**
  * Dispatch to the right parser. Lookup-only tools (whois/dig) intentionally
  * produce no auto-findings — their output stays on the job for manual review.
@@ -991,6 +1038,8 @@ export function parseJobFindings(
   output: string,
 ): ParsedFinding[] {
   if (!output?.trim()) return [];
+  // White-box source recon rides a custom job keyed by its target prefix.
+  if (target.startsWith("sourcerecon:")) return parseSourceRecon(target, output);
   switch (tool) {
     case "nmap":
       // Open ports + any vuln-script confirmations (--script vuln).

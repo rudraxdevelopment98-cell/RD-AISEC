@@ -101,9 +101,18 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
     vulnerability HYPOTHESES across 7 classes (injection, rce, ssrf, deser,
     path-traversal, xss, crypto, secrets, auth) with a taint heuristic + a
     "validateWith" suggestion. Hypotheses stay "reported" until proof-by-exploit.
-  - ⬜ Ingestion (OPEN DECISION): runner git-clones a repo on an engagement vs.
-    upload/paste an archive vs. infer from black-box crawl. Then a recon stage +
-    UI that lists hypotheses and one-click queues their validation actions.
+  - ✅ **Ingestion — runner clones the repo** (chosen path A): `Engagement.sourceRepo`
+    (additive migration) + `lib/source-recon.ts` server actions. A STRICT validator
+    (`isValidRepo`: https:// + [A-Za-z0-9._-/] only, no shell metacharacters / `..`)
+    gates the URL before it's embedded in the runner's `git clone` command — verified
+    against injection (`;`, `"`, `$(...)`, creds, http, git@ all rejected) and the
+    generated command passes `bash -n`. The runner shallow-clones, ships a size-capped
+    source blob, the portal reconstructs + `analyzeSource`, and emits framework/endpoint
+    info + per-sink hypotheses (critical sinks stored at HIGH — no critical without
+    proof). Wired into the engagement Command tab (auth-gated). Clone is read-only +
+    auto-deleted.
+  - ⬜ One-click "validate this hypothesis" from a source finding (queue the matching
+    dynamic check).
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
 ## P. Bug-bounty accuracy + report engine (master-policy vNext)

@@ -25,6 +25,8 @@ model Engagement {
   // Free-form category/tag for grouping (e.g. a platform like "HackerOne", or
   // a manual label). Auto-set to the platform for bug-bounty engagements.
   category     String    @default("")
+  // White-box source recon: an https git repo URL the runner clones + analyzes.
+  sourceRepo   String    @default("")
   authorized   Boolean   @default(false)
   authorizedBy String    @default("")
   ownerEmail   String    @default("")
