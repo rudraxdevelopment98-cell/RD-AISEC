@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEngagement } from "@/lib/engagements";
-import { sortFindings, severityCounts } from "@/lib/report";
+import { severityCounts, gradeFindings, type GradedFinding } from "@/lib/report";
+import { STATE_LABEL } from "@/lib/bb-engine";
 import { buildExecutiveSummary } from "@/lib/ai-report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
-import { SeverityBadge, FindingStatusBadge } from "@/components/badges";
+import { SeverityBadge } from "@/components/badges";
 import { PrintButton } from "@/components/print-button";
 import { Icon } from "@/components/icons";
 
@@ -19,7 +20,7 @@ export default async function ReportPage({
   if (!e) notFound();
 
   const counts = severityCounts(e.findings);
-  const sorted = sortFindings(e.findings);
+  const graded = gradeFindings(e.findings);
   const date = new Date(e.createdAt).toISOString().slice(0, 10);
   const summary = buildExecutiveSummary(e);
 
@@ -96,15 +97,23 @@ export default async function ReportPage({
           ))}
 
           {counts.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {counts.map((c) => (
                 <span key={c.severity} className="flex items-center gap-2">
                   <SeverityBadge value={c.severity} />
                   <span className="text-sm text-gray-400 print:text-black">× {c.count}</span>
                 </span>
               ))}
+              <span className="tag ml-auto border-brand/40 text-brand print:text-black" title="From confirmed + validated findings only">
+                Validated risk {graded.riskScore}/100
+              </span>
             </div>
           )}
+          <p className="mt-2 text-xs text-gray-500 print:text-gray-600">
+            {graded.counts.confirmed} confirmed · {graded.counts.validated} validated ·{" "}
+            {graded.counts.suspected} suspected · {graded.counts.informational} informational
+            (recon artifacts excluded from risk).
+          </p>
 
           {summary.keyRisks.length > 0 && (
             <div className="mt-4">
@@ -143,57 +152,87 @@ export default async function ReportPage({
           </section>
         )}
 
-        <section className="mt-6">
-          <h2 className="text-lg font-semibold">Findings</h2>
-          {sorted.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">No findings recorded.</p>
-          ) : (
-            <ol className="mt-3 space-y-4">
-              {sorted.map((f, i) => (
-                <li
-                  key={f.id}
-                  className="border-l-2 border-surface-border pl-4 print:border-gray-300"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-semibold text-white print:text-black">
-                      {i + 1}. {f.title}
-                    </h3>
-                    <span className="flex gap-2">
-                      {f.confirmed && (
-                        <span className="tag border-red-500/50 text-red-300 print:text-red-700">
-                          ✅ confirmed exploitable
-                        </span>
-                      )}
-                      <SeverityBadge value={f.severity} />
-                      <FindingStatusBadge value={f.status} />
-                    </span>
-                  </div>
-                  {(f.attack || f.owasp) && (
-                    <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
-                      {[
-                        attackLabel(f.attack) && `ATT&CK ${attackLabel(f.attack)}`,
-                        owaspLabel(f.owasp) && `OWASP ${owaspLabel(f.owasp)}`,
-                      ]
-                        .filter(Boolean)
-                        .join("  ·  ")}
-                    </p>
-                  )}
-                  {f.description && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
-                      {f.description}
-                    </p>
-                  )}
-                  {f.recommendation && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
-                      <span className="text-gray-500">Recommendation: </span>
-                      {f.recommendation}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+        {(() => {
+          const renderItem = (f: GradedFinding, i: number) => (
+            <li key={f.id} className="border-l-2 border-surface-border pl-4 print:border-gray-300">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-white print:text-black">
+                  {i + 1}. {f.title}
+                </h3>
+                <span className="flex flex-wrap items-center gap-2">
+                  <SeverityBadge value={f.quality.severity} />
+                  <span className="tag border-surface-border text-gray-300 print:text-black">
+                    {STATE_LABEL[f.quality.state]}
+                  </span>
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                Confidence {f.quality.confidence}/100
+                {f.quality.state !== "informational" && (
+                  <> · est. acceptance {f.quality.bugBountyProbability}%{f.quality.vulnClass ? ` (${f.quality.vulnClass})` : ""}</>
+                )}
+                {(attackLabel(f.attack) || owaspLabel(f.owasp)) && (
+                  <>
+                    {"  ·  "}
+                    {[
+                      attackLabel(f.attack) && `ATT&CK ${attackLabel(f.attack)}`,
+                      owaspLabel(f.owasp) && `OWASP ${owaspLabel(f.owasp)}`,
+                    ].filter(Boolean).join("  ·  ")}
+                  </>
+                )}
+              </p>
+              {f.description && (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
+                  {f.description}
+                </p>
+              )}
+              {f.recommendation && (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
+                  <span className="text-gray-500">Remediation: </span>
+                  {f.recommendation}
+                </p>
+              )}
+            </li>
+          );
+          const Section = ({ title, note, rows }: { title: string; note: string; rows: GradedFinding[] }) =>
+            rows.length === 0 ? null : (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <p className="mt-1 text-xs text-gray-500 print:text-gray-600">{note}</p>
+                <ol className="mt-3 space-y-4">{rows.map(renderItem)}</ol>
+              </section>
+            );
+          const total =
+            graded.confirmed.length + graded.validated.length + graded.suspected.length + graded.informational.length;
+          if (total === 0) {
+            return (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">Findings</h2>
+                <p className="mt-2 text-sm text-gray-500">No findings recorded.</p>
+              </section>
+            );
+          }
+          return (
+            <>
+              <Section title="Confirmed Exploitable Vulnerabilities" note="A working proof-of-concept demonstrated real impact." rows={graded.confirmed} />
+              <Section title="Validated Vulnerabilities" note="An active check demonstrated the weakness." rows={graded.validated} />
+              <Section title="Suspected Findings" note="Detected but not yet validated — reproduce/exploit before relying on these." rows={graded.suspected} />
+              {graded.informational.length > 0 && (
+                <section className="mt-6">
+                  <h2 className="text-lg font-semibold">Informational &amp; Reconnaissance Artifacts</h2>
+                  <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                    No direct security impact; excluded from the risk score.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-400 print:text-black">
+                    {graded.informational.map((f) => (
+                      <li key={f.id}>{f.title}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+          );
+        })()}
 
         <footer className="mt-8 border-t border-surface-border pt-4 text-xs text-gray-500 print:border-gray-300">
           Generated by RD-AISEC. For authorized security testing and education

@@ -28,7 +28,49 @@ function fmtDate(d: Date): string {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-type GradedFinding = Finding & { quality: Quality };
+export type GradedFinding = Finding & { quality: Quality };
+
+export type GradedSections = {
+  confirmed: GradedFinding[];
+  validated: GradedFinding[];
+  suspected: GradedFinding[];
+  informational: GradedFinding[];
+  riskScore: number;
+  counts: { confirmed: number; validated: number; suspected: number; informational: number };
+};
+
+/**
+ * Grade an engagement's findings under the bug-bounty policy engine and bucket
+ * them into report sections. Shared by the Markdown export AND the on-screen
+ * report page so they never drift. Risk is from confirmed+validated only.
+ */
+export function gradeFindings(findings: Finding[]): GradedSections {
+  type Row = {
+    title: string;
+    description: string;
+    severity: string;
+    confirmedFlag: boolean;
+    _row: Finding;
+  };
+  const inputs: Row[] = findings.map((f) => ({
+    title: f.title,
+    description: f.description,
+    severity: f.severity,
+    confirmedFlag: f.confirmed,
+    _row: f,
+  }));
+  const g = groupForReport(inputs);
+  const withRow = (arr: (Row & { quality: Quality })[]): GradedFinding[] =>
+    arr.map((x) => ({ ...x._row, quality: x.quality }));
+  return {
+    confirmed: withRow(g.confirmed),
+    validated: withRow(g.validated),
+    suspected: withRow(g.suspected),
+    informational: withRow(g.informational),
+    riskScore: g.riskScore,
+    counts: g.counts,
+  };
+}
 
 /** Render one finding block with its policy-graded state/confidence/acceptance. */
 function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
@@ -64,30 +106,9 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
 export function buildMarkdown(e: EngagementWithFindings): string {
   const lines: string[] = [];
 
-  // Grade + bucket every finding under the master policy. The explicit Row type
-  // keeps the original Finding (`_row`) attached through the generic.
-  type Row = {
-    title: string;
-    description: string;
-    severity: string;
-    confirmedFlag: boolean;
-    _row: Finding;
-  };
-  const inputs: Row[] = e.findings.map((f) => ({
-    title: f.title,
-    description: f.description,
-    severity: f.severity,
-    confirmedFlag: f.confirmed,
-    _row: f,
-  }));
-  const g = groupForReport(inputs);
-  // Re-attach the original Finding row to each graded entry.
-  const withRow = (arr: (Row & { quality: Quality })[]): GradedFinding[] =>
-    arr.map((x) => ({ ...x._row, quality: x.quality }));
-  const confirmed = withRow(g.confirmed);
-  const validated = withRow(g.validated);
-  const suspected = withRow(g.suspected);
-  const informational = withRow(g.informational);
+  // Grade + bucket every finding under the master policy.
+  const g = gradeFindings(e.findings);
+  const { confirmed, validated, suspected, informational } = g;
 
   lines.push(`# Security Assessment Report — ${e.name}`);
   lines.push("");

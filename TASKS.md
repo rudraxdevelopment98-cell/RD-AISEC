@@ -136,7 +136,10 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   Confirmed Exploitable / Validated / Suspected / Informational sections, each
   finding showing policy-adjusted severity, state, confidence, and estimated
   acceptance %. Recon artifacts are listed terse and never weigh risk.
-- ⬜ Mirror the sectioned view on the report PAGE (on-screen), not just the export.
+- ✅ **Report PAGE mirrors it** (on-screen + print): shared `gradeFindings` helper
+  drives both, so the page shows the same Confirmed/Validated/Suspected/
+  Informational sections, a "Validated risk N/100" badge, and per-finding state +
+  confidence + acceptance %. No drift between screen and export.
 - ⬜ Persist `state` + confidence + bbProbability on the Finding model (migration)
   so they're filterable/sortable, not just computed at render.
 - ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
