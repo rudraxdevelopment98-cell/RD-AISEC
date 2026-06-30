@@ -145,6 +145,12 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
 - ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
   Exploit-DB, OSV, GHSA — version-aware CPE→CVE correlation, exploit-maturity,
   freshness (dismiss patched/EOL), risk = CVSS+EPSS+KEV+impact.
+- ✅ **Pipeline triage** grades findings (persists a filterable state category,
+  non-destructive) + reports the validated risk; **report stage** summary shows
+  validated risk + breakdown (shared `reportSummary`).
+- ✅ **Exploit page** regrouped by policy state — "Confirmed & validated" (proven
+  or actively demonstrated), public-exploit-ready, and "Suspected" to validate;
+  informational/recon artifacts are excluded as exploit targets.
 - ⬜ Human-review gate for critical/auth/IDOR/SSRF/RCE before any publish.
 - ⬜ Adaptive learning from HackerOne/Bugcrowd outcomes (acceptance/dupe/N-A).
 - ⬜ Competitor parity research (Aikido AI-pentest, Synack) → feature gaps.
