@@ -62,11 +62,18 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
     (m) => m.lastLoginAt && now - new Date(m.lastLoginAt).getTime() < USER_ONLINE_MS,
   ).length;
 
+  // Only poll while a job is actually running/queued — that's the only rail
+  // state that changes on its own. A merely-connected idle runner is NOT a
+  // reason to reload pages under the user. The rail lives on every page, so this
+  // gate is what stops the "every page reloads after a few seconds" feeling.
+  // (The component is also paused while the tab is hidden.)
+  const anyLive = activeJobs.length > 0;
+
   return (
     <div className="space-y-5 text-sm">
       {/* Keep the rail live so counts (active jobs, online) update without a
-          manual reload — the layout otherwise renders once per navigation. */}
-      <AutoRefresh seconds={15} />
+          manual reload — but only while there's live work to watch. */}
+      {anyLive && <AutoRefresh seconds={20} />}
 
       {/* Needs attention — high-criticised work */}
       {showFindings && (

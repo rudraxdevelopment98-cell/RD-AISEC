@@ -79,10 +79,18 @@ export default async function RunnersPage({
     });
 
   const now = Date.now();
+  // Only poll when there's something live to watch — a runner online, or a tool
+  // install in flight. On an idle page nothing changes, so don't reload under
+  // the user. (Visibility-gated in the component too.)
+  const anyLive =
+    installablePending.size > 0 ||
+    runners.some(
+      (r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
+    );
 
   return (
     <div className="mx-auto max-w-5xl">
-      <AutoRefresh seconds={6} />
+      {anyLive && <AutoRefresh seconds={10} />}
 
       <h1 className="text-2xl font-bold">Machines</h1>
       <p className="mt-1 text-gray-400">
