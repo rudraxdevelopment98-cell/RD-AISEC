@@ -40,6 +40,7 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
   const [activeType, setActiveType] = useState("");
   const [activeStatus, setActiveStatus] = useState("");
   const [activeSource, setActiveSource] = useState("");
+  const [groupBy, setGroupBy] = useState<"none" | "source" | "status">("none");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCat, setBulkCat] = useState("");
   const [bulkStatus, setBulkStatus] = useState("active");
@@ -77,6 +78,59 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
       );
     });
   }, [engagements, query, activeCat, activeType, activeStatus, activeSource]);
+
+  // Grouped view: by platform (source) or by status → labelled sub-tables.
+  const groupEntries = useMemo(() => {
+    if (groupBy === "none") return [] as [string, EngagementRow[]][];
+    const m = new Map<string, EngagementRow[]>();
+    for (const e of visible) {
+      const key = groupBy === "source" ? e.source || "Manual" : e.status;
+      const arr = m.get(key) ?? [];
+      arr.push(e);
+      m.set(key, arr);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visible, groupBy]);
+
+  const renderCard = (e: EngagementRow) => (
+    <div key={e.id} className="card-hover flex items-center justify-between gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <input
+          type="checkbox"
+          checked={selected.has(e.id)}
+          onChange={() => toggle(e.id)}
+          className="shrink-0"
+          aria-label="Select engagement"
+        />
+        <Link href={`/dashboard/engagements/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
+            <Icon name={TYPE_ICON[e.type] ?? "target"} className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 truncate font-semibold text-white">
+              {e.name}
+              {e.category && <span className="tag shrink-0 text-[10px]">{e.category}</span>}
+            </p>
+            <p className="truncate text-xs text-gray-500">
+              <span className="capitalize">{e.type}</span> · {e.client || "—"} ·{" "}
+              {e.findingCount} finding{e.findingCount === 1 ? "" : "s"}
+              {!e.authorized && <span className="ml-2 text-amber-400">⚠ unauthorized</span>}
+            </p>
+          </div>
+        </Link>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <EngagementStatusBadge value={e.status} />
+        <Link
+          href={`/dashboard/engagements/${e.id}/edit`}
+          className="text-xs text-gray-500 hover:text-brand"
+          title="Edit engagement"
+        >
+          Edit
+        </Link>
+      </div>
+    </div>
+  );
 
   const toggle = (id: string) =>
     setSelected((p) => {
@@ -195,6 +249,14 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
           </div>
         )}
 
+        {/* Group-by view — organize the list into by-platform / by-status tables */}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-gray-500">Group by</span>
+          <ChipBtn active={groupBy === "none"} onClick={() => setGroupBy("none")}>none</ChipBtn>
+          <ChipBtn active={groupBy === "source"} onClick={() => setGroupBy("source")}>platform</ChipBtn>
+          <ChipBtn active={groupBy === "status"} onClick={() => setGroupBy("status")}>status</ChipBtn>
+        </div>
+
         {/* Bulk operations */}
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-surface-border pt-2 text-xs">
@@ -255,44 +317,18 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
           </EmptyState>
         ) : visible.length === 0 ? (
           <p className="card text-sm text-gray-500">No engagements match your search/filter.</p>
+        ) : groupBy === "none" ? (
+          visible.map(renderCard)
         ) : (
-          visible.map((e) => (
-            <div key={e.id} className="card-hover flex items-center justify-between gap-4">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selected.has(e.id)}
-                  onChange={() => toggle(e.id)}
-                  className="shrink-0"
-                  aria-label="Select engagement"
-                />
-                <Link href={`/dashboard/engagements/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
-                    <Icon name={TYPE_ICON[e.type] ?? "target"} className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 truncate font-semibold text-white">
-                      {e.name}
-                      {e.category && <span className="tag shrink-0 text-[10px]">{e.category}</span>}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">
-                      <span className="capitalize">{e.type}</span> · {e.client || "—"} ·{" "}
-                      {e.findingCount} finding{e.findingCount === 1 ? "" : "s"}
-                      {!e.authorized && <span className="ml-2 text-amber-400">⚠ unauthorized</span>}
-                    </p>
-                  </div>
-                </Link>
+          groupEntries.map(([label, rows]) => (
+            <div key={label}>
+              <div className="flex items-center gap-2 border-b border-surface-border pb-1">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+                  {groupBy === "status" ? label : label}
+                </h3>
+                <span className="tag text-[10px]">{rows.length}</span>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <EngagementStatusBadge value={e.status} />
-                <Link
-                  href={`/dashboard/engagements/${e.id}/edit`}
-                  className="text-xs text-gray-500 hover:text-brand"
-                  title="Edit engagement"
-                >
-                  Edit
-                </Link>
-              </div>
+              <div className="mt-2 space-y-2">{rows.map(renderCard)}</div>
             </div>
           ))
         )}
