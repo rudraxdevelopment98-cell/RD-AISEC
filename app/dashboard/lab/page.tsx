@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { ExploitLab } from "@/components/exploit-lab";
 import { templateForFinding } from "@/data/exploit-templates";
+import { SubNav, EXPLOIT_TABS } from "@/components/sub-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function LabPage({
 
   return (
     <div className="mx-auto max-w-4xl">
+      <SubNav items={EXPLOIT_TABS} />
       <h1 className="text-2xl font-bold">Exploit Lab</h1>
       <p className="mt-1 max-w-2xl text-gray-400">
         Build PoCs and exploits from templates, then save them straight into your
