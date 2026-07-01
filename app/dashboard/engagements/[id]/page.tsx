@@ -9,6 +9,8 @@ import {
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Tabs, TabPanel } from "@/components/tabs";
+import { FindingsBulk } from "@/components/findings-bulk";
+import { classifyConfidence } from "@/lib/exploit-confidence";
 import {
   getEngagement,
   updateEngagementStatus,
@@ -489,84 +491,32 @@ export default async function EngagementDetail({
         </p>
       )}
 
-      {/* Findings list */}
-      <div className="mt-4 space-y-3">
-        {e.findings.length === 0 && (
+      {/* Findings — tabular with search, category filter, and a bulk action bar
+          (tag / set status / delete) + per-row confidence badge & exploit link. */}
+      <div className="mt-4">
+        {e.findings.length === 0 ? (
           <p className="card text-sm text-gray-500">No findings recorded yet.</p>
+        ) : (
+          <FindingsBulk
+            findings={e.findings.map((f) => ({
+              id: f.id,
+              title: f.title,
+              severity: f.severity,
+              status: f.status,
+              attack: f.attack,
+              owasp: f.owasp,
+              confirmed: f.confirmed,
+              confidence: classifyConfidence({
+                title: f.title,
+                description: f.description,
+                confirmedFlag: f.confirmed,
+              }).level,
+              category: f.category,
+              engagementId: e.id,
+              engagementName: e.name,
+            }))}
+          />
         )}
-        {e.findings.map((f) => (
-          <div
-            key={f.id}
-            className={`card ${SEV_GLOW[f.severity] ?? ""}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="flex items-center gap-2 font-semibold text-white">
-                {f.confirmed && (
-                  <span className="dot-blink shrink-0" title="Confirmed exploitable" />
-                )}
-                {f.title}
-              </h3>
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                {f.confirmed && (
-                  <span className="tag border-red-500/50 text-red-300">confirmed</span>
-                )}
-                <span className="flex items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
-                  <SeverityBadge value={f.severity} />
-                </span>
-                <FindingStatusBadge value={f.status} />
-              </div>
-            </div>
-            <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2" linked />
-            {f.description && (
-              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">
-                {f.description}
-              </p>
-            )}
-            {f.recommendation && (
-              <p className="mt-2 whitespace-pre-wrap rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-sm text-gray-300">
-                <span className="text-gray-500">Fix: </span>
-                {f.recommendation}
-              </p>
-            )}
-            <div className="mt-3 flex items-center gap-2">
-              <form action={updateFindingStatus} className="flex items-center gap-2">
-                <input type="hidden" name="id" value={f.id} />
-                <input type="hidden" name="engagementId" value={e.id} />
-                <select
-                  name="status"
-                  defaultValue={f.status}
-                  className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-xs capitalize outline-none focus:border-brand"
-                >
-                  {FINDING_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="btn-ghost px-2 py-1 text-xs">
-                  Save
-                </button>
-              </form>
-              <Link
-                href={`/dashboard/findings/${f.id}/exploit`}
-                className="px-2 py-1 text-xs font-medium text-red-300 hover:text-red-200"
-              >
-                ⚔ Exploit it
-              </Link>
-              <form action={deleteFinding}>
-                <input type="hidden" name="id" value={f.id} />
-                <input type="hidden" name="engagementId" value={e.id} />
-                <button
-                  type="submit"
-                  className="px-2 py-1 text-xs text-gray-500 hover:text-red-400"
-                >
-                  Delete
-                </button>
-              </form>
-            </div>
-          </div>
-        ))}
       </div>
 
       </TabPanel>
