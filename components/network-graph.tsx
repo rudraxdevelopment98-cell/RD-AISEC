@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { hostLabel, type NetworkHost } from "@/lib/network";
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // Ports worth flagging — exposing these often warrants a closer look.
 const RISKY = new Set([21, 23, 25, 135, 139, 445, 1433, 3306, 3389, 5432, 5900, 6379]);
@@ -39,37 +41,86 @@ export function NetworkGraph({
   subnet: string;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  // Active drag: which node + whether it actually moved (to tell drag from click).
+  const drag = useRef<{ i: number; moved: boolean } | null>(null);
 
   // Radial layout — one ring for small sets, two concentric rings when crowded.
-  const positions = useMemo(() => {
+  // This is the DEFAULT arrangement; nodes can then be dragged freely.
+  const radial = useMemo(() => {
     const n = hosts.length;
     const twoRings = n > 18;
     const outer: number[] = [];
     const inner: number[] = [];
     hosts.forEach((_, i) => (twoRings && i % 2 ? inner : outer).push(i));
 
-    const place = (idxs: number[], r: number) => {
-      const pos: Record<number, { x: number; y: number }> = {};
+    const place = (idxs: number[], r: number, acc: Record<number, { x: number; y: number }>) => {
       idxs.forEach((idx, k) => {
         const a = (k / Math.max(1, idxs.length)) * 2 * Math.PI - Math.PI / 2;
-        pos[idx] = { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
+        acc[idx] = { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
       });
-      return pos;
     };
-
     const Router = Math.min(235, 110 + n * 4);
-    return { ...place(outer, Router), ...place(inner, Router * 0.6) };
+    const acc: Record<number, { x: number; y: number }> = {};
+    place(outer, Router, acc);
+    place(inner, Router * 0.6, acc);
+    return acc;
   }, [hosts]);
+
+  // Live positions (draggable). Reset to the radial layout whenever the host set
+  // changes (a new scan) or the user clicks "Reset layout".
+  const [pos, setPos] = useState<Record<number, { x: number; y: number }>>(radial);
+  useEffect(() => {
+    setPos(radial);
+    setSelected(null);
+  }, [radial]);
+
+  function toSvg(e: React.PointerEvent) {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * W,
+      y: ((e.clientY - rect.top) / rect.height) * H,
+    };
+  }
+  function startDrag(e: React.PointerEvent, i: number) {
+    e.preventDefault();
+    drag.current = { i, moved: false };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!drag.current) return;
+    const p = toSvg(e);
+    if (!p) return;
+    drag.current.moved = true;
+    const i = drag.current.i;
+    setPos((cur) => ({ ...cur, [i]: { x: clamp(p.x, 12, W - 12), y: clamp(p.y, 20, H - 20) } }));
+  }
+  function endDrag() {
+    if (drag.current && !drag.current.moved) {
+      const i = drag.current.i;
+      setSelected((s) => (s === i ? null : i));
+    }
+    drag.current = null;
+  }
 
   const sel = selected != null ? hosts[selected] : null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <div className="card overflow-hidden p-2">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-auto w-full touch-none select-none"
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerLeave={endDrag}
+        >
           {/* edges */}
           {hosts.map((_, i) => {
-            const p = positions[i];
+            const p = pos[i];
             if (!p) return null;
             const active = selected === i;
             return (
@@ -99,9 +150,9 @@ export function NetworkGraph({
             {truncate(subnet || "scan", 22)}
           </text>
 
-          {/* host nodes */}
+          {/* host nodes (draggable — pointer-down starts a drag; a tap selects) */}
           {hosts.map((h, i) => {
-            const p = positions[i];
+            const p = pos[i];
             if (!p) return null;
             const r = Math.max(6, Math.min(20, 6 + h.ports.length * 1.6));
             const active = selected === i;
@@ -109,8 +160,8 @@ export function NetworkGraph({
             return (
               <g
                 key={`h${i}`}
-                onClick={() => setSelected(active ? null : i)}
-                className="cursor-pointer"
+                onPointerDown={(e) => startDrag(e, i)}
+                className="cursor-grab active:cursor-grabbing"
               >
                 <circle
                   cx={p.x}
@@ -158,12 +209,22 @@ export function NetworkGraph({
           })}
         </svg>
 
-        {/* legend */}
+        {/* legend + layout controls */}
         <div className="flex flex-wrap items-center gap-4 px-3 pb-2 pt-1 text-xs text-gray-400">
           <Legend color={COLORS.open} label="open ports" />
           <Legend color={COLORS.risky} label="sensitive port" />
           <Legend color={COLORS.up} label="alive, no open ports" />
-          <span className="text-gray-600">node size = open-port count · tap a host</span>
+          <span className="text-gray-600">node size = open-port count · drag to arrange · tap to inspect</span>
+          <button
+            type="button"
+            onClick={() => {
+              setPos(radial);
+              setSelected(null);
+            }}
+            className="ml-auto text-gray-500 hover:text-brand"
+          >
+            ↺ Reset layout
+          </button>
         </div>
       </div>
 
