@@ -14,9 +14,10 @@ pattern-mirrored, and verified on the Vercel deploy.
 1. ✅ **Bug Bounty** → sub-tabs **Programs** (automation bar + collapsible Add
    Program + ProgramsManager search/category/bulk) · **Accounts** (list +
    collapsible Add/connect account). Counts in the tab labels.
-2. ⬜ **Engagements** → list with **by-platform / by-status tables**; per-engagement
-   tabs: Details & Status · Readiness · Command Center · Assessment Pipeline ·
-   **Findings (tabular, filter + customizable action bar)** · Resources.
+2. 🔄 **Engagements** — ✅ list grouped into by-platform/by-status tables;
+   ✅ per-engagement tabs (Details & Status · Readiness · Command Center ·
+   Assessment Pipeline · Findings · Resources). ⬜ Findings tab → tabular with
+   filter + customizable action bar (reuse FindingsBulk).
 3. ⬜ **Exploitation** → tabs: Exploitation · Exploitation Lab.
 4. ⬜ **Jobs** → tabs: Custom create · **Job templates** · Active/running · History ·
    Archive.
