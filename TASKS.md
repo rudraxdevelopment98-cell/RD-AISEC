@@ -28,8 +28,10 @@ pattern-mirrored, and verified on the Vercel deploy.
    optional engagement (auto-import), and `launchAutoscan` queues nmap (IP) or
    httpx+nuclei (host/URL) — from anywhere.
 6. ⬜ **WiFi** → reorganize (scan · inspect · capture/crack · evil-twin · assess).
-7. ⬜ **Network map** → source selector: custom networks vs engagement vs local
-   scan; engagement map = flowing, linkable, adjustable canvas.
+7. ✅ **Network map** → draggable/adjustable canvas (drag hosts to arrange, edges
+   follow, tap to inspect, ↺ reset layout; pointer events for mouse+touch) +
+   a clearer "Map source" selector (custom scan vs engagement; local scans create
+   custom-scan sources).
 8. 🔄 **Machines** — ✅ collapsible machine cards (each `<details>`: name + online
    status + tools/version/workers/tor badges in the summary; Revoke, tool
    installs, worker count, anonymity in the expandable body). ⬜ Set-up-a-runner

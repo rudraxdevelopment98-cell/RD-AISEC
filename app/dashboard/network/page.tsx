@@ -140,15 +140,21 @@ export default async function NetworkPage({
         </p>
       </div>
 
-      {/* View switch: a single scan, or the merged map of a whole engagement. */}
-      {engagementRows.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-gray-500">View:</span>
+      {/* Source selector: which network to map — a single custom scan (any nmap
+          run, incl. a local or custom-CIDR scan) or a whole engagement's merged
+          map. The local scan above is how you CREATE a custom-scan source. */}
+      <div className="mt-6">
+        <p className="text-xs text-gray-500">
+          <span className="font-semibold text-gray-400">Map source</span> — a single custom scan
+          (pick one below), or an engagement&apos;s merged map. Local scans (above) create custom-scan
+          sources.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <Link
             href="/dashboard/network"
             className={`tag ${!engId ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400 hover:text-gray-200"}`}
           >
-            Single scan
+            🗺 Custom scan
           </Link>
           {engagementRows.map((e) => (
             <Link
@@ -156,11 +162,14 @@ export default async function NetworkPage({
               href={`/dashboard/network?engagement=${e.id}`}
               className={`tag ${engId === e.id ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400 hover:text-gray-200"}`}
             >
-              {e.name}
+              📋 {e.name}
             </Link>
           ))}
+          {engagementRows.length === 0 && (
+            <span className="text-gray-600">Engage a program to get an engagement-wide merged map.</span>
+          )}
         </div>
-      )}
+      </div>
 
       {engId ? (
         // ── Full-engagement map (all nmap scans merged) ──
