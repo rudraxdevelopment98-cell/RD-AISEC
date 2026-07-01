@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildMarkdown, reportFilename } from "@/lib/report";
+import { getKevSet } from "@/lib/threat-intel";
 import { guardApi } from "@/lib/api-guard";
 
 export async function GET(
@@ -18,7 +19,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const markdown = buildMarkdown(engagement);
+  const markdown = buildMarkdown(engagement, await getKevSet());
   return new NextResponse(markdown, {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",

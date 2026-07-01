@@ -4,6 +4,7 @@ import { getEngagement } from "@/lib/engagements";
 import { severityCounts, gradeFindings, type GradedFinding } from "@/lib/report";
 import { STATE_LABEL } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
+import { getKevSet } from "@/lib/threat-intel";
 import { buildExecutiveSummary } from "@/lib/ai-report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { SeverityBadge } from "@/components/badges";
@@ -21,7 +22,8 @@ export default async function ReportPage({
   if (!e) notFound();
 
   const counts = severityCounts(e.findings);
-  const graded = gradeFindings(e.findings);
+  const kev = await getKevSet();
+  const graded = gradeFindings(e.findings, kev);
   const date = new Date(e.createdAt).toISOString().slice(0, 10);
   const summary = buildExecutiveSummary(e);
 
@@ -171,6 +173,9 @@ export default async function ReportPage({
                   <span className="tag border-surface-border text-gray-300 print:text-black">
                     {STATE_LABEL[f.quality.state]}
                   </span>
+                  {f.quality.knownExploited && (
+                    <span className="tag border-red-500/60 text-red-300 print:text-red-700" title="In CISA KEV — actively exploited in the wild">🔥 KEV</span>
+                  )}
                   {publishState({ title: f.title, description: f.description, severity: f.severity, confirmedFlag: f.confirmed, reviewed: f.reviewed }) === "pending_review" && (
                     <span className="tag border-amber-500/50 text-amber-300 print:text-amber-700">⚠ pending review</span>
                   )}

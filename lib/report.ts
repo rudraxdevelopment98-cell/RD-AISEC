@@ -47,19 +47,26 @@ export type GradedSections = {
  * them into report sections. Shared by the Markdown export AND the on-screen
  * report page so they never drift. Risk is from confirmed+validated only.
  */
-export function gradeFindings(findings: Finding[]): GradedSections {
+export function gradeFindings(findings: Finding[], kev?: Set<string>): GradedSections {
   type Row = {
     title: string;
     description: string;
     severity: string;
     confirmedFlag: boolean;
+    knownExploited: boolean;
     _row: Finding;
+  };
+  const inKev = (f: Finding): boolean => {
+    if (!kev || kev.size === 0) return false;
+    const cve = `${f.title}\n${f.description}`.match(/\bCVE-\d{4}-\d{3,7}\b/i)?.[0]?.toUpperCase();
+    return !!cve && kev.has(cve);
   };
   const inputs: Row[] = findings.map((f) => ({
     title: f.title,
     description: f.description,
     severity: f.severity,
     confirmedFlag: f.confirmed,
+    knownExploited: inKev(f),
     _row: f,
   }));
   const g = groupForReport(inputs);
@@ -93,6 +100,7 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
   lines.push("");
   lines.push(`- **Severity:** ${q.severity.toUpperCase()}${q.severity !== q.scannerSeverity ? ` _(scanner said ${q.scannerSeverity}; adjusted by policy)_` : ""}`);
   lines.push(`- **State:** ${STATE_LABEL[q.state]}`);
+  if (q.knownExploited) lines.push(`- **🔥 CISA KEV** — actively exploited in the wild; prioritize.`);
   lines.push(`- **Confidence:** ${q.confidence}/100`);
   if (q.state !== "informational") lines.push(`- **Est. bug-bounty acceptance:** ${q.bugBountyProbability}%${q.vulnClass ? ` (${q.vulnClass})` : ""}`);
   if (
@@ -123,11 +131,11 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
  * RISK SCORE is computed from validated+confirmed findings ONLY — informational
  * and recon artifacts never inflate it.
  */
-export function buildMarkdown(e: EngagementWithFindings): string {
+export function buildMarkdown(e: EngagementWithFindings, kev?: Set<string>): string {
   const lines: string[] = [];
 
   // Grade + bucket every finding under the master policy.
-  const g = gradeFindings(e.findings);
+  const g = gradeFindings(e.findings, kev);
   const { confirmed, validated, suspected, informational } = g;
 
   lines.push(`# Security Assessment Report — ${e.name}`);

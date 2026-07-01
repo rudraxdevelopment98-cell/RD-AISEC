@@ -181,9 +181,15 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   ⇒ **dismissed to informational**. Wired into assessFinding so it flows through
   findings/report/exploit/pipeline/auto-exploit. Verified: patched⇒dismissed,
   old version-only⇒medium/2%, validated RCE⇒critical/98% (age-independent).
-- ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
-  Exploit-DB, OSV, GHSA — version-aware CPE→CVE correlation, exploit-maturity,
-  freshness (dismiss patched/EOL), risk = CVSS+EPSS+KEV+impact.
+- ✅ **Live CISA KEV** (runner-synced, no deploy egress needed): the runner (v37)
+  fetches the CISA KEV catalog daily and POSTs it to `/api/runner/intel`;
+  `ThreatFeed` model + `getKevSet()`. A finding whose CVE is in KEV is flagged
+  "🔥 actively exploited", floored to ~60% acceptance, and — crucially — is NOT
+  dismissed by the freshness gate (KEV overrides "patched", verify urgently).
+  Wired into assessFinding + the report (on-screen + export). Verified.
+- ⬜ EPSS scores (bulk sync impractical; consider on-demand per-finding lookup).
+- ⬜ NVD/OSV/GHSA CPE→CVE version-range enrichment (the freshness engine already
+  handles ranges present in finding text; a feed would add ranges we don't have).
 - ✅ **Pipeline triage** grades findings (persists a filterable state category,
   non-destructive) + reports the validated risk; **report stage** summary shows
   validated risk + breakdown (shared `reportSummary`).

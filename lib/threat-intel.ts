@@ -13,9 +13,11 @@ export async function getKevSet(): Promise<Set<string>> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.set;
   try {
     const row = await prisma.threatFeed.findUnique({ where: { kind: "kev" } });
-    const set = new Set(
-      (row?.data ?? "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean),
-    );
+    const ids: string[] = String(row?.data ?? "")
+      .split(",")
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean);
+    const set = new Set<string>(ids);
     cache = { set, at: Date.now() };
     return set;
   } catch {

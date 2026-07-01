@@ -75,6 +75,10 @@ export type QualityInput = {
   evidence?: string | null;
   confirmedFlag?: boolean | null;
   tool?: string | null;
+  // The finding's CVE is in the CISA KEV catalog (actively exploited in the
+  // wild). Resolved by a server-side caller (getKevSet) and passed in — this
+  // module stays pure so client bundles never import the DB.
+  knownExploited?: boolean | null;
 };
 
 export type Quality = {
@@ -84,6 +88,7 @@ export type Quality = {
   confidence: number; // 0–100
   bugBountyProbability: number; // 0–100
   vulnClass: string | null;
+  knownExploited: boolean; // in CISA KEV (actively exploited)
   rationale: string[];
 };
 
@@ -104,11 +109,12 @@ function matchClass(text: string): ClassDef | null {
 export function assessFinding(input: QualityInput): Quality {
   const text = `${input.title ?? ""}\n${input.description ?? ""}\n${input.evidence ?? ""}`;
   const scannerSeverity = normSev(input.severity);
+  const kev = !!input.knownExploited;
   const rationale: string[] = [];
 
   // 1. Informational / recon artifact → no security impact.
   const isInfo = INFORMATIONAL.some((re) => re.test(text));
-  if (isInfo) {
+  if (isInfo && !kev) {
     rationale.push("Recon artifact / low-impact signal — informational unless chained with real impact.");
     return {
       state: "informational",
@@ -117,6 +123,7 @@ export function assessFinding(input: QualityInput): Quality {
       confidence: 15,
       bugBountyProbability: 1,
       vulnClass: null,
+      knownExploited: false,
       rationale,
     };
   }
@@ -140,7 +147,7 @@ export function assessFinding(input: QualityInput): Quality {
     evidence: input.evidence,
     confirmedFlag: input.confirmedFlag,
   });
-  if (fresh.verdict === "patched") {
+  if (fresh.verdict === "patched" && !kev) {
     return {
       state: "informational",
       severity: "info",
@@ -148,11 +155,18 @@ export function assessFinding(input: QualityInput): Quality {
       confidence: 12,
       bugBountyProbability: 0,
       vulnClass: matchClass(text)?.label ?? null,
+      knownExploited: false,
       rationale: [`Dismissed — ${fresh.reason}.`],
     };
   }
-  const stale = fresh.verdict === "verify";
+  // A version-only match is "stale" — UNLESS it's a CVE in CISA KEV (actively
+  // exploited right now), which overrides the freshness dismissal: verify it
+  // urgently, don't hide it, even if the version banner suggests it's patched.
+  const stale = (fresh.verdict === "verify" || fresh.verdict === "patched") && !kev;
   if (stale) rationale.push(`Freshness: ${fresh.reason}`);
+  if (kev && fresh.verdict !== "current") {
+    rationale.push(`⚠ ${fresh.reason} — but this CVE is in CISA KEV, so verify urgently.`);
+  }
 
   // Corroboration: a CVE id, extracted evidence, or a named class nudges confidence.
   const cls = matchClass(text);
@@ -192,9 +206,17 @@ export function assessFinding(input: QualityInput): Quality {
   const base = cls ? cls.baseProb : severity === "info" ? 2 : SEV_RANK[severity] >= 3 ? 35 : 12;
   // Stale version-only matches are unlikely to be accepted — most are patched.
   const staleFactor = stale ? 0.35 : 1;
-  const bugBountyProbability = Math.round(Math.max(0, Math.min(100, base * stateFactor * staleFactor)));
+  let bugBountyProbability = Math.round(Math.max(0, Math.min(100, base * stateFactor * staleFactor)));
 
   if (state === "detected") rationale.push("Not yet validated — run the PoC before submitting (default: insufficient evidence).");
+
+  // CISA KEV: actively exploited in the wild → prioritize. Floors the acceptance
+  // estimate and flags it prominently, but does NOT fake proof (still needs
+  // validation to become confirmed).
+  if (kev) {
+    bugBountyProbability = Math.max(bugBountyProbability, 60);
+    rationale.push("🔥 In CISA KEV — actively exploited in the wild; prioritize.");
+  }
 
   return {
     state,
@@ -203,6 +225,7 @@ export function assessFinding(input: QualityInput): Quality {
     confidence,
     bugBountyProbability,
     vulnClass: cls?.label ?? null,
+    knownExploited: kev,
     rationale,
   };
 }
