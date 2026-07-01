@@ -171,6 +171,16 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   confidence + acceptance %. No drift between screen and export.
 - ⬜ Persist `state` + confidence + bbProbability on the Finding model (migration)
   so they're filterable/sortable, not just computed at render.
+- ✅ **Freshness / version-applicability engine** (`lib/version-cve.ts` +
+  `lib/vuln-freshness.ts`, pure+tested): kills the #1 false-positive class —
+  stale version-banner matches to already-patched CVEs. Principle, not a
+  go-stale list: (a) a check validated on the LIVE target is current at any age;
+  (b) a version-only CVE match is demoted ("validate — backports keep the old
+  version string; N-yr-old ⇒ likely patched"), confidence −12, bb×0.35; (c) if
+  affected/fixed-version text is present and the detected version is out of range
+  ⇒ **dismissed to informational**. Wired into assessFinding so it flows through
+  findings/report/exploit/pipeline/auto-exploit. Verified: patched⇒dismissed,
+  old version-only⇒medium/2%, validated RCE⇒critical/98% (age-independent).
 - ⬜ LIVE threat intel (needs external infra/keys): NVD/MITRE CVE, CISA KEV, EPSS,
   Exploit-DB, OSV, GHSA — version-aware CPE→CVE correlation, exploit-maturity,
   freshness (dismiss patched/EOL), risk = CVSS+EPSS+KEV+impact.

@@ -10,6 +10,7 @@
 // elsewhere; this module is the offline, always-correct policy core.
 
 import { classifyConfidence } from "./exploit-confidence";
+import { assessFreshness } from "./vuln-freshness";
 
 export type Sev = "info" | "low" | "medium" | "high" | "critical";
 const SEV_RANK: Record<Sev, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
@@ -130,6 +131,29 @@ export function assessFinding(input: QualityInput): Quality {
   let confidence: number = BASE_CONFIDENCE[proof.level];
   rationale.push(`Proof level: ${proof.level} (${proof.signal}).`);
 
+  // Freshness: kill stale, already-patched version-banner matches (the main
+  // false-positive class). A version outside the fixed range → dismiss entirely;
+  // a version-only CVE match → demote (validate before trusting).
+  const fresh = assessFreshness({
+    title: input.title,
+    description: input.description,
+    evidence: input.evidence,
+    confirmedFlag: input.confirmedFlag,
+  });
+  if (fresh.verdict === "patched") {
+    return {
+      state: "informational",
+      severity: "info",
+      scannerSeverity,
+      confidence: 12,
+      bugBountyProbability: 0,
+      vulnClass: matchClass(text)?.label ?? null,
+      rationale: [`Dismissed — ${fresh.reason}.`],
+    };
+  }
+  const stale = fresh.verdict === "verify";
+  if (stale) rationale.push(`Freshness: ${fresh.reason}`);
+
   // Corroboration: a CVE id, extracted evidence, or a named class nudges confidence.
   const cls = matchClass(text);
   if (cls) {
@@ -137,6 +161,8 @@ export function assessFinding(input: QualityInput): Quality {
     rationale.push(`Recognized class: ${cls.label}.`);
   }
   if (/\bCVE-\d{4}-\d{3,7}\b/i.test(text)) confidence += 3;
+  // A version-only ("verify") match is weak evidence — don't let it look confident.
+  if (stale) confidence -= 12;
   confidence = Math.max(0, Math.min(100, confidence));
 
   // 3. State from proof level.
@@ -164,7 +190,9 @@ export function assessFinding(input: QualityInput): Quality {
   const stateFactor =
     state === "confirmed_exploitable" ? 1.0 : state === "validated" ? 0.85 : 0.45;
   const base = cls ? cls.baseProb : severity === "info" ? 2 : SEV_RANK[severity] >= 3 ? 35 : 12;
-  const bugBountyProbability = Math.round(Math.max(0, Math.min(100, base * stateFactor)));
+  // Stale version-only matches are unlikely to be accepted — most are patched.
+  const staleFactor = stale ? 0.35 : 1;
+  const bugBountyProbability = Math.round(Math.max(0, Math.min(100, base * stateFactor * staleFactor)));
 
   if (state === "detected") rationale.push("Not yet validated — run the PoC before submitting (default: insufficient evidence).");
 
