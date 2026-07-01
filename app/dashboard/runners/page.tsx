@@ -251,27 +251,22 @@ python3 rdaisec_runner.py`}
             ).length;
             const outdated = !!r.version && r.version !== RUNNER_VERSION;
             return (
-              <div key={r.id} className="card flex flex-col gap-3">
-                {/* ── Header: name · status · revoke ── */}
+              <details key={r.id} className="card flex flex-col gap-3">
+                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                {/* ── Header: name · status (click the card to expand settings) ── */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <Icon name="server" className="h-4 w-4 shrink-0 text-brand" />
                     <span className="truncate font-semibold text-white">{r.name}</span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className={`tag shrink-0 ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
+                  >
                     <span
-                      className={`tag ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
-                    >
-                      <span
-                        className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`}
-                      />
-                      {online ? "online" : "offline"}
-                    </span>
-                    <form action={deleteRunner}>
-                      <input type="hidden" name="id" value={r.id} />
-                      <button className="text-xs text-gray-600 hover:text-red-400">Revoke</button>
-                    </form>
-                  </div>
+                      className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`}
+                    />
+                    {online ? "online" : "offline"}
+                  </span>
                 </div>
 
                 {/* ── Meta: last seen + at-a-glance badges ── */}
@@ -325,6 +320,16 @@ python3 rdaisec_runner.py`}
                       )}
                     </div>
                   )}
+                  <p className="mt-2 text-[11px] text-gray-600">Click to expand — settings, tools &amp; anonymity.</p>
+                </div>
+                </summary>
+
+                {/* Revoke lives in the expanded body (out of the summary). */}
+                <div className="flex justify-end">
+                  <form action={deleteRunner}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button className="text-xs text-gray-600 hover:text-red-400">Revoke machine</button>
+                  </form>
                 </div>
 
                 {/* ── Controls: tools + anonymity ── */}
@@ -475,7 +480,7 @@ python3 rdaisec_runner.py`}
                     </div>
                   </div>
                 )}
-              </div>
+              </details>
             );
           })}
         </div>

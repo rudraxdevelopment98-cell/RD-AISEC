@@ -30,8 +30,10 @@ pattern-mirrored, and verified on the Vercel deploy.
 6. ⬜ **WiFi** → reorganize (scan · inspect · capture/crack · evil-twin · assess).
 7. ⬜ **Network map** → source selector: custom networks vs engagement vs local
    scan; engagement map = flowing, linkable, adjustable canvas.
-8. ⬜ **Machines** → sub-tabs: Set-up-a-runner · Machines (active/inactive);
-   collapsed cards (key details only) that expand to full detail + settings.
+8. 🔄 **Machines** — ✅ collapsible machine cards (each `<details>`: name + online
+   status + tools/version/workers/tor badges in the summary; Revoke, tool
+   installs, worker count, anonymity in the expandable body). ⬜ Set-up-a-runner
+   as a formal tab (currently a collapsed panel at the top).
 Pattern: reuse `components/tabs.tsx`, add a reusable collapsible card + a tabular
 findings/list view with a filter/action bar. Ship one item per commit.
 
