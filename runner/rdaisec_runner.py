@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "36"
+RUNNER_VERSION = "37"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -683,6 +683,38 @@ def nuclei_template_loop():
         time.sleep(NUCLEI_UPDATE_SECONDS)
 
 
+# Threat intel: the runner has internet egress, so it fetches the CISA KEV
+# catalog (CVEs actively exploited in the wild) and syncs it to the portal — the
+# portal then flags KEV findings as urgent without needing outbound access.
+KEV_URL = os.environ.get(
+    "KEV_URL",
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+)
+KEV_SYNC_SECONDS = int(os.environ.get("KEV_SYNC_SECONDS", str(24 * 3600)))
+
+
+def sync_threat_intel():
+    """Fetch the CISA KEV catalog and POST its CVE ids to the portal. Best-effort."""
+    try:
+        req = urllib.request.Request(KEV_URL, headers={"User-Agent": "rdaisec-runner"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode())
+        cves = [v.get("cveID") for v in data.get("vulnerabilities", []) if v.get("cveID")]
+        if not cves:
+            return
+        request("POST", "/api/runner/intel", {"kind": "kev", "cves": cves}, timeout=60)
+        print(f"  synced CISA KEV ({len(cves)} actively-exploited CVEs) to the portal")
+    except Exception as exc:  # noqa: BLE001 — best-effort, never crash the runner
+        print(f"  KEV sync skipped: {exc}")
+
+
+def threat_intel_loop():
+    """Background: sync the CISA KEV catalog on startup and daily."""
+    while True:
+        sync_threat_intel()
+        time.sleep(KEV_SYNC_SECONDS)
+
+
 def _apply_workers(headers):
     """Update parallelism live from the portal's X-Runner-Max-Workers header, so
     changing it on the Machines page takes effect without restarting the runner."""
@@ -1223,6 +1255,7 @@ def main():
 
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
+    threading.Thread(target=threat_intel_loop, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once (portal-controlled).\n")
 

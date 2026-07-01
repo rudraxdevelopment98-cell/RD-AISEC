@@ -345,3 +345,16 @@ model AuditEvent {
   @@index([type, createdAt])
   @@index([actor, createdAt])
 }
+
+// Threat intelligence feed synced by a runner (which has internet egress) so the
+// portal always has current data without needing outbound access itself. Today:
+// the CISA KEV catalog (CVEs known to be actively exploited in the wild). One row
+// per feed `kind`; `data` is a comma-joined list of CVE ids.
+model ThreatFeed {
+  id        String   @id @default(cuid())
+  kind      String   @unique // "kev"
+  data      String   @default("") // comma-joined CVE ids
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
