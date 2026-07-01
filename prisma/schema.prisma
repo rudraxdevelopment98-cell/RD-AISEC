@@ -195,6 +195,9 @@ model Finding {
   owasp          String     @default("")
   // Set when automated validation proved the issue is exploitable (glows in UI).
   confirmed      Boolean    @default(false)
+  // Human-review sign-off: high-impact findings (RCE/auth/IDOR/SSRF/ATO/payment/
+  // critical) must be approved by an owner before they're published/submitted.
+  reviewed       Boolean    @default(false)
   // Free-form category/tag for grouping (e.g. "web", "infra", "to-report").
   category       String     @default("")
   createdAt      DateTime   @default(now())

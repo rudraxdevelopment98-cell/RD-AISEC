@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getEngagement } from "@/lib/engagements";
 import { severityCounts, gradeFindings, type GradedFinding } from "@/lib/report";
 import { STATE_LABEL } from "@/lib/bb-engine";
+import { publishState } from "@/lib/review-gate";
 import { buildExecutiveSummary } from "@/lib/ai-report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { SeverityBadge } from "@/components/badges";
@@ -114,6 +115,12 @@ export default async function ReportPage({
             {graded.counts.suspected} suspected · {graded.counts.informational} informational
             (recon artifacts excluded from risk).
           </p>
+          {graded.pendingReview > 0 && (
+            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 print:text-amber-800">
+              ⚠ {graded.pendingReview} high-impact finding(s) are pending human review — not yet
+              cleared for publication or submission.
+            </p>
+          )}
 
           {summary.keyRisks.length > 0 && (
             <div className="mt-4">
@@ -164,6 +171,9 @@ export default async function ReportPage({
                   <span className="tag border-surface-border text-gray-300 print:text-black">
                     {STATE_LABEL[f.quality.state]}
                   </span>
+                  {publishState({ title: f.title, description: f.description, severity: f.severity, confirmedFlag: f.confirmed, reviewed: f.reviewed }) === "pending_review" && (
+                    <span className="tag border-amber-500/50 text-amber-300 print:text-amber-700">⚠ pending review</span>
+                  )}
                 </span>
               </div>
               <p className="mt-1 text-xs text-gray-500 print:text-gray-600">

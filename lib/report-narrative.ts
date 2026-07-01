@@ -9,6 +9,7 @@
 
 import { classifyConfidence, type Confidence } from "./exploit-confidence";
 import { assessFinding } from "./bb-engine";
+import { requiresHumanReview } from "./review-gate";
 
 export type ReportInput = {
   title: string;
@@ -21,6 +22,7 @@ export type ReportInput = {
   attackLabel?: string | null;
   owaspLabel?: string | null;
   confirmed?: boolean;
+  reviewed?: boolean; // owner sign-off (human-review gate)
   evidence?: string; // PoC / tool output snippet
   scope?: string; // program/engagement scope text (for validity + scope match)
 };
@@ -235,10 +237,27 @@ export function assessValidity(i: ReportInput): Validity {
     );
   }
 
+  // Human-review gate: a high-impact finding must be approved by an owner before
+  // it can be submitted — never let it read as "ready" until then.
+  const rv = requiresHumanReview({
+    title: i.title,
+    description: i.description,
+    severity: i.severity,
+    evidence: i.evidence,
+    confirmedFlag: i.confirmed,
+  });
+  if (rv.required && !i.reviewed) {
+    notes.push({ kind: "warn", text: "High-impact — an owner must review & approve this before you submit it." });
+  } else if (rv.required && i.reviewed) {
+    notes.push({ kind: "good", text: "Reviewed & approved for publication." });
+  }
+
   const warns = notes.filter((n) => n.kind === "warn").length;
   let level: Validity["level"] = warns === 0 ? "ready" : warns <= 2 ? "review" : "weak";
   // Proof-by-exploitation gate: an un-validated ("reported") finding is never
   // "ready" no matter how clean the rest looks — prove it first.
   if (conf === "reported" && level === "ready") level = "review";
+  // Human-review gate: pending approval is never "ready".
+  if (rv.required && !i.reviewed && level === "ready") level = "review";
   return { level, notes };
 }

@@ -1,6 +1,7 @@
 import type { Engagement, Finding } from "@prisma/client";
 import { execSummaryMarkdown } from "@/lib/ai-report";
 import { groupForReport, STATE_LABEL, type Quality } from "@/lib/bb-engine";
+import { publishState } from "@/lib/review-gate";
 
 export type EngagementWithFindings = Engagement & { findings: Finding[] };
 
@@ -37,6 +38,8 @@ export type GradedSections = {
   informational: GradedFinding[];
   riskScore: number;
   counts: { confirmed: number; validated: number; suspected: number; informational: number };
+  /** High-impact findings that still need an owner's review before publication. */
+  pendingReview: number;
 };
 
 /**
@@ -62,6 +65,16 @@ export function gradeFindings(findings: Finding[]): GradedSections {
   const g = groupForReport(inputs);
   const withRow = (arr: (Row & { quality: Quality })[]): GradedFinding[] =>
     arr.map((x) => ({ ...x._row, quality: x.quality }));
+  const pendingReview = findings.filter(
+    (f) =>
+      publishState({
+        title: f.title,
+        description: f.description,
+        severity: f.severity,
+        confirmedFlag: f.confirmed,
+        reviewed: f.reviewed,
+      }) === "pending_review",
+  ).length;
   return {
     confirmed: withRow(g.confirmed),
     validated: withRow(g.validated),
@@ -69,6 +82,7 @@ export function gradeFindings(findings: Finding[]): GradedSections {
     informational: withRow(g.informational),
     riskScore: g.riskScore,
     counts: g.counts,
+    pendingReview,
   };
 }
 
@@ -81,6 +95,12 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
   lines.push(`- **State:** ${STATE_LABEL[q.state]}`);
   lines.push(`- **Confidence:** ${q.confidence}/100`);
   if (q.state !== "informational") lines.push(`- **Est. bug-bounty acceptance:** ${q.bugBountyProbability}%${q.vulnClass ? ` (${q.vulnClass})` : ""}`);
+  if (
+    publishState({ title: f.title, description: f.description, severity: f.severity, confirmedFlag: f.confirmed, reviewed: f.reviewed }) ===
+    "pending_review"
+  ) {
+    lines.push(`- **⚠ Pending human review** — not yet cleared for publication.`);
+  }
   lines.push("");
   if (f.description) {
     lines.push("**Description**");
@@ -138,6 +158,12 @@ export function buildMarkdown(e: EngagementWithFindings): string {
   lines.push(`| Suspected (needs validation) | ${g.counts.suspected} |`);
   lines.push(`| Informational / recon | ${g.counts.informational} |`);
   lines.push("");
+  if (g.pendingReview > 0) {
+    lines.push(
+      `> ⚠ **${g.pendingReview} high-impact finding(s) are pending human review** and are not yet cleared for publication/submission.`,
+    );
+    lines.push("");
+  }
 
   if (e.scope) {
     lines.push("## Scope");

@@ -158,7 +158,13 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   "✓ Confirmed exploitable — <signal>" / supporting / not-confirmed with an output
   snippet. Wired into the per-finding exploit page (the one-click auto-run already
   queues every step). Verified via tsx (sqlmap/msf/nmap interpret correctly).
-- ⬜ Human-review gate for critical/auth/IDOR/SSRF/RCE before any publish.
+- ✅ **Human-review gate** (`lib/review-gate.ts` + `lib/review.ts` + migration):
+  high-impact findings (RCE/auth/IDOR/SSRF/ATO/payment/sensitive-data + any
+  critical or confirmed-exploitable) require an OWNER's sign-off before
+  publication/submission. `Finding.reviewed` (additive), owner-only approve
+  action, a per-finding review card, report markers + a "N pending review"
+  banner (export + on-screen), and `assessValidity` never marks a pending finding
+  "ready to submit". Verified via tsx.
 - ⬜ Adaptive learning from HackerOne/Bugcrowd outcomes (acceptance/dupe/N-A).
 - ⬜ Competitor parity research (Aikido AI-pentest, Synack) → feature gaps.
 
