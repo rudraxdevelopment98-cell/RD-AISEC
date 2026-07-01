@@ -226,9 +226,24 @@ export default async function EngagementDetail({
       )}
 
 
+      {/* Sub-sections as tabs so the workspace isn't one long scroll. */}
+      <div className="mt-6">
+      <Tabs
+        defaultTab="details"
+        tabs={[
+          { id: "details", label: "📋 Details & Status" },
+          { id: "readiness", label: "✅ Readiness" },
+          { id: "command", label: "⚡ Command Center" },
+          { id: "pipeline", label: "🤖 Assessment Pipeline" },
+          { id: "findings", label: `🐞 Findings (${e.findings.length})` },
+          { id: "resources", label: `📎 Resources (${e.resources.length})` },
+        ]}
+      >
+      {/* ── Details & Status ── */}
+      <TabPanel id="details">
       {/* Authorization */}
       <section
-        className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+        className={`rounded-xl border px-4 py-3 text-sm ${
           e.authorized
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
             : "border-amber-500/40 bg-amber-500/10 text-amber-200"
@@ -274,10 +289,7 @@ export default async function EngagementDetail({
         </form>
       </section>
 
-      {/* Readiness — why bug-finding might be producing nothing */}
-      <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
-
-      {/* Severity dashboard row (ProjectDiscovery-style) */}
+      {/* Severity dashboard row */}
       <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-5">
         {SEV_STATS.map((s) => (
           <div key={s.key} className="card !p-3">
@@ -289,18 +301,13 @@ export default async function EngagementDetail({
           </div>
         ))}
       </div>
+      </TabPanel>
 
-      {/* Sub-sections as tabs (ProjectDiscovery-style) so the workspace isn't one long scroll. */}
-      <div className="mt-6">
-      <Tabs
-        defaultTab="command"
-        tabs={[
-          { id: "command", label: "⚡ Command" },
-          { id: "pipeline", label: "🤖 Pipeline" },
-          { id: "findings", label: `🐞 Findings (${e.findings.length})` },
-          { id: "resources", label: `📎 Resources (${e.resources.length})` },
-        ]}
-      >
+      {/* ── Readiness ── */}
+      <TabPanel id="readiness">
+        <EngagementDiagnostics readiness={readiness} engagementId={e.id} />
+      </TabPanel>
+
       <TabPanel id="command">
       {/* Command center — drive every workflow for this engagement */}
       <section id="command" className="scroll-mt-20">
