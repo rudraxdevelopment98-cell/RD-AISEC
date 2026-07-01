@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "38"
+RUNNER_VERSION = "39"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -350,6 +350,26 @@ def safe_header_token(value: str) -> bool:
         and 0 < len(value) <= 1024
         and all(0x20 <= ord(c) <= 0x7E for c in value)
     )
+
+
+# Flags whose following value carries a secret (auth session / cookie); redact
+# that value when echoing the command so a token never lands in the console log.
+_SECRET_FLAGS = {"-H", "--header", "--cookie", "--cookie-string", "-b"}
+
+
+def redact_argv(argv):
+    """Return a copy of argv with secret-bearing values masked for display."""
+    out = []
+    redact_next = False
+    for tok in argv:
+        if redact_next:
+            out.append("<redacted>")
+            redact_next = False
+            continue
+        out.append(tok)
+        if tok in _SECRET_FLAGS:
+            redact_next = True
+    return out
 
 
 def request(method: str, path: str, body=None, timeout: int = 30):
@@ -921,7 +941,7 @@ def run_job(job):
     # Anonymize TCP-connect traffic through Tor when enabled.
     if ANON_ON and shutil.which("torsocks"):
         argv = ["torsocks", *argv]
-    print(f"  $ {' '.join(argv)}")
+    print(f"  $ {' '.join(redact_argv(argv))}")
     job_id = job["id"]
 
     try:
