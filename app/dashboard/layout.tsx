@@ -13,6 +13,8 @@ import { canAccess } from "@/lib/access";
 import { NAV } from "@/lib/nav";
 import { getMemberAccess } from "@/lib/members";
 import { logAudit } from "@/lib/audit";
+import { prisma } from "@/lib/db";
+import { AutoscanFab } from "@/components/autoscan-fab";
 
 export default async function DashboardLayout({
   children,
@@ -34,6 +36,15 @@ export default async function DashboardLayout({
     ...g,
     items: g.items.filter((i) => canAccess(i.href, info)),
   })).filter((g) => g.items.length > 0);
+
+  // Global autoscan launcher data (only when the user can queue jobs).
+  const canQueue = canAccess("/dashboard/jobs", info);
+  const [fabRunners, fabEngagements] = canQueue
+    ? await Promise.all([
+        prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true }, take: 20 }),
+        prisma.engagement.findMany({ where: { authorized: true }, orderBy: { updatedAt: "desc" }, select: { id: true, name: true }, take: 30 }),
+      ])
+    : [[], []];
   const navLinks = nav.flatMap((g) =>
     g.items.map((i) => ({ label: i.label, href: i.href, section: g.section })),
   );
@@ -162,6 +173,9 @@ export default async function DashboardLayout({
       <OpsRailShell>
         <OpsRail info={info} />
       </OpsRailShell>
+
+      {/* Global floating autoscan launcher — reachable from every page. */}
+      {canQueue && <AutoscanFab runners={fabRunners} engagements={fabEngagements} />}
     </div>
   );
 }

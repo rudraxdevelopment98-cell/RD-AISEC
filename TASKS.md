@@ -23,8 +23,10 @@ pattern-mirrored, and verified on the Vercel deploy.
 4. ✅ **Jobs** → tabs: ＋Create (tool preset + custom command) · **Templates**
    (6 one-click recipes that pre-fill the Create tab) · Active · History (with the
    Archived toggle). Opens on Create when arriving with ?cmd=.
-5. ⬜ **Autoscan** → global floating launcher, accessible everywhere; target
-   anything from anywhere.
+5. ✅ **Autoscan** → global floating launcher (`AutoscanFab`) fixed bottom-right on
+   every dashboard page (gated on jobs access). Type a host/URL, pick a machine +
+   optional engagement (auto-import), and `launchAutoscan` queues nmap (IP) or
+   httpx+nuclei (host/URL) — from anywhere.
 6. ⬜ **WiFi** → reorganize (scan · inspect · capture/crack · evil-twin · assess).
 7. ⬜ **Network map** → source selector: custom networks vs engagement vs local
    scan; engagement map = flowing, linkable, adjustable canvas.
