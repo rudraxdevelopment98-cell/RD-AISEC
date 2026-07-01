@@ -2,6 +2,13 @@ import type { Engagement, Finding } from "@prisma/client";
 import { execSummaryMarkdown } from "@/lib/ai-report";
 import { groupForReport, STATE_LABEL, type Quality } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
+import {
+  toAssessmentRow,
+  assetSummary,
+  remediationRoadmap,
+  executiveDashboard,
+  type AssessmentRow,
+} from "@/lib/assessment";
 
 export type EngagementWithFindings = Engagement & { findings: Finding[] };
 
@@ -110,18 +117,34 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
     lines.push(`- **⚠ Pending human review** — not yet cleared for publication.`);
   }
   lines.push("");
+
+  // Standard result schema — the structured, evidence-first fields an operator
+  // expects (category, asset, impact, root cause, verification).
+  const row = toAssessmentRow(f, q);
+  lines.push(`- **Finding ID:** ${row.findingId}`);
+  lines.push(`- **Category:** ${row.category}`);
+  if (row.cve) lines.push(`- **CVE:** ${row.cve}`);
+  lines.push(`- **CVSS (approx):** ${row.cvss}`);
+  lines.push(`- **Affected asset:** ${row.affectedAsset}`);
+  lines.push(`- **Detection method:** ${row.detectionMethod}`);
+  if (row.discoveryTime) lines.push(`- **Discovered:** ${row.discoveryTime}`);
+  lines.push(`- **Business impact:** ${row.businessImpact}`);
+  lines.push(`- **Root cause:** ${row.rootCause}`);
+  lines.push("");
   if (f.description) {
     lines.push("**Description**");
     lines.push("");
     lines.push(f.description);
     lines.push("");
   }
-  if (f.recommendation) {
-    lines.push("**Remediation**");
-    lines.push("");
-    lines.push(f.recommendation);
-    lines.push("");
-  }
+  lines.push("**Recommended fix**");
+  lines.push("");
+  lines.push(row.recommendedFix);
+  lines.push("");
+  lines.push("**Verification procedure**");
+  lines.push("");
+  lines.push(row.verification);
+  lines.push("");
 }
 
 /**
@@ -171,6 +194,60 @@ export function buildMarkdown(e: EngagementWithFindings, kev?: Set<string>): str
       `> ⚠ **${g.pendingReview} high-impact finding(s) are pending human review** and are not yet cleared for publication/submission.`,
     );
     lines.push("");
+  }
+
+  // Executive tables — a portfolio view across every graded finding.
+  const allRows: AssessmentRow[] = [
+    ...confirmed,
+    ...validated,
+    ...suspected,
+    ...informational,
+  ].map((f) => toAssessmentRow(f, f.quality));
+
+  if (allRows.length > 0) {
+    const dash = executiveDashboard(allRows);
+    lines.push("## Executive Dashboard");
+    lines.push("");
+    lines.push("| Metric | Value |");
+    lines.push("| --- | --- |");
+    lines.push(`| Total findings | ${dash.total} |`);
+    lines.push(`| Affected assets | ${dash.assets} |`);
+    lines.push(`| Critical / High | ${dash.bySeverity.critical} / ${dash.bySeverity.high} |`);
+    lines.push(`| Medium / Low / Info | ${dash.bySeverity.medium} / ${dash.bySeverity.low} / ${dash.bySeverity.info} |`);
+    lines.push(`| Confirmed exploitable | ${dash.confirmed} |`);
+    lines.push(`| Known-exploited (CISA KEV) | ${dash.knownExploited} |`);
+    lines.push(`| Avg. confidence | ${dash.avgConfidence}/100 |`);
+    lines.push("");
+
+    const assets = assetSummary(allRows);
+    if (assets.length > 0) {
+      lines.push("## Asset Summary");
+      lines.push("");
+      lines.push("| Asset | Top severity | Crit | High | Med | Low | Info | Total |");
+      lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
+      for (const a of assets) {
+        lines.push(
+          `| ${a.asset} | ${a.topSeverity.toUpperCase()} | ${a.critical} | ${a.high} | ${a.medium} | ${a.low} | ${a.info} | ${a.total} |`,
+        );
+      }
+      lines.push("");
+    }
+
+    const road = remediationRoadmap(allRows);
+    if (road.length > 0) {
+      lines.push("## Remediation Roadmap");
+      lines.push("");
+      lines.push("_Prioritised by severity then confidence. Fix in this order._");
+      lines.push("");
+      lines.push("| # | Finding | Severity | Asset | Effort | Target |");
+      lines.push("| --- | --- | --- | --- | --- | --- |");
+      for (const r of road.slice(0, 25)) {
+        lines.push(
+          `| ${r.priority} | ${r.title} | ${r.severity.toUpperCase()} | ${r.asset} | ${r.effort} | ${r.when} |`,
+        );
+      }
+      lines.push("");
+    }
   }
 
   if (e.scope) {

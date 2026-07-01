@@ -2,6 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEngagement } from "@/lib/engagements";
 import { severityCounts, gradeFindings, type GradedFinding } from "@/lib/report";
+import {
+  toAssessmentRow,
+  assetSummary,
+  remediationRoadmap,
+  executiveDashboard,
+} from "@/lib/assessment";
 import { STATE_LABEL } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
 import { getKevSet } from "@/lib/threat-intel";
@@ -26,6 +32,25 @@ export default async function ReportPage({
   const graded = gradeFindings(e.findings, kev);
   const date = new Date(e.createdAt).toISOString().slice(0, 10);
   const summary = buildExecutiveSummary(e);
+
+  // Standard-schema rows across every graded finding → the executive tables.
+  const allRows = [
+    ...graded.confirmed,
+    ...graded.validated,
+    ...graded.suspected,
+    ...graded.informational,
+  ].map((f) => toAssessmentRow(f, f.quality));
+  const dash = executiveDashboard(allRows);
+  const assets = assetSummary(allRows);
+  const roadmap = remediationRoadmap(allRows);
+
+  const SEV_TEXT: Record<string, string> = {
+    critical: "text-red-300",
+    high: "text-orange-300",
+    medium: "text-amber-300",
+    low: "text-sky-300",
+    info: "text-gray-400",
+  };
 
   const RATING_STYLE: Record<string, string> = {
     Critical: "border-red-500/50 text-red-300",
@@ -152,6 +177,115 @@ export default async function ReportPage({
           )}
         </section>
 
+        {allRows.length > 0 && (
+          <>
+            {/* Executive Dashboard */}
+            <section className="mt-6">
+              <h2 className="text-lg font-semibold">Executive Dashboard</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Findings", value: dash.total },
+                  { label: "Assets", value: dash.assets },
+                  { label: "Critical", value: dash.bySeverity.critical },
+                  { label: "High", value: dash.bySeverity.high },
+                  { label: "Confirmed", value: dash.confirmed },
+                  { label: "KEV (exploited)", value: dash.knownExploited },
+                  { label: "Validated", value: dash.validated },
+                  { label: "Avg. confidence", value: `${dash.avgConfidence}/100` },
+                ].map((m) => (
+                  <div
+                    key={m.label}
+                    className="rounded-lg border border-surface-border px-3 py-2 print:border-gray-300"
+                  >
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500 print:text-gray-600">
+                      {m.label}
+                    </p>
+                    <p className="mt-0.5 text-xl font-bold text-white print:text-black">{m.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Asset Summary */}
+            {assets.length > 0 && (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">Asset Summary</h2>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="py-1.5 pr-3">Asset</th>
+                        <th className="py-1.5 pr-3">Top</th>
+                        <th className="py-1.5 pr-2 text-right">Crit</th>
+                        <th className="py-1.5 pr-2 text-right">High</th>
+                        <th className="py-1.5 pr-2 text-right">Med</th>
+                        <th className="py-1.5 pr-2 text-right">Low</th>
+                        <th className="py-1.5 pr-2 text-right">Info</th>
+                        <th className="py-1.5 pr-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-300 print:text-black">
+                      {assets.map((a) => (
+                        <tr key={a.asset} className="border-t border-surface-border print:border-gray-300">
+                          <td className="py-1.5 pr-3 font-mono text-xs">{a.asset}</td>
+                          <td className={`py-1.5 pr-3 font-medium capitalize ${SEV_TEXT[a.topSeverity]}`}>
+                            {a.topSeverity}
+                          </td>
+                          <td className="py-1.5 pr-2 text-right">{a.critical}</td>
+                          <td className="py-1.5 pr-2 text-right">{a.high}</td>
+                          <td className="py-1.5 pr-2 text-right">{a.medium}</td>
+                          <td className="py-1.5 pr-2 text-right">{a.low}</td>
+                          <td className="py-1.5 pr-2 text-right">{a.info}</td>
+                          <td className="py-1.5 pr-2 text-right font-semibold">{a.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {/* Remediation Roadmap */}
+            {roadmap.length > 0 && (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">Remediation Roadmap</h2>
+                <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                  Prioritized by severity then confidence — fix in this order.
+                </p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="py-1.5 pr-2">#</th>
+                        <th className="py-1.5 pr-3">Finding</th>
+                        <th className="py-1.5 pr-3">Sev</th>
+                        <th className="py-1.5 pr-3">Effort</th>
+                        <th className="py-1.5 pr-3">Target</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-300 print:text-black">
+                      {roadmap.slice(0, 25).map((r) => (
+                        <tr key={r.priority} className="border-t border-surface-border align-top print:border-gray-300">
+                          <td className="py-1.5 pr-2 text-gray-500">{r.priority}</td>
+                          <td className="py-1.5 pr-3">
+                            {r.title}
+                            <span className="block font-mono text-[11px] text-gray-500">{r.asset}</span>
+                          </td>
+                          <td className={`py-1.5 pr-3 font-medium capitalize ${SEV_TEXT[r.severity]}`}>
+                            {r.severity}
+                          </td>
+                          <td className="py-1.5 pr-3 text-gray-400 print:text-black">{r.effort}</td>
+                          <td className="py-1.5 pr-3 text-gray-400 print:text-black">{r.when}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
         {e.scope && (
           <section className="mt-6">
             <h2 className="text-lg font-semibold">Scope</h2>
@@ -196,17 +330,47 @@ export default async function ReportPage({
                   </>
                 )}
               </p>
-              {f.description && (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
-                  {f.description}
-                </p>
-              )}
-              {f.recommendation && (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
-                  <span className="text-gray-500">Remediation: </span>
-                  {f.recommendation}
-                </p>
-              )}
+              {(() => {
+                const row = toAssessmentRow(f, f.quality);
+                return (
+                  <>
+                    <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+                      <div>
+                        <dt className="inline text-gray-500">Category: </dt>
+                        <dd className="inline text-gray-300 print:text-black">{row.category}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline text-gray-500">Affected asset: </dt>
+                        <dd className="inline font-mono text-gray-300 print:text-black">{row.affectedAsset}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline text-gray-500">CVSS (approx): </dt>
+                        <dd className="inline text-gray-300 print:text-black">{row.cvss}{row.cve ? ` · ${row.cve}` : ""}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline text-gray-500">Detection: </dt>
+                        <dd className="inline text-gray-300 print:text-black">{row.detectionMethod}</dd>
+                      </div>
+                    </dl>
+                    <p className="mt-1 text-xs text-gray-400 print:text-black">
+                      <span className="text-gray-500">Business impact: </span>{row.businessImpact}
+                    </p>
+                    {f.description && (
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
+                        {f.description}
+                      </p>
+                    )}
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
+                      <span className="text-gray-500">Recommended fix: </span>
+                      {row.recommendedFix}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs text-gray-400 print:text-black">
+                      <span className="text-gray-500">Verification: </span>
+                      {row.verification}
+                    </p>
+                  </>
+                );
+              })()}
             </li>
           );
           const Section = ({ title, note, rows }: { title: string; note: string; rows: GradedFinding[] }) =>

@@ -290,3 +290,25 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
 1. Nav colours (A) → 2. Rail 0/0 refresh (D) → 3. Jobs tabs (C) →
 4. Jobs/History filters + sorting (B) → 5. Findings sorting (B) →
 6. More runner tools (E) → 7. SIEM scaffold (G) → 8. Shiva follow-ups (F)
+
+---
+
+## R. Authenticated scanning + auto-assessment pipeline (2026-07-01)
+- ✅ **Authenticated / session-aware scanning** — per-engagement HTTP auth
+  session (Cookie or Bearer), encrypted at rest (AES-256-GCM), injected into
+  header-capable tools (nuclei/httpx/katana/ffuf/feroxbuster/gobuster/dalfox/
+  sqlmap/wpscan) at job-serve time as pre-computed argv tokens (header value =
+  one element, no shell, no re-split). Reaches IDOR / broken-access-control /
+  business-logic / authenticated-XSS bugs. Runner v38. `lib/auth-scan.ts`
+  (pure, unit-tested); owner-only server action; engagement UI card (value
+  never displayed back).
+- ✅ **Standard result schema + executive tables** (`lib/assessment.ts`, pure,
+  unit-tested): per-finding Category / CVSS / Affected asset / Detection method /
+  Business impact / Root cause / Recommended fix / Verification procedure /
+  Status; plus Executive Dashboard, Asset Summary, Remediation Roadmap. Wired
+  into both the Markdown export and the on-screen report page. Report-time only
+  — ingestion pipeline untouched.
+- ✅ **Correlation / dedup** (display-only): `correlate()` clusters near-duplicate
+  findings by class + normalised title across assets; non-destructive.
+- ⬜ EPSS per-finding lookup (deferred). WiFi per-machine tab split (deferred,
+  user handling WiFi). Machines setup-tab (deferred, low value).
