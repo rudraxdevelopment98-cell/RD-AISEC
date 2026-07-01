@@ -10,6 +10,26 @@ Legend: ✅ done · 🔄 doing · ⬜ todo · ⚠️ blocked/needs-decision
 is blocked by the sandbox proxy); portal changes are isolated-typechecked +
 pattern-mirrored, and verified on the Vercel deploy.
 
+## Q. UI / information-architecture overhaul (in progress — build item by item)
+1. ✅ **Bug Bounty** → sub-tabs **Programs** (automation bar + collapsible Add
+   Program + ProgramsManager search/category/bulk) · **Accounts** (list +
+   collapsible Add/connect account). Counts in the tab labels.
+2. ⬜ **Engagements** → list with **by-platform / by-status tables**; per-engagement
+   tabs: Details & Status · Readiness · Command Center · Assessment Pipeline ·
+   **Findings (tabular, filter + customizable action bar)** · Resources.
+3. ⬜ **Exploitation** → tabs: Exploitation · Exploitation Lab.
+4. ⬜ **Jobs** → tabs: Custom create · **Job templates** · Active/running · History ·
+   Archive.
+5. ⬜ **Autoscan** → global floating launcher, accessible everywhere; target
+   anything from anywhere.
+6. ⬜ **WiFi** → reorganize (scan · inspect · capture/crack · evil-twin · assess).
+7. ⬜ **Network map** → source selector: custom networks vs engagement vs local
+   scan; engagement map = flowing, linkable, adjustable canvas.
+8. ⬜ **Machines** → sub-tabs: Set-up-a-runner · Machines (active/inactive);
+   collapsed cards (key details only) that expand to full detail + settings.
+Pattern: reuse `components/tabs.tsx`, add a reusable collapsible card + a tabular
+findings/list view with a filter/action bar. Ship one item per commit.
+
 ---
 
 ## A. Sidebar · nav · rails

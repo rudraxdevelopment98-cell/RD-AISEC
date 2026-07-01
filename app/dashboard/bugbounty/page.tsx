@@ -12,6 +12,7 @@ import {
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
 import { ProgramsManager } from "@/components/programs-manager";
+import { Tabs, TabPanel } from "@/components/tabs";
 
 export const dynamic = "force-dynamic";
 // HackerOne sync makes several sequential API calls — give it headroom.
@@ -84,15 +85,138 @@ export default async function BugBountyPage({
         </div>
       )}
 
-      {/* ── Accounts ─────────────────────────────────────── */}
-      <h2 className="mt-8 flex items-center gap-2 text-lg font-bold">
-        Platform accounts
-        <Hint>
-          A convenience pointer to your profile/dashboard on each platform. No
-          passwords or API tokens are stored.
-        </Hint>
-      </h2>
-      <form action={saveBugAccount} className="card mt-3 space-y-2">
+      <div className="mt-6">
+      <Tabs
+        tabs={[
+          { id: "programs", label: <span className="inline-flex items-center gap-1.5"><Icon name="target" className="h-4 w-4" />Programs ({programs.length})</span> },
+          { id: "accounts", label: <span className="inline-flex items-center gap-1.5"><Icon name="fingerprint" className="h-4 w-4" />Accounts ({accounts.length})</span> },
+        ]}
+        defaultTab="programs"
+      >
+      {/* ══════════ PROGRAMS ══════════ */}
+      <TabPanel id="programs">
+      {/* One-click full automation across all programs */}
+      {programs.length > 0 && runners.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
+          <form action={automateAllPrograms} className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
+            <span className="text-gray-400">scan + auto-exploit daily on</span>
+            <select
+              name="runnerId"
+              defaultValue={runners[0]?.id}
+              className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
+            >
+              {runners.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <button className="btn-primary px-2 py-1">Automate engaged programs</button>
+          </form>
+          <form action={pauseAllPrograms}>
+            <button className="text-gray-500 hover:text-amber-400">Pause all</button>
+          </form>
+          <span className="text-gray-600">Only programs you&apos;ve engaged are automated.</span>
+        </div>
+      )}
+
+      {/* Add a program (collapsed by default) */}
+      <details className="card mt-3">
+        <summary className="cursor-pointer text-sm font-semibold text-gray-200 hover:text-brand">
+          ＋ Add a program
+        </summary>
+        <form action={addBugProgram} className="mt-3 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PlatformSelect />
+            <input
+              name="name"
+              required
+              placeholder="Program name"
+              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </div>
+          <input
+            name="url"
+            placeholder="Program/brief link"
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <div>
+            <label className="flex items-center gap-1 text-xs font-semibold text-gray-400">
+              In-scope targets (one per line)
+              <Hint>Paste from the program&apos;s scope. Wildcards (*.example.com) and URLs are cleaned to scannable hosts.</Hint>
+            </label>
+            <textarea
+              name="scope"
+              rows={4}
+              placeholder={"*.example.com\napi.example.com\nexample.com"}
+              className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <textarea
+              name="outScope"
+              rows={2}
+              placeholder="Out of scope (one per line)"
+              className="rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
+            />
+            <div className="flex flex-col gap-3">
+              <input
+                name="reward"
+                placeholder="Rewards (e.g. up to $5,000)"
+                className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+              <input
+                name="category"
+                placeholder="Category (e.g. web, mobile, priority)"
+                className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+            </div>
+          </div>
+          <button className="btn-primary text-sm">Add program</button>
+        </form>
+      </details>
+
+      <div className="mt-4">
+        <ProgramsManager
+          programs={programs.map((p) => ({
+            id: p.id,
+            platform: p.platform,
+            name: p.name,
+            url: p.url,
+            reward: p.reward,
+            scope: p.scope,
+            outScope: p.outScope,
+            category: p.category,
+            status: p.status,
+            auto: p.auto,
+            autoRunnerId: p.autoRunnerId,
+            lastAutoAt: p.lastAutoAt ? p.lastAutoAt.toISOString() : null,
+            engagement: p.engagement
+              ? {
+                  id: p.engagement.id,
+                  name: p.engagement.name,
+                  findings: p.engagement.findings,
+                  jobs: p.engagement.jobs,
+                }
+              : null,
+          }))}
+          runners={runners}
+        />
+      </div>
+      </TabPanel>
+
+      {/* ══════════ ACCOUNTS ══════════ */}
+      <TabPanel id="accounts">
+      <p className="flex items-center gap-2 text-sm text-gray-400">
+        A convenience pointer to your profile/dashboard on each platform, plus an
+        optional HackerOne API token for auto-sync.
+        <Hint>No passwords are stored; API tokens are encrypted and never shown again.</Hint>
+      </p>
+      {/* Add / connect an account (collapsed by default) */}
+      <details className="card mt-3" open={accounts.length === 0}>
+        <summary className="cursor-pointer text-sm font-semibold text-gray-200 hover:text-brand">
+          ＋ Add / connect an account
+        </summary>
+        <form action={saveBugAccount} className="mt-3 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <PlatformSelect />
           <input
@@ -126,6 +250,8 @@ export default async function BugBountyPage({
           those programs manually below. Tokens are encrypted and never shown again.
         </p>
       </form>
+      </details>
+
       {accounts.length > 0 && (
         <div className="mt-3 space-y-2">
           {accounts.map((a) => {
@@ -164,111 +290,9 @@ export default async function BugBountyPage({
         </div>
       )}
 
-      {/* ── Add program ──────────────────────────────────── */}
-      <h2 className="mt-8 text-lg font-bold">Add a program</h2>
-      <form action={addBugProgram} className="card mt-3 space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <PlatformSelect />
-          <input
-            name="name"
-            required
-            placeholder="Program name"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-        </div>
-        <input
-          name="url"
-          placeholder="Program/brief link"
-          className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-        />
-        <div>
-          <label className="flex items-center gap-1 text-xs font-semibold text-gray-400">
-            In-scope targets (one per line)
-            <Hint>Paste from the program&apos;s scope. Wildcards (*.example.com) and URLs are cleaned to scannable hosts.</Hint>
-          </label>
-          <textarea
-            name="scope"
-            rows={4}
-            placeholder={"*.example.com\napi.example.com\nexample.com"}
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-          />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <textarea
-            name="outScope"
-            rows={2}
-            placeholder="Out of scope (one per line)"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-          />
-          <div className="flex flex-col gap-3">
-            <input
-              name="reward"
-              placeholder="Rewards (e.g. up to $5,000)"
-              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-            <input
-              name="category"
-              placeholder="Category (e.g. web, mobile, priority)"
-              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </div>
-        </div>
-        <button className="btn-primary text-sm">Add program</button>
-      </form>
-
-      {/* ── Programs ─────────────────────────────────────── */}
-      <h2 className="mt-8 text-lg font-bold">
-        Programs {programs.length > 0 && <span className="text-sm font-normal text-gray-500">({programs.length})</span>}
-      </h2>
-
-      {/* One-click full automation across all programs */}
-      {programs.length > 0 && runners.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
-          <form action={automateAllPrograms} className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
-            <span className="text-gray-400">scan + auto-exploit daily on</span>
-            <select
-              name="runnerId"
-              defaultValue={runners[0]?.id}
-              className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
-            >
-              {runners.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-            <button className="btn-primary px-2 py-1">Automate engaged programs</button>
-          </form>
-          <form action={pauseAllPrograms}>
-            <button className="text-gray-500 hover:text-amber-400">Pause all</button>
-          </form>
-          <span className="text-gray-600">Only programs you&apos;ve engaged are automated.</span>
-        </div>
-      )}
-      <ProgramsManager
-        programs={programs.map((p) => ({
-          id: p.id,
-          platform: p.platform,
-          name: p.name,
-          url: p.url,
-          reward: p.reward,
-          scope: p.scope,
-          outScope: p.outScope,
-          category: p.category,
-          status: p.status,
-          auto: p.auto,
-          autoRunnerId: p.autoRunnerId,
-          lastAutoAt: p.lastAutoAt ? p.lastAutoAt.toISOString() : null,
-          engagement: p.engagement
-            ? {
-                id: p.engagement.id,
-                name: p.engagement.name,
-                findings: p.engagement.findings,
-                jobs: p.engagement.jobs,
-              }
-            : null,
-        }))}
-        runners={runners}
-      />
+      </TabPanel>
+      </Tabs>
+      </div>
     </div>
   );
 }
