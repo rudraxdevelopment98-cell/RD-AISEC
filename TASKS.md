@@ -20,8 +20,9 @@ pattern-mirrored, and verified on the Vercel deploy.
    (FindingsBulk: search + category filter + bulk tag/status/delete action bar +
    confidence badge + exploit link per row).
 3. ⬜ **Exploitation** → tabs: Exploitation · Exploitation Lab.
-4. ⬜ **Jobs** → tabs: Custom create · **Job templates** · Active/running · History ·
-   Archive.
+4. ✅ **Jobs** → tabs: ＋Create (tool preset + custom command) · **Templates**
+   (6 one-click recipes that pre-fill the Create tab) · Active · History (with the
+   Archived toggle). Opens on Create when arriving with ?cmd=.
 5. ⬜ **Autoscan** → global floating launcher, accessible everywhere; target
    anything from anywhere.
 6. ⬜ **WiFi** → reorganize (scan · inspect · capture/crack · evil-twin · assess).

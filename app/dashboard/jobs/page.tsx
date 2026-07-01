@@ -12,6 +12,18 @@ import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
+// Curated job templates — one-click recipes that pre-fill the custom-command
+// form (replace TARGET with your in-scope host/URL). Quick starting points for
+// common workflows without remembering flags.
+const JOB_TEMPLATES: { name: string; desc: string; cmd: string }[] = [
+  { name: "Full nmap + vuln scripts", desc: "Service/version detection plus safe NSE vuln scripts.", cmd: "nmap -sV --script vuln --host-timeout 20m TARGET" },
+  { name: "Subdomain → live hosts", desc: "Enumerate subdomains, then probe which are live HTTP(S).", cmd: "bash -lc 'subfinder -d TARGET -silent | httpx -silent -title -status-code'" },
+  { name: "IoT device sweep", desc: "Scan the IoT-relevant ports so the portal classifies each device.", cmd: "nmap -Pn -sV -p 21,22,23,53,80,161,443,554,1883,1900,8080,8443,9100 TARGET" },
+  { name: "Directory brute (common)", desc: "Recursive content discovery with the dirb common list.", cmd: "feroxbuster -u TARGET -w /usr/share/wordlists/dirb/common.txt --silent" },
+  { name: "TLS / SSL audit", desc: "Full protocol + cipher + certificate audit.", cmd: "testssl.sh TARGET" },
+  { name: "Nuclei CVEs + exposures", desc: "Templated checks at medium+ severity.", cmd: "nuclei -u TARGET -tags cve,exposure,misconfig -severity medium,high,critical -jsonl" },
+];
+
 const STATUS_STYLE: Record<string, string> = {
   queued: "ring-amber accent-amber",
   running: "ring-sky accent-sky",
@@ -132,23 +144,12 @@ export default async function JobsPage({
         </div>
       )}
 
-      <QueueJobForm
-        engagements={engagements}
-        runners={runners.map((r) => ({ id: r.id, name: r.name }))}
-        defaultEngagementId={searchParams.engagement}
-      />
-
-      <CustomJobForm
-        engagements={engagements}
-        runners={runners.map((r) => ({ id: r.id, name: r.name }))}
-        defaultCommand={searchParams.cmd}
-        defaultEngagementId={searchParams.engagement}
-      />
-
-      <div className="mt-8">
+      <div className="mt-6">
         <Tabs
-          defaultTab={archivedView ? "history" : "active"}
+          defaultTab={searchParams.cmd ? "create" : archivedView ? "history" : "active"}
           tabs={[
+            { id: "create", label: <>＋ Create</> },
+            { id: "templates", label: <>Templates</> },
             { id: "active", label: <>Active{active.length > 0 ? ` (${active.length})` : ""}</> },
             {
               id: "history",
@@ -156,6 +157,47 @@ export default async function JobsPage({
             },
           ]}
         >
+          {/* ── Create (tool preset + custom command) ── */}
+          <TabPanel id="create">
+            <QueueJobForm
+              engagements={engagements}
+              runners={runners.map((r) => ({ id: r.id, name: r.name }))}
+              defaultEngagementId={searchParams.engagement}
+            />
+            <CustomJobForm
+              engagements={engagements}
+              runners={runners.map((r) => ({ id: r.id, name: r.name }))}
+              defaultCommand={searchParams.cmd}
+              defaultEngagementId={searchParams.engagement}
+            />
+          </TabPanel>
+
+          {/* ── Templates (one-click recipes) ── */}
+          <TabPanel id="templates">
+            <p className="text-sm text-gray-400">
+              One-click recipes — they open the <b className="text-gray-300">Create</b> tab with the
+              command pre-filled. Replace <code className="rounded bg-black/40 px-1 text-[12px]">TARGET</code>{" "}
+              with your in-scope host/URL, pick a machine, and run.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {JOB_TEMPLATES.map((t) => (
+                <div key={t.name} className="card flex flex-col">
+                  <p className="text-sm font-semibold text-white">{t.name}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{t.desc}</p>
+                  <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
+                    {t.cmd}
+                  </pre>
+                  <Link
+                    href={`/dashboard/jobs?cmd=${encodeURIComponent(t.cmd)}`}
+                    className="btn-ghost mt-2 self-start text-xs"
+                  >
+                    <Icon name="bolt" className="mr-1 inline h-3 w-3" /> Use template
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </TabPanel>
+
           <TabPanel id="active">
       {/* ── Active (live) ───────────────────────────────── */}
       <div className="flex items-center justify-between gap-3">
