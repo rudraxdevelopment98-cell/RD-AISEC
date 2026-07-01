@@ -11,6 +11,9 @@ import {
   FINDING_STATUSES,
 } from "@/lib/engagement-constants";
 import { classifyFinding } from "@/lib/finding-map";
+import { encryptSecret } from "@/lib/crypto";
+import { isSafeHeader, describeHeader } from "@/lib/auth-scan";
+import { logAudit } from "@/lib/audit";
 
 async function requireUser() {
   const session = await auth();
@@ -92,6 +95,54 @@ export async function updateEngagementAuthorization(formData: FormData) {
     data: { authorized, authorizedBy: authorized ? authorizedBy || email : "" },
   });
   revalidatePath(`/dashboard/engagements/${id}`);
+}
+
+/**
+ * Set (or clear) an engagement's authenticated-scan session — a single HTTP
+ * header (session cookie or bearer token) injected into header-capable scan
+ * tools so they run as the logged-in user. Stored ENCRYPTED at rest; the
+ * plaintext leaves the DB only server-side at job-serve time. Owner-only.
+ */
+export async function setEngagementAuthSession(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const raw = String(formData.get("authSession") ?? "").trim();
+  const back = `/dashboard/engagements/${id}`;
+
+  const eng = await prisma.engagement.findUnique({
+    where: { id },
+    select: { ownerEmail: true },
+  });
+  if (!eng) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (eng!.ownerEmail && eng!.ownerEmail !== email) {
+    redirect(`${back}?error=${encodeURIComponent("Only the engagement owner can set a scan session.")}`);
+  }
+
+  if (raw && !isSafeHeader(raw)) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        "That doesn't look like a header. Use a single line like \"Cookie: session=…\" or \"Authorization: Bearer …\".",
+      )}`,
+    );
+  }
+
+  await prisma.engagement.update({
+    where: { id },
+    data: { authSession: raw ? encryptSecret(raw) : "" },
+  });
+  await logAudit({
+    type: raw ? "engagement.auth_session.set" : "engagement.auth_session.cleared",
+    actor: email,
+    summary: raw
+      ? `Set authenticated-scan session (${describeHeader(raw)}) on engagement`
+      : "Cleared authenticated-scan session on engagement",
+    target: id,
+  });
+
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(raw ? "Scan session saved (encrypted)." : "Scan session cleared.")}`);
 }
 
 export async function updateEngagement(formData: FormData) {

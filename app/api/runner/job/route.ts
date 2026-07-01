@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateRunner } from "@/lib/runner-auth";
+import { decryptSecret } from "@/lib/crypto";
+import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
 
 export const dynamic = "force-dynamic";
 
@@ -41,12 +43,32 @@ export async function GET(req: Request) {
       data: { status: "running", startedAt: new Date() },
     });
     if (claimed.count === 1) {
+      // Authenticated / session-aware scanning: if this engagement carries a
+      // stored auth session and the tool can take a request header, decrypt it
+      // here (never persisted in the Job row) and hand the runner the exact,
+      // pre-computed argv tokens to inject — the header value as a single
+      // element, so no shell and no re-splitting. Best-effort: a missing/broken
+      // session just runs the scan unauthenticated.
+      let authArgv: string[] = [];
+      if (next.engagementId && supportsAuthHeader(next.tool)) {
+        try {
+          const eng = await prisma.engagement.findUnique({
+            where: { id: next.engagementId },
+            select: { authSession: true },
+          });
+          const header = eng?.authSession ? decryptSecret(eng.authSession) : "";
+          if (header) authArgv = authArgvForTool(next.tool, header);
+        } catch {
+          authArgv = [];
+        }
+      }
       return setHeaders(
         NextResponse.json({
           id: next.id,
           tool: next.tool,
           target: next.target,
           args: next.args,
+          ...(authArgv.length > 0 ? { authArgv } : {}),
         }),
       );
     }

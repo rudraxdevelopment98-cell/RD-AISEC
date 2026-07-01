@@ -18,6 +18,7 @@ import {
   updateFindingStatus,
   deleteFinding,
   deleteEngagement,
+  setEngagementAuthSession,
 } from "@/lib/engagements";
 import {
   ENGAGEMENT_STATUSES,
@@ -36,6 +37,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { engagementReadiness } from "@/lib/diagnostics";
 import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/pipeline";
 import { setSourceRepo, queueSourceRecon } from "@/lib/source-recon";
+import { decryptSecret } from "@/lib/crypto";
+import { describeHeader, AUTH_HEADER_TOOLS } from "@/lib/auth-scan";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +64,15 @@ export default async function EngagementDetail({
   const openCount = e.findings.filter((f) => f.status === "open").length;
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
   const pillar = getPillar(e.type);
+
+  // Authenticated-scan session: decrypt only to derive a safe display label
+  // (the header NAME, e.g. "Cookie" / "Authorization (Bearer token)") — never
+  // the secret value.
+  const authSessionLabel = (() => {
+    if (!e.authSession) return "";
+    const header = decryptSecret(e.authSession);
+    return header ? describeHeader(header) : "";
+  })();
 
   // Severity tally for the dashboard stat row (ProjectDiscovery-style).
   const sevCount = (s: string) => e.findings.filter((f) => f.severity === s).length;
@@ -416,6 +428,61 @@ export default async function EngagementDetail({
               runs on a connected machine · git clone is read-only and auto-deleted
             </span>
           </form>
+        </div>
+
+        {/* Authenticated / session-aware scanning — carry a login session into
+            header-capable scan tools so they test AS the logged-in user, which
+            reaches IDOR, broken-access-control and business-logic bugs that are
+            invisible to an anonymous scan. Stored encrypted; value never shown
+            back. */}
+        <div className="card mt-4">
+          <div className="flex items-center gap-2">
+            <Icon name="lock" className="h-4 w-4 text-brand" />
+            <h3 className="text-sm font-semibold text-white">Authenticated scanning</h3>
+            {authSessionLabel ? (
+              <span className="tag border-emerald-500/50 text-emerald-300 text-[10px]">
+                active · {authSessionLabel}
+              </span>
+            ) : (
+              <span className="tag text-[10px]">not set</span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Paste ONE HTTP header from a session you&apos;re authorized to test — a{" "}
+            <code className="font-mono text-gray-400">Cookie: session=…</code> or{" "}
+            <code className="font-mono text-gray-400">Authorization: Bearer …</code>. It&apos;s
+            stored <b>encrypted</b> and injected into header-capable tools (
+            {AUTH_HEADER_TOOLS.join(", ")}) at run time so scans reach authenticated-only bugs.
+            The value is never displayed again.
+          </p>
+          <form action={setEngagementAuthSession} className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="id" value={e.id} />
+            <input
+              type="text"
+              name="authSession"
+              autoComplete="off"
+              placeholder={
+                authSessionLabel
+                  ? "Enter a new header to replace the current session…"
+                  : "Cookie: session=abc123; csrftoken=… "
+              }
+              className="min-w-0 flex-1 rounded-lg border border-surface-border bg-black/40 px-3 py-2 font-mono text-xs text-gray-200 outline-none focus:border-brand"
+            />
+            <button type="submit" className="btn-ghost text-xs">Save</button>
+          </form>
+          {authSessionLabel && (
+            <form action={setEngagementAuthSession} className="mt-2">
+              <input type="hidden" name="id" value={e.id} />
+              <input type="hidden" name="authSession" value="" />
+              <button type="submit" className="text-[11px] text-gray-500 hover:text-red-400">
+                Clear stored session
+              </button>
+            </form>
+          )}
+          <p className="mt-2 text-[11px] text-amber-500/80">
+            <Icon name="alert" className="mr-1 inline h-3 w-3" />
+            Only use a session you own or are explicitly authorized to test with.
+          </p>
         </div>
       </section>
       </TabPanel>

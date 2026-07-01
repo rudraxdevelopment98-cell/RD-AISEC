@@ -27,6 +27,11 @@ model Engagement {
   category     String    @default("")
   // White-box source recon: an https git repo URL the runner clones + analyzes.
   sourceRepo   String    @default("")
+  // Authenticated-scan session, ENCRYPTED at rest (see lib/crypto). A single HTTP
+  // header — a session cookie or bearer token — injected into header-capable
+  // tools so scans run as the logged-in user (reaches IDOR / access-control /
+  // business-logic bugs). Decrypted only server-side at job-serve time.
+  authSession  String    @default("")
   authorized   Boolean   @default(false)
   authorizedBy String    @default("")
   ownerEmail   String    @default("")

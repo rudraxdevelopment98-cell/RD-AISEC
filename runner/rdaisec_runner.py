@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "37"
+RUNNER_VERSION = "38"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -336,6 +336,19 @@ def safe_url(value: str) -> bool:
         and len(value) <= 1024
         and not value.startswith("-")
         and bool(SAFE_URL.match(value))
+    )
+
+
+def safe_header_token(value: str) -> bool:
+    """A pre-computed auth-injection token from the portal (e.g. `-H` or a
+    `Cookie: session=…` value). The portal already validated + built these; we
+    re-check that each is a single line of printable ASCII within a sane length.
+    They run via argv (no shell), so a header value with spaces is just one
+    argument — no injection surface."""
+    return (
+        isinstance(value, str)
+        and 0 < len(value) <= 1024
+        and all(0x20 <= ord(c) <= 0x7E for c in value)
     )
 
 
@@ -793,6 +806,17 @@ def build_argv(job):
         if not safe(host):
             return None, f"Target failed validation: {target!r}"
         argv.append(host)
+
+    # Authenticated / session-aware scanning: the portal may hand us pre-computed
+    # argv tokens (e.g. `-H` + `Cookie: session=…`) so the scan runs as the
+    # logged-in user. Each token is appended verbatim as ONE argument — no shell,
+    # no re-splitting — so a header value with spaces stays intact and safe.
+    extra = job.get("authArgv")
+    if isinstance(extra, list):
+        for tok in extra:
+            if safe_header_token(tok):
+                argv.append(tok)
+
     return argv, None
 
 
