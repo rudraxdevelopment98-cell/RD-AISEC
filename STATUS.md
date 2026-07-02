@@ -1,9 +1,13 @@
 # RD-AISEC — Project Status (handoff)
 
-_Last updated: 2026-06-28. Owner/architect: Kuldeep J._
+_Last updated: 2026-07-02. Owner/architect: Kuldeep J._
 
 A single source-of-truth snapshot so work can continue from another machine /
 Claude account and merge back cleanly.
+
+> **Workflow reset (2026-07-02):** all work is now consolidated onto **`main`**
+> (the scattered feature branches were merged/retired). Develop on `main` and
+> push. `TASKS.md` is the active checklist; `PHASES.md`/`ROADMAP.md` the history.
 
 ## What this is
 An AI-assisted, all-in-one cybersecurity operations portal: bug bounty +
@@ -13,10 +17,12 @@ Tailwind + Prisma/Postgres (Neon), deployed on Vercel. A stdlib-only Python
 results back; the portal parses them into findings.
 
 ## Branch / workflow
-- Develop on **`claude/ai-cybersecurity-dashboard-vu46gc`**, then `--no-ff`
-  merge to **`main`** and push both. (CI = `npx next build`.)
-- Always run a build before committing: `DATABASE_URL=... DIRECT_URL=... npx next build`.
-- `PHASES.md` is the running changelog/roadmap; keep it updated.
+- **Single source of truth: `main`.** Develop on `main` and push (all older
+  feature branches are consolidated in).
+- Always run a build before committing: `DATABASE_URL=... DIRECT_URL=... npx next build`
+  (works in this environment now — the earlier "can't build locally" caveat in
+  TASKS.md no longer applies here).
+- `TASKS.md` = active work plan; `PHASES.md` = changelog; `ROADMAP.md` = long view.
 
 ## Current stage — working end to end
 - Bug-bounty programs → engage → **assessment pipeline** (recon → scan → exploit
@@ -31,8 +37,8 @@ results back; the portal parses them into findings.
   **💥 Auto-pwn** (capture→crack→reveal), **🪤 Auto Evil-Twin** (one-click fake-AP
   captive portal via wifiphisher, headless/PTY, quit-on-capture → reveals the
   submitted password), security assessment → save as findings.
-- **Network map** (per-scan + full-engagement merged), **Learn** roadmap,
-  **Readiness check**, **How-it-works guide**, runner cancellation (v24).
+- **Network map** (draggable/adjustable canvas; per-scan + full-engagement),
+  **Learn** roadmap, **Readiness check**, **How-it-works guide**.
 - **Job priority**: jobs have a `priority` (claimed priority-desc then oldest-first);
   "⚡ Run first" when queuing and "↑ Run next" on a queued job jump the queue.
   Automation auto-prioritizes too: per-finding "Exploit it" (40) and the pipeline
@@ -40,9 +46,53 @@ results back; the portal parses them into findings.
 - Security headers/CSP, encrypted secrets, RBAC, cron fail-closed, API per-section
   access checks (lib/api-guard.ts), audit-pass fixes (pipeline liveness, races).
 
+## Accuracy & intelligence engines (the "find real bugs, don't over-claim" layer)
+- **Proof-by-exploitation confidence** (`lib/exploit-confidence.ts`): findings are
+  graded **reported → validated → proven**; a bare nuclei/version match is no
+  longer auto-`confirmed` — only real extraction/shell/data proves it.
+- **Freshness + version-CVE** (`lib/vuln-freshness.ts`, `lib/version-cve.ts`):
+  drop stale/patched-CVE false positives from banner-only matches.
+- **KEV threat intel** (`lib/threat-intel.ts` + `ThreatFeed`): runner syncs CISA
+  KEV; findings for actively-exploited CVEs are flagged (runner v37).
+- **Detection taxonomy + phased exploitation strategy** (`lib/vuln-taxonomy.ts`,
+  `lib/exploit-strategy.ts`): finding text → vuln class + OWASP/CWE/ATT&CK/CVSS →
+  a 5-phase exploitation plan.
+- **White-box source recon** (`lib/source-recon*.ts`, `Engagement.sourceRepo`):
+  runner clones the repo → code-level hypotheses.
+- **Authenticated / session-aware scanning** (`lib/auth-scan.ts`,
+  `Engagement.authSession`, encrypted): one auth header injected into
+  header-capable tools to reach IDOR / access-control / business-logic bugs.
+- **Bug-bounty accuracy engine** (`lib/bb-engine.ts`): states, confidence caps,
+  acceptance probability. **Human-review gate** (`lib/review-gate.ts`): owner
+  sign-off before high-impact findings publish.
+- **Assessment pipeline** produces a standard result schema + executive tables
+  (`lib/assessment.ts`); **reports** use a human-voice engine + evidence-first
+  graded structure + platform-aware submission.
+
+## Other subsystems
+- **Shiva** (`/dashboard/shiva`): in-portal MCP-security dashboard — Scanner ·
+  Gateway (+live proxy) · Attack Range · Benchmark, backed by TS ports
+  (`lib/mcp-scan.ts`, `lib/mcp-gateway.ts`) of the `shiva/` Python subproject.
+- **SIEM** (`/dashboard/siem`, owner-only): `AuditEvent` model + `lib/audit.ts`
+  logs login/logout, job.queued, etc. into a filterable activity timeline.
+- **UI**: Neo-style three-pane shell (nav · canvas · Live-Ops rail, collapsible),
+  token-based **liquid-glass design system with a light/dark theme toggle**, tabs
+  across Jobs / Exploitation / Bug Bounty / Engagement detail, global Autoscan FAB.
+
 ## Runner
-- Current version: **30** (`lib/runner-constants.ts` RUNNER_VERSION must match
-  `runner/rdaisec_runner.py`). v30 = **per-machine concurrency** (portal-controlled
+- Current version: **39** (`lib/runner-constants.ts` RUNNER_VERSION must match
+  `runner/rdaisec_runner.py`). Self-updates from v25+, so runners pull new
+  versions automatically. Highlights since v30:
+  - **v39** redact auth-session/cookie when the runner echoes a command.
+  - **v37** sync CISA **KEV** catalog to the portal (`/api/runner/intel`).
+  - **v36** never let the main loop die under a large queue.
+  - **v35** SNMP/SMB/Joomla tooling + enforce HTTPS on runner comms.
+  - **v33** auto-install a job's missing tool before running it.
+  - **v32** stop going offline during long jobs; auto-start on boot.
+  - **v31** +11 tools (feroxbuster/dirsearch/testssl/sslyze/nbtscan/smbmap/fierce/
+    sublist3r/commix/gospider/waybackurls). Also: source-repo clone (white-box),
+    auth-header injection, self-heal/network recovery after WiFi monitor mode.
+- v30 = **per-machine concurrency** (portal-controlled
   via X-Runner-Max-Workers poll header, live, clamp 1..16 — Machines page picks
   how many jobs run in parallel) + **faster self-update** (checks every 5 min and
   whenever the runner goes idle, default UPDATE_CHECK_SECONDS=300). v29 =
@@ -83,8 +133,10 @@ results back; the portal parses them into findings.
   add a chained flag).
 - Tenancy: all approved members share all data (no per-record ownership). Fine if
   intended; revisit if multi-tenant is needed.
-- WiFi evil-twin (wifiphisher) is a copy-run-in-terminal command (interactive),
-  not a headless job — by design.
+- Shiva scanner/gateway logic exists twice (Python `shiva/` + TS `lib/mcp-*.ts`
+  ports) — keep them in sync when either side changes.
+- STATUS/TASKS/PHASES can drift from code — trust `RUNNER_VERSION`, the schema,
+  and the build over the docs when they disagree.
 
 ## Safety posture (keep)
 - Offensive actions are authorization-gated; weaponization is explicit/one-click,
