@@ -341,11 +341,23 @@ function parseDnsrecon(target: string, output: string): ParsedFinding[] {
 function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
   const re =
     /\b(State:\s*VULNERABLE|is likely VULNERABLE|appears? to be vulnerable|target is vulnerable|host is likely vulnerable|\bVULNERABLE\b)/i;
-  if (!re.test(output)) return [];
-  const lines = output
+  // Exclude NEGATED statements — "not vulnerable", "NOT VULNERABLE", "not
+  // affected", "0 vulnerable" — which sslscan/NSE print for SAFE hosts. Matching
+  // "vulnerable" inside "not vulnerable" was a critical false-positive source.
+  const NEG = /\bnot\s+(likely\s+)?vulnerable|isn'?t\s+vulnerable|non-?vulnerable|not\s+affected|\bNOT\s+VULNERABLE\b|\b0\s+vulnerable/i;
+  // Confirming evidence: a line that asserts vulnerability WITHOUT a negation.
+  const evidence = output
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => re.test(l) || /CVE-\d|ms\d\d-\d|exploit/i.test(l))
+    .filter((l) => re.test(l) && !NEG.test(l));
+  if (evidence.length === 0) return [];
+  const lines = evidence
+    .concat(
+      output
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => /CVE-\d|ms\d\d-\d|exploit/i.test(l) && !NEG.test(l)),
+    )
     .slice(0, 10);
   return [
     {
@@ -392,8 +404,12 @@ function parseSearchsploit(target: string, output: string): ParsedFinding[] {
  * NULL/EXPORT/DES), Heartbleed, and expired/self-signed certificates. */
 function parseSslscan(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
+  // A protocol is a problem only when its line says "enabled" — and NOT
+  // "disabled" (guard against partial/negated matches).
   const enabled = (proto: RegExp) =>
-    output.split("\n").some((l) => proto.test(l) && /enabled/i.test(l));
+    output
+      .split("\n")
+      .some((l) => proto.test(l) && /\benabled\b/i.test(l) && !/disabled/i.test(l));
 
   // Deprecated protocols still enabled.
   const deadProtos: { re: RegExp; name: string; sev: string }[] = [
@@ -435,8 +451,12 @@ function parseSslscan(target: string, output: string): ParsedFinding[] {
     });
   }
 
-  // Heartbleed.
-  if (/vulnerable to heartbleed/i.test(output)) {
+  // Heartbleed — only when a line says vulnerable AND not "not vulnerable".
+  // (sslscan prints "TLSvX not vulnerable to heartbleed" for safe servers.)
+  const heartbleedVuln = output
+    .split("\n")
+    .some((l) => /vulnerable to heartbleed/i.test(l) && !/not\s+vulnerable/i.test(l));
+  if (heartbleedVuln) {
     out.push({
       title: `Heartbleed (CVE-2014-0160) on ${target}`,
       severity: "critical",
@@ -1035,9 +1055,13 @@ function parseSourceRecon(target: string, output: string): ParsedFinding[] {
 export function parseJobFindings(
   tool: string,
   target: string,
-  output: string,
+  rawOutput: string,
 ): ParsedFinding[] {
-  if (!output?.trim()) return [];
+  if (!rawOutput?.trim()) return [];
+  // Strip ANSI colour codes so pattern matching sees clean text. Many CLI tools
+  // (sslscan, nuclei, aircrack) colourise output; a code between words otherwise
+  // breaks contiguous matches (e.g. "vulnerable\x1b[0m to heartbleed").
+  const output = rawOutput.replace(/\x1b\[[0-9;]*m/g, "");
   // White-box source recon rides a custom job keyed by its target prefix.
   if (target.startsWith("sourcerecon:")) return parseSourceRecon(target, output);
   switch (tool) {
