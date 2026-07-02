@@ -14,6 +14,7 @@ import {
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
+import { gateFindings } from "@/lib/finding-gate";
 import { logAudit } from "@/lib/audit";
 import { tagFindings } from "@/lib/finding-map";
 import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
@@ -597,10 +598,11 @@ export async function importJobFindings(formData: FormData) {
   }
 
   const engagementId = job.engagementId; // narrowed: not null past the guard above
-  const findings = tagFindings(
-    parseJobFindings(job.tool, job.target, job.output),
-    job.tool,
-  );
+  // Same accuracy gate as the auto-import path: drop patched/banner-only false
+  // positives and de-confirm unvalidated matches before they become findings.
+  const findings = gateFindings(
+    tagFindings(parseJobFindings(job.tool, job.target, job.output), job.tool),
+  ).kept;
   if (findings.length > 0) {
     // Dedup against existing findings so re-importing the same job (or a job
     // already auto-imported) doesn't create duplicates.

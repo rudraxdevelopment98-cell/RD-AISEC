@@ -4,6 +4,7 @@ import { authenticateRunner } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
+import { gateFindings } from "@/lib/finding-gate";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
@@ -80,8 +81,12 @@ export async function POST(
         );
       }
     } else {
-      // Parse results into findings automatically (deduped), then notify.
-      const parsed = tagFindings(parseJobFindings(job.tool, job.target, output), job.tool);
+      // Parse results into findings, then run every candidate through the
+      // accuracy gate (freshness + proof engines) so patched/banner-only false
+      // positives are dropped or de-confirmed BEFORE they become findings.
+      const parsed = gateFindings(
+        tagFindings(parseJobFindings(job.tool, job.target, output), job.tool),
+      ).kept;
       if (parsed.length > 0) {
         const existing = await prisma.finding.findMany({
           where: { engagementId: job.engagementId },
