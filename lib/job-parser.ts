@@ -295,9 +295,12 @@ function parseWhatweb(target: string, output: string): ParsedFinding[] {
 /** enum4linux: summarize SMB exposure; elevate when null sessions / shares are found. */
 function parseEnum4linux(target: string, output: string): ParsedFinding[] {
   const hasShares = /Sharename|Mapping: OK|\[\+\] Attempting to map shares/i.test(output);
-  const nullSession = /allows sessions using username '', password ''|Server allows session using username|Got domain\/workgroup name/i.test(
-    output,
-  );
+  // A null session is proven only by an explicit anonymous-login success — NOT by
+  // "Got domain/workgroup name", which enum4linux prints during normal probing.
+  const nullSession =
+    /allows sessions using username '', *password ''|allows session using username ''|session setup ok|Server allows session using username/i.test(
+      output,
+    );
   if (!hasShares && !nullSession) return [];
   return [
     {
@@ -316,9 +319,16 @@ function parseEnum4linux(target: string, output: string): ParsedFinding[] {
 
 /** dnsrecon: flag a successful zone transfer (high impact); otherwise no finding. */
 function parseDnsrecon(target: string, output: string): ParsedFinding[] {
-  if (!/zone transfer.*success|\[\+\]\s*zone transfer|AXFR.*(success|records)/i.test(output)) {
-    return [];
-  }
+  // Only a SUCCESSFUL transfer is a finding. dnsrecon prints "[-] Zone Transfer
+  // Failed" / "0 records" on refusal — never treat those as success.
+  const success = output
+    .split("\n")
+    .some(
+      (l) =>
+        /zone transfer.*success|\[\+\]\s*zone transfer|AXFR.*\bsuccess/i.test(l) &&
+        !/fail|refus|denied|error|\b0\s+records|not\s+allowed/i.test(l),
+    );
+  if (!success) return [];
   return [
     {
       title: `DNS zone transfer allowed on ${target}`,
@@ -344,7 +354,7 @@ function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
   // Exclude NEGATED statements — "not vulnerable", "NOT VULNERABLE", "not
   // affected", "0 vulnerable" — which sslscan/NSE print for SAFE hosts. Matching
   // "vulnerable" inside "not vulnerable" was a critical false-positive source.
-  const NEG = /\bnot\s+(likely\s+)?vulnerable|isn'?t\s+vulnerable|non-?vulnerable|not\s+affected|\bNOT\s+VULNERABLE\b|\b0\s+vulnerable/i;
+  const NEG = /\bnot\b[\w\s'"-]{0,32}?vulnerable|does\s+not\s+appear|no\s+evidence|isn'?t\s+vulnerable|non-?vulnerable|not\s+affected|\bNOT\s+VULNERABLE\b|\b(0|no)\s+vulnerab/i;
   // Confirming evidence: a line that asserts vulnerability WITHOUT a negation.
   const evidence = output
     .split("\n")
@@ -467,8 +477,11 @@ function parseSslscan(target: string, output: string): ParsedFinding[] {
     });
   }
 
-  // Certificate problems.
-  if (/certificate has expired|expired\s*$/im.test(output)) {
+  // Certificate problems — a positive "has expired", never "not (yet) expired".
+  const expired = output
+    .split("\n")
+    .some((l) => /certificate has expired|\bexpired!?\s*$/i.test(l) && !/not\s+(yet\s+)?expired/i.test(l));
+  if (expired) {
     out.push({
       title: `Expired TLS certificate on ${target}`,
       severity: "medium",
@@ -688,6 +701,12 @@ const SECRET_PATTERNS: { name: string; re: RegExp; severity: string }[] = [
   { name: "JWT", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/, severity: "medium" },
 ];
 
+// Well-known placeholder / documentation secrets that appear in SDK docs,
+// tutorials and sample .env files — matching one is NOT a leak. (The canonical
+// AWS example key AKIAIOSFODNN7EXAMPLE is the classic false positive.)
+const SECRET_PLACEHOLDER =
+  /EXAMPLE|XXXXX|AAAAA|0000000|1234567|ABCDEFG|YOUR[_-]?|PLACEHOLDER|SAMPLE|REDACTED|<[^>]+>|\.\.\./i;
+
 /** Detect leaked secrets/keys in any tool output (responses, JS, headers). */
 function parseSecrets(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
@@ -695,16 +714,21 @@ function parseSecrets(target: string, output: string): ParsedFinding[] {
   for (const p of SECRET_PATTERNS) {
     const m = output.match(p.re);
     if (!m || seen.has(p.name)) continue;
+    // Skip documentation/placeholder tokens — a real leak, not a sample.
+    if (SECRET_PLACEHOLDER.test(m[0])) continue;
     seen.add(p.name);
     const sample = m[0].slice(0, 8) + "…"; // redacted preview, never store the full secret
     out.push({
       title: `Exposed ${p.name} on ${target}`,
       severity: p.severity,
       status: "open",
-      confirmed: p.severity === "critical",
+      // A regex match is a strong hypothesis, not proof — it stays "reported"
+      // until a read-only validity check confirms the key is live (see the
+      // finding's "Confirm it in the browser" steps). Never auto-confirm.
+      confirmed: false,
       description:
         `A ${p.name} appears to be exposed at ${target} (preview: ${sample}).\n\n` +
-        "Leaked credentials can grant direct access to cloud/services — verify and report immediately.",
+        "Leaked credentials can grant direct access to cloud/services — run the read-only validity check to confirm it's live, then report immediately.",
       recommendation:
         "Revoke/rotate the exposed credential now, remove it from client-side code/responses, and move secrets to server-side config or a secrets manager. Audit for misuse.",
     });
@@ -977,7 +1001,9 @@ function parseCrackmapexec(target: string, output: string): ParsedFinding[] {
 function parseJoomscan(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
   for (const line of output.split("\n")) {
-    if (/EDB|exploit-db|Vulnerable|CVE-\d{4}/i.test(line) && /\[\+\]|vuln/i.test(line)) {
+    // Skip lines that report the target is SAFE ("[++] Target is not vulnerable").
+    if (/not\s+vulnerab|isn'?t\s+vulnerab|\bno\s+vulnerab/i.test(line)) continue;
+    if (/EDB|exploit-db|CVE-\d{4}/i.test(line) && /\[\+\]|vulnerab/i.test(line)) {
       out.push({
         title: `Joomla issue on ${target}: ${line.replace(/\[[+*!]\]\s*/g, "").trim().slice(0, 120)}`,
         severity: "high",
