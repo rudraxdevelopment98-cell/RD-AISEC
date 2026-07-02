@@ -39,6 +39,7 @@ import { runScanNow, runDeepScanNow, runExploitNow, runTriageNow } from "@/lib/p
 import { setSourceRepo, queueSourceRecon } from "@/lib/source-recon";
 import { decryptSecret } from "@/lib/crypto";
 import { describeHeader, AUTH_HEADER_TOOLS } from "@/lib/auth-scan";
+import { AuthSessionForm } from "@/components/auth-session-form";
 
 export const dynamic = "force-dynamic";
 
@@ -448,28 +449,13 @@ export default async function EngagementDetail({
             )}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Paste ONE HTTP header from a session you&apos;re authorized to test — a{" "}
-            <code className="font-mono text-gray-400">Cookie: session=…</code> or{" "}
-            <code className="font-mono text-gray-400">Authorization: Bearer …</code>. It&apos;s
-            stored <b>encrypted</b> and injected into header-capable tools (
-            {AUTH_HEADER_TOOLS.join(", ")}) at run time so scans reach authenticated-only bugs.
-            The value is never displayed again.
+            Pick the auth type and enter the value — the header is built for you,
+            stored <b>encrypted</b>, and once set <b>every scan on this engagement
+            runs authenticated automatically</b> (injected into {AUTH_HEADER_TOOLS.join(", ")}),
+            reaching IDOR / access-control / business-logic bugs an anonymous scan
+            can&apos;t. The value is never displayed again.
           </p>
-          <form action={setEngagementAuthSession} className="mt-3 flex flex-wrap items-center gap-2">
-            <input type="hidden" name="id" value={e.id} />
-            <input
-              type="text"
-              name="authSession"
-              autoComplete="off"
-              placeholder={
-                authSessionLabel
-                  ? "Enter a new header to replace the current session…"
-                  : "Cookie: session=abc123; csrftoken=… "
-              }
-              className="min-w-0 flex-1 rounded-lg border border-surface-border bg-black/40 px-3 py-2 font-mono text-xs text-gray-200 outline-none focus:border-brand"
-            />
-            <button type="submit" className="btn-ghost text-xs">Save</button>
-          </form>
+          <AuthSessionForm engagementId={e.id} active={authSessionLabel} />
           {authSessionLabel && (
             <form action={setEngagementAuthSession} className="mt-2">
               <input type="hidden" name="id" value={e.id} />
