@@ -8,6 +8,7 @@ import {
   remediationRoadmap,
   executiveDashboard,
 } from "@/lib/assessment";
+import { attackChains } from "@/lib/exploit-strategy";
 import { STATE_LABEL } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
 import { getKevSet } from "@/lib/threat-intel";
@@ -43,6 +44,9 @@ export default async function ReportPage({
   const dash = executiveDashboard(allRows);
   const assets = assetSummary(allRows);
   const roadmap = remediationRoadmap(allRows);
+  const chains = attackChains(
+    e.findings.map((f) => ({ id: f.id, title: f.title, description: f.description })),
+  );
 
   const SEV_TEXT: Record<string, string> = {
     critical: "text-red-300",
@@ -280,6 +284,43 @@ export default async function ReportPage({
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </section>
+            )}
+
+            {/* Attack Paths — findings correlated into plausible kill-chains. */}
+            {chains.length > 0 && (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">Attack Paths</h2>
+                <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                  Individual findings correlated into multi-step attack chains — the real risk is
+                  often the combination, not any single issue.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {chains.map((c) => (
+                    <div
+                      key={c.id}
+                      className="rounded-xl border border-surface-border p-3 print:border-gray-300"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold text-white print:text-black">{c.title}</h3>
+                        <span className={`tag capitalize ${SEV_TEXT[c.severity]}`}>{c.severity}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-400 print:text-black">{c.narrative}</p>
+                      {c.links.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-gray-400 print:text-black">
+                          {c.links.map((l, i) => (
+                            <span key={l.findingId} className="flex items-center gap-1">
+                              {i > 0 && <span className="text-gray-600">→</span>}
+                              <span className="rounded border border-surface-border px-1.5 py-0.5 print:border-gray-300">
+                                {l.label}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </section>
             )}

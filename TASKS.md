@@ -327,3 +327,24 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   pre-paint no-flash script in app/layout.tsx; toggle in the dashboard header
   and the public nav; choice persisted to localStorage. Print resets tokens so
   reports stay black-on-white in either theme.
+
+## T. Deeper detection + phased exploitation engine (2026-07-02)
+- ✅ **Vulnerability taxonomy** (`lib/vuln-taxonomy.ts`, pure, tested): 25 classes
+  with OWASP 2021 + CWE + MITRE ATT&CK + CVSS band + attack surface + concrete
+  indicators. `classifyVuln()` / `classifyFindingVuln()` — the shared detection
+  source of truth (SQLi, NoSQLi, SSTI, XXE, deserialization, auth bypass, ATO,
+  IDOR, SSRF, LFI, file upload, stored/reflected XSS, secrets, CORS, subdomain
+  takeover, open redirect, CSRF, legacy SMB, default creds, outdated, TLS,
+  headers, info disclosure, RCE).
+- ✅ **Phased exploitation strategy** (`lib/exploit-strategy.ts`, pure, tested):
+  `buildStrategy()` → 5 phases (Fingerprint → Validate → Exploit → Impact →
+  Re-test) with per-step RISK TIER (passive/safe/active/intrusive), tool +
+  target-filled command, prerequisite, expected evidence, MITRE technique, and
+  autoRun (passive/safe only — active/intrusive never auto-fire). `stepsUpToTier`
+  filters to an operator-chosen ceiling.
+- ✅ **Attack-chain detection** (`attackChains()`): correlates findings into
+  kill-chains (secret→foothold, SSRF→cloud metadata, recon→CVE→RCE,
+  IDOR→ATO, LFI→disclosure→escalation) — only when the required classes exist.
+- ✅ **UI**: `components/exploit-strategy.tsx` (phased plan + risk-tier ceiling
+  selector, per-step details, copyable commands, auto/manual badges) on the
+  finding exploit page; Attack Paths section on the engagement report page.
