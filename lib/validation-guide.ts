@@ -7,6 +7,7 @@
 // result" narrative the operator sees. For authorized testing only.
 
 import { exploitActions, type ExploitAction } from "./exploit-core";
+import { classifyFindingVuln } from "./vuln-taxonomy";
 
 export type StepGuide = {
   technique: string; // short name of the check
@@ -157,6 +158,199 @@ export function validationPlan(finding: {
       ? "No automated validation is defined for this finding type — validate it by hand, then mark it confirmed."
       : "Run these on an authorized target. A 'proves' step that succeeds confirms exploitability; supporting steps add evidence.";
   return { steps, note };
+}
+
+// ── Manual browser/DevTools reproduction ────────────────────────────────────
+// The "go to the site, open dev tools, and confirm it with your own eyes" guide.
+// Command-line validation (above) proves it programmatically; this proves it the
+// way a triager/company would — human, browser-first, so you can eyeball it and
+// then confirm. For authorized testing only.
+
+export type ManualRepro = {
+  classId: string;
+  title: string; // "Confirm reflected XSS in the browser"
+  tools: string; // which browser surface to use (DevTools tab, Repeater, etc.)
+  steps: string[]; // ordered, human steps
+  confirmsIf: string; // what you should SEE if the bug is real
+  safe: string; // how to keep it non-destructive
+};
+
+const REPRO: Record<string, Omit<ManualRepro, "classId">> = {
+  reflected_xss: {
+    title: "Confirm reflected XSS in the browser",
+    tools: "Browser + DevTools → Elements/Console",
+    steps: [
+      "Open the affected URL and find the parameter whose value is echoed back on the page.",
+      "Put a unique harmless marker in it first (e.g. `rdxss123`) and confirm it appears verbatim in the response.",
+      "Replace it with a benign proof payload such as `\"><svg onload=alert(document.domain)>` (URL-encode as needed).",
+      "Load the URL; in DevTools → Elements, search the DOM for your payload and check it rendered as an element, not text.",
+    ],
+    confirmsIf: "The alert fires (shows the site's own domain) OR your payload appears as a live element in the DOM — not HTML-escaped text.",
+    safe: "Use alert(document.domain) / console.log — never data-exfil or actions. One benign popup is enough proof.",
+  },
+  stored_xss: {
+    title: "Confirm stored XSS in the browser",
+    tools: "Browser + DevTools → Elements",
+    steps: [
+      "Find the input that persists (name, comment, profile field) and submit a benign marker to confirm it's stored and re-rendered.",
+      "Submit `\"><svg onload=alert(document.domain)>` in that field.",
+      "Open the page where the value is displayed (as a victim would) in a fresh tab.",
+      "Check whether the script executes on load, and inspect the DOM to confirm it rendered as an element.",
+    ],
+    confirmsIf: "The payload executes when the stored value is viewed by any user — proving persistence + execution.",
+    safe: "Benign alert only. Remove the test entry afterwards so real users aren't affected.",
+  },
+  sqli: {
+    title: "Confirm SQL injection in the browser/DevTools",
+    tools: "Browser + DevTools → Network (or Repeater)",
+    steps: [
+      "Identify the parameter. Send a normal request and note the response (rows/length/timing).",
+      "Send a TRUE test (e.g. `id=1 AND 1=1`) and a FALSE test (`id=1 AND 1=2`) — URL-encoded.",
+      "Compare responses in DevTools → Network: a boolean-based injection shows different content/length between TRUE and FALSE.",
+      "As a safe time-based check, try `1 AND SLEEP(5)` and watch the request duration in the Network tab.",
+    ],
+    confirmsIf: "TRUE vs FALSE return measurably different responses, or the time-based payload delays the response by ~5s.",
+    safe: "Read-only boolean/time tests only. Never UNION-dump data or use stacked/DROP queries on a target you don't own.",
+  },
+  idor: {
+    title: "Confirm IDOR / broken access control",
+    tools: "Two accounts + DevTools → Network",
+    steps: [
+      "Log in as user A, open the object (e.g. `/api/orders/1001`), and note its id in DevTools → Network.",
+      "Log in as user B (or use B's session/cookie) in a separate profile.",
+      "As B, request A's object id directly (change the id in the URL/body, replay the request).",
+      "Check the response: does B receive A's data (or can B modify it)?",
+    ],
+    confirmsIf: "User B can read or change user A's object just by changing the identifier — no authorization error.",
+    safe: "Use two of YOUR OWN test accounts. Don't touch other real users' data.",
+  },
+  ssrf: {
+    title: "Confirm SSRF (server-side request forgery)",
+    tools: "Browser/Repeater + a collaborator/canary URL",
+    steps: [
+      "Find the parameter that takes a URL/host (webhook, image fetch, import-by-URL, PDF render…).",
+      "Point it at a unique canary you control (e.g. an interactsh/Burp Collaborator or a webhook.site URL).",
+      "Submit and watch your canary for an inbound request FROM the target's server IP.",
+      "If that lands, try `http://169.254.169.254/latest/meta-data/` (cloud metadata) and see if the response is reflected back.",
+    ],
+    confirmsIf: "Your canary logs a hit from the server, or internal/metadata content comes back in the response.",
+    safe: "Only read metadata to prove reach — never pivot further or hit internal services you're not authorized to.",
+  },
+  open_redirect: {
+    title: "Confirm open redirect",
+    tools: "Browser + DevTools → Network",
+    steps: [
+      "Find the redirect parameter (e.g. `?next=`, `?url=`, `?return=`).",
+      "Set it to `https://example.com` (a domain you control or a known-safe one).",
+      "Load the URL and watch DevTools → Network for a 30x Location header pointing off-site.",
+    ],
+    confirmsIf: "The app issues a redirect to your external domain without validation.",
+    safe: "Redirect to a benign site you control; don't chain it into a phishing flow.",
+  },
+  cors: {
+    title: "Confirm CORS misconfiguration",
+    tools: "DevTools → Network / Console",
+    steps: [
+      "Send a request to the API with an `Origin: https://evil.example` header (DevTools, curl, or a small fetch from another origin).",
+      "Inspect the response headers in DevTools → Network.",
+      "Check whether `Access-Control-Allow-Origin` reflects your evil origin AND `Access-Control-Allow-Credentials: true` is set.",
+    ],
+    confirmsIf: "The response reflects an attacker origin with credentials allowed — a cross-site read of authed data is possible.",
+    safe: "Just read the headers; no need to actually exfiltrate.",
+  },
+  secrets: {
+    title: "Confirm the exposed secret is live",
+    tools: "Browser + DevTools → Sources/Network",
+    steps: [
+      "Open the file/response where the key was found (JS bundle, response body) in DevTools → Sources and locate the value.",
+      "Identify the provider (AWS/Google/Stripe/etc.) from the key prefix.",
+      "Do a minimal READ-ONLY validity check (e.g. an identity/whoami call) — enough to prove it's active, nothing more.",
+    ],
+    confirmsIf: "The key authenticates (identity call succeeds) — it's a live, valid credential, not a placeholder.",
+    safe: "Read-only validity check ONLY (STS get-caller-identity, token introspection). Never touch data or resources.",
+  },
+  subdomain_takeover: {
+    title: "Confirm subdomain takeover",
+    tools: "dig + browser",
+    steps: [
+      "Confirm the subdomain's CNAME points to a third-party service (`dig CNAME sub.target.com`).",
+      "Visit the subdomain and note the service's 'no such bucket/app' fingerprint (unclaimed page).",
+      "Verify the target resource is actually unclaimed on that provider (you could register it) — do NOT claim it.",
+    ],
+    confirmsIf: "The CNAME points to an unclaimed resource showing the provider's takeover fingerprint.",
+    safe: "Prove it's claimable; do not actually claim/host content on it.",
+  },
+  default_creds: {
+    title: "Confirm default credentials",
+    tools: "Browser login form",
+    steps: [
+      "Open the login/admin page.",
+      "Try the product's documented default pair once (e.g. admin/admin) — do not brute-force.",
+      "If it logs in, screenshot the authenticated landing page as proof, then log out.",
+    ],
+    confirmsIf: "A default/known credential pair grants an authenticated session.",
+    safe: "One documented default attempt. No password spraying, no changing settings.",
+  },
+  tls: {
+    title: "Confirm the weak TLS is actually negotiated",
+    tools: "Browser + curl",
+    steps: [
+      "In the browser, open the site and check DevTools → Security for the negotiated protocol/cipher.",
+      "Force the weak protocol with curl (e.g. `curl --tlsv1.0 https://host`) and see if the handshake completes.",
+    ],
+    confirmsIf: "The server completes a handshake on the weak protocol/cipher (not just advertises it).",
+    safe: "Handshake test only.",
+  },
+  headers: {
+    title: "Confirm the missing/weak security header",
+    tools: "DevTools → Network",
+    steps: [
+      "Load the page, open DevTools → Network, select the main document request.",
+      "Read the Response Headers and confirm the header is absent (or weak) on every relevant response, not just one.",
+      "Note the concrete risk it enables (e.g. no CSP → the XSS above is exploitable; no HSTS → downgrade).",
+    ],
+    confirmsIf: "The header is genuinely missing/misconfigured across responses — but rate this by the concrete risk it enables, not on its own.",
+    safe: "Read-only; this is usually low severity unless it enables another bug.",
+  },
+  info_disclosure: {
+    title: "Confirm the information disclosure",
+    tools: "Browser + DevTools → Network",
+    steps: [
+      "Open the exposed path/response (stack trace, .git, backup, verbose error, debug endpoint).",
+      "Confirm it returns sensitive content (source, credentials, internal paths, versions) and not a 404/placeholder.",
+      "Capture the exact request → response as evidence.",
+    ],
+    confirmsIf: "The endpoint really serves sensitive internal content to an unauthenticated request.",
+    safe: "Read only what proves it; don't hoard dumps.",
+  },
+};
+
+const REPRO_FALLBACK: Omit<ManualRepro, "classId"> = {
+  title: "Confirm it by hand in the browser",
+  tools: "Browser + DevTools → Network",
+  steps: [
+    "Reproduce the exact request from the finding in the browser (or DevTools → Network → replay).",
+    "Observe the response for the concrete condition the finding claims.",
+    "Capture request + response as evidence, then mark it confirmed only if you personally saw the issue.",
+  ],
+  confirmsIf: "You can reproduce the claimed condition on the live target yourself.",
+  safe: "Keep tests read-only / non-destructive on authorized targets only.",
+};
+
+/** Human, browser-first reproduction steps so an operator can confirm a finding
+ *  with their own eyes (complements the command-line validationPlan). */
+export function manualRepro(finding: {
+  title: string;
+  description?: string | null;
+  owasp?: string | null;
+}): ManualRepro {
+  const cls = classifyFindingVuln({
+    title: finding.title,
+    description: finding.description ?? "",
+  });
+  const id = cls?.id ?? "";
+  const body = REPRO[id] ?? REPRO_FALLBACK;
+  return { classId: id || "generic", ...body };
 }
 
 export type Interpretation = { confirmed: boolean; proves: boolean; signal: string };
