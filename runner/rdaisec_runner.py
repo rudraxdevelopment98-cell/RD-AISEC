@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "39"
+RUNNER_VERSION = "40"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -785,6 +785,40 @@ def poll():
         return None, None
 
 
+_HTTPX_BIN = None
+
+
+def resolve_httpx():
+    """Find the ProjectDiscovery httpx, not the Python `httpx` HTTP-client library
+    that often shadows it on PATH (it errors with "Usage: httpx [OPTIONS] URL /
+    No such option: -t"). We probe candidate locations and accept the first one
+    whose `-version` doesn't look like the Python CLI. Cached after first success."""
+    global _HTTPX_BIN
+    if _HTTPX_BIN and os.path.exists(_HTTPX_BIN):
+        return _HTTPX_BIN
+    seen = []
+    for c in (
+        shutil.which("httpx"),
+        "/usr/local/bin/httpx",
+        os.path.expanduser("~/go/bin/httpx"),
+        "/root/go/bin/httpx",
+    ):
+        if not c or c in seen or not os.path.exists(c):
+            continue
+        seen.append(c)
+        try:
+            r = subprocess.run([c, "-version"], capture_output=True, text=True, timeout=10)
+            out = (r.stdout + r.stderr).lower()
+        except Exception:  # noqa: BLE001
+            continue
+        # The Python httpx library CLI prints this usage / click error; skip it.
+        if "no such option" in out or "[options] url" in out:
+            continue
+        _HTTPX_BIN = c
+        return c
+    return None
+
+
 def build_argv(job):
     # Custom command: the portal sends a full command line in `args`. We parse it
     # with shlex (POSIX argv splitting) and run it WITHOUT a shell — so shell
@@ -814,7 +848,18 @@ def build_argv(job):
         if not safe(a):
             return None, f"Argument failed validation: {a!r}"
 
-    argv = [spec["bin"], *args]
+    bin_ = spec["bin"]
+    if job["tool"] == "httpx":
+        # Disambiguate ProjectDiscovery httpx from the Python httpx library.
+        hx = resolve_httpx()
+        if not hx:
+            return None, (
+                "ProjectDiscovery httpx isn't installed (the Python 'httpx' library may be "
+                "shadowing it). Install httpx from Machines → Tools (go install), then retry."
+            )
+        bin_ = hx
+
+    argv = [bin_, *args]
     if spec["flag"]:
         # URL-based tool (httpx/nuclei/sqlmap/nikto/wpscan) — keep the full URL.
         if not safe_url(target):
