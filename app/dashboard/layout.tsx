@@ -15,6 +15,7 @@ import { getMemberAccess } from "@/lib/members";
 import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { AutoscanFab } from "@/components/autoscan-fab";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardLayout({
   children,
@@ -142,6 +143,7 @@ export default async function DashboardLayout({
           </div>
           <div className="flex items-center gap-3">
             <CommandPalette links={navLinks} />
+            <ThemeToggle />
             <span className="tag ring-emerald accent-emerald hidden lg:inline-flex">
               ● Authorized session
             </span>

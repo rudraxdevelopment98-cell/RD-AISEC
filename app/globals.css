@@ -2,64 +2,269 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════════════════════════════════════
+   THEME TOKENS — one source of truth for both themes.
+   Colours are stored as bare "R G B" triplets so Tailwind can apply them with
+   any opacity (rgb(var(--x) / <alpha-value>)). The whole palette — including
+   Tailwind's gray scale and white/black — is variable-driven, so flipping
+   `data-theme` on <html> re-skins every existing utility class at once:
+     • gray-* is INVERTED in light mode (text-gray-100 → near-black ink, etc.)
+     • white/black are SWAPPED in light mode, so text-white/bg-white/N,
+       bg-black/N and border-white/N all flip automatically.
+   Print resets these back to literal values further down so reports stay
+   black-on-white in either theme.
+   ════════════════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: dark;
+
+  --white: 255 255 255;
+  --black: 0 0 0;
+
+  --surface: 8 9 12;
+  --surface-card: 16 18 22;
+  --surface-border: 34 39 48;
+
+  --brand: 52 211 153;
+  --brand-dark: 16 185 129;
+  --brand-glow: 110 231 183;
+
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-400: 156 163 175;
+  --gray-500: 107 114 128;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
+  --gray-950: 3 7 18;
+
+  /* Liquid-glass composites (dark). */
+  --canvas-glow:
+    radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.025), transparent 45%),
+    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.5), transparent 50%);
+  --card-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 34%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.05), transparent 46%),
+    rgba(13, 16, 22, 0.58);
+  --card-border: rgba(255, 255, 255, 0.09);
+  --card-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 -24px 44px -30px rgba(0, 0, 0, 0.7),
+    0 12px 34px -12px rgba(0, 0, 0, 0.65);
+  --card-hover-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 34%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(120% 90% at 8% 0%, rgba(52, 211, 153, 0.08), transparent 48%),
+    rgba(15, 19, 26, 0.62);
+  --glass-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 55%),
+    rgba(13, 16, 22, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.10);
+  --panel-bg:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, rgba(18, 23, 30, 0.74), rgba(9, 12, 17, 0.82));
+  --ghost-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.01) 60%),
+    rgba(255, 255, 255, 0.02);
+  --ghost-border: rgba(255, 255, 255, 0.10);
+  --input-bg: rgba(255, 255, 255, 0.03);
+  --input-border: rgba(255, 255, 255, 0.10);
+}
+
+/* ── Light theme ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --white: 17 24 39;   /* swapped: "white" utilities become dark ink */
+  --black: 255 255 255; /* swapped: "black" utilities become light      */
+
+  --surface: 244 246 250;
+  --surface-card: 255 255 255;
+  --surface-border: 214 220 230;
+
+  --brand: 5 150 105;
+  --brand-dark: 4 120 87;
+  --brand-glow: 6 95 70;
+
+  /* Inverted gray ramp — index meaning flips so primary/muted text stays right. */
+  --gray-50: 3 7 18;
+  --gray-100: 17 24 39;
+  --gray-200: 31 41 55;
+  --gray-300: 55 65 81;
+  --gray-400: 75 85 99;
+  --gray-500: 107 114 128;
+  --gray-600: 156 163 175;
+  --gray-700: 209 213 219;
+  --gray-800: 229 231 235;
+  --gray-900: 243 244 246;
+  --gray-950: 249 250 251;
+
+  /* Liquid-glass composites (light) — frosted WHITE glass, dark rim + soft shadow. */
+  --canvas-glow:
+    radial-gradient(circle at 50% -10%, rgba(52, 211, 153, 0.10), transparent 45%),
+    radial-gradient(circle at 50% 120%, rgba(15, 23, 42, 0.06), transparent 50%);
+  --card-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.35) 40%, rgba(255, 255, 255, 0.15) 72%),
+    radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.6), transparent 46%),
+    rgba(255, 255, 255, 0.55);
+  --card-border: rgba(15, 23, 42, 0.10);
+  --card-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    inset 0 -24px 44px -34px rgba(15, 23, 42, 0.12),
+    0 12px 34px -14px rgba(15, 23, 42, 0.14);
+  --card-hover-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 40%, rgba(255, 255, 255, 0.2) 72%),
+    radial-gradient(120% 90% at 8% 0%, rgba(5, 150, 105, 0.10), transparent 48%),
+    rgba(255, 255, 255, 0.7);
+  --glass-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.35) 55%),
+    rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(15, 23, 42, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.8);
+  --panel-bg:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.6) 40%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.92));
+  --ghost-bg:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.4) 60%),
+    rgba(255, 255, 255, 0.6);
+  --ghost-border: rgba(15, 23, 42, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.7);
+  --input-border: rgba(15, 23, 42, 0.14);
 }
 
 body {
   @apply bg-surface text-gray-100 antialiased;
-  /* Clean, high-contrast near-black — no colour glow. A faint neutral vignette
-     adds depth without tinting the page. */
-  background-image:
-    radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.025), transparent 45%),
-    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.5), transparent 50%);
+  background-image: var(--canvas-glow);
   min-height: 100vh;
 }
 
 @layer components {
+  /* ── Liquid glass surface ────────────────────────────────────────────────
+     A frosted, translucent panel: heavy backdrop blur + saturation lift refracts
+     the morphing backdrop behind it, a bright specular top edge + glass rim read
+     as light catching the surface, and a soft float shadow lifts it off the
+     canvas. This one class themes nearly every surface in the app. */
   .card {
-    /* Crisp near-black surface with a thin hairline border (ProjectDiscovery
-       style) — sharpness comes from the border + white text, not a grey fill,
-       so it never looks dull/muddy. Liquid-glass blur kept. */
-    @apply relative rounded-xl border border-white/[0.10] p-5;
-    background: rgba(13, 15, 20, 0.72);
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 6px 22px rgba(0, 0, 0, 0.5);
+    @apply relative rounded-2xl p-5;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(22px) saturate(185%);
+    -webkit-backdrop-filter: blur(22px) saturate(185%);
+    box-shadow: var(--card-shadow);
   }
   .card-hover {
-    @apply card transition duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10;
+    @apply card transition-all duration-300;
   }
-  /* Frosted "liquid glass" panel — used for the mobile drawer and any solid overlay. */
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--brand) / 0.38);
+    background: var(--card-hover-bg);
+    box-shadow:
+      var(--card-shadow),
+      0 0 0 1px rgb(var(--brand) / 0.10),
+      0 10px 32px -10px rgb(var(--brand) / 0.20);
+  }
+  /* Frosted "liquid glass" panel — used for the mobile drawer, sidebar rail and
+     any solid overlay. Denser frost so content behind stays legible. */
   .glass-panel {
-    background:
-      linear-gradient(180deg, rgba(22, 30, 34, 0.86), rgba(12, 16, 20, 0.92));
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    background: var(--panel-bg);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      inset -1px 0 0 var(--glass-border);
+  }
+  /* Bare glass utility (no padding/radius) for ad-hoc frosted surfaces. */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
+    @apply relative inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200;
   }
   .btn-primary {
-    /* Crisp white pill (ProjectDiscovery-style), high contrast on near-black. */
-    @apply btn bg-white text-black hover:bg-gray-200;
+    /* Crisp bright pill (ProjectDiscovery-style CTA), high contrast on near-black,
+       with a glass gloss so it reads as a lit surface not a flat rectangle. */
+    @apply btn bg-white text-black hover:bg-white;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+      0 6px 18px -6px rgba(255, 255, 255, 0.28);
   }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 10px 26px -8px rgba(255, 255, 255, 0.4);
+  }
+  /* Frosted-glass ghost button — translucent, blurred, rim-lit. */
   .btn-ghost {
-    @apply btn border border-surface-border text-gray-200 hover:border-brand hover:text-brand;
+    @apply btn text-gray-200;
+    background: var(--ghost-bg);
+    border: 1px solid var(--ghost-border);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .btn-ghost:hover {
+    color: rgb(var(--brand-glow));
+    border-color: rgb(var(--brand) / 0.45);
+    background:
+      linear-gradient(158deg, rgb(var(--brand) / 0.14), rgb(var(--brand) / 0.02) 60%),
+      rgb(var(--brand) / 0.04);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 6px 20px -8px rgb(var(--brand) / 0.3);
+  }
+  /* Translucent accent CTA (glass, brand-tinted) — secondary to btn-primary. */
+  .btn-glass {
+    @apply btn text-brand-glow;
+    background:
+      linear-gradient(158deg, rgb(var(--brand) / 0.22), rgb(var(--brand-dark) / 0.06) 60%),
+      rgb(var(--brand) / 0.05);
+    border: 1px solid rgb(var(--brand) / 0.35);
+    backdrop-filter: blur(14px) saturate(170%);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .btn-glass:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 10px 26px -10px rgb(var(--brand) / 0.45);
   }
   .tag {
-    @apply inline-flex items-center gap-1 rounded-full border border-surface-border px-2.5 py-0.5 text-xs text-gray-300;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-gray-300;
+    background: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .nav-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 transition hover:bg-surface-border/60 hover:text-white;
+    @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-300 transition-all duration-200 hover:text-white;
   }
-  /* Active item turns brand-green (icon + label) on a subtle highlight; inactive
-     icons are white / labels dim-white (set in SidebarNav). */
+  .nav-link:hover {
+    background: var(--ghost-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  /* Active item: a brand-tinted glass highlight with a lit top edge. */
   .nav-link-active {
-    @apply bg-brand/10 text-brand;
+    @apply text-brand;
+    background:
+      linear-gradient(158deg, rgb(var(--brand) / 0.20), rgb(var(--brand) / 0.04) 60%),
+      rgb(var(--brand) / 0.05) !important;
+    border: 1px solid rgb(var(--brand) / 0.28);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 4px 16px -8px rgb(var(--brand) / 0.4);
   }
   .nav-section {
     @apply px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600;
@@ -67,10 +272,37 @@ body {
   .stat-num {
     @apply text-3xl font-bold text-brand;
   }
+  /* Frosted input/select surface — opt-in for form fields that want the glass. */
+  .glass-input {
+    @apply rounded-xl px-3 py-2 text-sm text-gray-100 outline-none transition;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .glass-input:focus {
+    border-color: rgb(var(--brand) / 0.5);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 0 0 3px rgb(var(--brand) / 0.12);
+  }
 }
 
-/* Print: clean white page for reports (chrome is hidden via print:hidden) */
+/* Print: clean white page for reports (chrome is hidden via print:hidden).
+   Reset the theme tokens to literal values so a light-theme session (which SWAPS
+   white/black and INVERTS the gray ramp) still prints black text on white —
+   print:text-black / print:text-gray-600 must resolve to real ink. */
 @media print {
+  :root,
+  [data-theme="light"] {
+    --white: 255 255 255;
+    --black: 0 0 0;
+    --gray-50: 249 250 251;  --gray-100: 243 244 246; --gray-200: 229 231 235;
+    --gray-300: 209 213 219; --gray-400: 156 163 175; --gray-500: 107 114 128;
+    --gray-600: 75 85 99;    --gray-700: 55 65 81;    --gray-800: 31 41 55;
+    --gray-900: 17 24 39;    --gray-950: 3 7 18;
+  }
   body {
     background: #fff !important;
     color: #000 !important;
@@ -198,6 +430,35 @@ body {
   animation: drift 90s linear infinite, twinkle 6s ease-in-out infinite;
 }
 
+/* Liquid-glass specular sheen — a slow diagonal light sweep across a frosted
+   surface. Opt-in (add `glass-sheen` to a `.card`/`.glass` element). The pseudo
+   is clipped to the element and ignores pointer events. */
+@keyframes sheen {
+  0%   { transform: translateX(-120%) translateY(-10%) rotate(8deg); }
+  100% { transform: translateX(220%) translateY(10%) rotate(8deg); }
+}
+.glass-sheen { position: relative; overflow: hidden; }
+.glass-sheen::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: 0;
+  width: 45%;
+  height: 180%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.10) 45%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.10) 55%,
+    transparent
+  );
+  filter: blur(6px);
+  animation: sheen 7s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
 .fade-up { animation: fadeUp .5s ease-out both; }
 /* Cascade direct children in (lists / grids): add `stagger-in` to a container. */
 .stagger-in > * { animation: fadeUp .45s ease-out both; }
@@ -218,6 +479,7 @@ body {
   .galaxy-stars, .fade-up, .float-slow, .pulse-dot, .pipe-line, .spin-slow { animation: none; }
   .stagger-in > * { animation: none; }
   .spark-line { animation: none; stroke-dashoffset: 0; }
+  .glass-sheen::after { animation: none; opacity: 0; }
 }
 
 /* ── Sci-fi scene (global dashboard backdrop) ────────────── */
@@ -355,3 +617,72 @@ body {
 .sev-glow-medium   { border-left: 3px solid rgba(245, 158, 11, 0.5) !important; }
 .sev-glow-low      { border-left: 3px solid rgba(56, 189, 248, 0.45) !important; }
 .sev-glow-info     { border-left: 3px solid rgba(148, 163, 184, 0.4) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME ADJUSTMENTS
+   The token swaps (globals top) already flip surfaces, gray text and
+   white/black utilities. These extra rules fix the things tokens can't reach:
+   the fixed-colour status tints (which are tuned for a dark canvas and wash out
+   on white) and the backdrop scene (light blobs are invisible on white).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Backdrop: softer, tinted for the light canvas. */
+[data-theme="light"] .liquid-bg { opacity: 0.5; filter: blur(90px); }
+[data-theme="light"] .liquid-bg span { mix-blend-mode: normal; }
+[data-theme="light"] .liquid-bg .b1 { background: radial-gradient(circle, rgba(52, 211, 153, 0.30), transparent 70%); }
+[data-theme="light"] .liquid-bg .b2 { background: radial-gradient(circle, rgba(56, 189, 248, 0.26), transparent 70%); }
+[data-theme="light"] .liquid-bg .b3 { background: radial-gradient(circle, rgba(167, 139, 250, 0.22), transparent 70%); }
+[data-theme="light"] .scene-grid {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+}
+[data-theme="light"] .scene-particles,
+[data-theme="light"] .scene-rays,
+[data-theme="light"] .scene-radar,
+[data-theme="light"] .scene-radar-rings,
+[data-theme="light"] .galaxy-stars { opacity: 0.12; }
+
+/* Status tints — remap the light-on-dark tints to darker, readable-on-white ink.
+   Backgrounds/borders that use `<colour>-500/opacity` already read fine on white. */
+[data-theme="light"] .text-red-200,
+[data-theme="light"] .text-red-300,
+[data-theme="light"] .text-red-400   { color: #b91c1c; }
+[data-theme="light"] .text-orange-300,
+[data-theme="light"] .text-orange-400 { color: #c2410c; }
+[data-theme="light"] .text-amber-200,
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-yellow-300 { color: #b45309; }
+[data-theme="light"] .text-sky-300,
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-cyan-300,
+[data-theme="light"] .text-blue-300   { color: #0369a1; }
+[data-theme="light"] .text-indigo-300,
+[data-theme="light"] .text-violet-300,
+[data-theme="light"] .text-purple-300 { color: #4338ca; }
+[data-theme="light"] .text-emerald-200,
+[data-theme="light"] .text-emerald-300,
+[data-theme="light"] .text-emerald-400,
+[data-theme="light"] .text-green-300,
+[data-theme="light"] .text-green-400  { color: #047857; }
+[data-theme="light"] .text-fuchsia-300,
+[data-theme="light"] .text-pink-300   { color: #a21caf; }
+
+/* Pillar accent helpers (built via @apply, so they need their own overrides). */
+[data-theme="light"] .accent-emerald { color: #047857; }
+[data-theme="light"] .accent-sky     { color: #0369a1; }
+[data-theme="light"] .accent-amber   { color: #b45309; }
+[data-theme="light"] .accent-red     { color: #b91c1c; }
+[data-theme="light"] .accent-fuchsia { color: #a21caf; }
+
+/* Cinematic text treatments tuned for dark; make them legible on white. */
+[data-theme="light"] .text-gradient {
+  background: linear-gradient(90deg, #0f172a 0%, #475569 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+[data-theme="light"] .text-glow-blue { color: #0369a1; text-shadow: none; }
+[data-theme="light"] .text-glow-red  { color: #b91c1c; text-shadow: none; }
+
+/* The top header uses bg-surface/80 + backdrop blur; keep it frosted in light. */
+[data-theme="light"] .sev-glow-info { border-left-color: rgba(100, 116, 139, 0.5) !important; }

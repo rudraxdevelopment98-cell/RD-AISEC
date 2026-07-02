@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { Icon } from "@/components/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const PILLARS = [
   {
@@ -45,9 +46,12 @@ export default async function Home() {
             RD<span className="text-brand">-AISEC</span>
           </span>
         </span>
-        <Link href={target} className="btn-ghost">
-          {session?.user ? "Open dashboard" : "Sign in"}
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link href={target} className="btn-ghost">
+            {session?.user ? "Open dashboard" : "Sign in"}
+          </Link>
+        </div>
       </div>
 
       {/* Hero */}

@@ -312,3 +312,18 @@ assumptions, evidence over guesses, human approval, real-world exploitability.
   findings by class + normalised title across assets; non-destructive.
 - ⬜ EPSS per-finding lookup (deferred). WiFi per-machine tab split (deferred,
   user handling WiFi). Machines setup-tab (deferred, low value).
+
+## S. Liquid-glass design system + light/dark theme (2026-07-02)
+- ✅ **Liquid-glass UI**: rebuilt the shared component layer (.card/.card-hover/
+  .glass/.glass-panel/.btn-*/.tag/.nav-*/.glass-input) as frosted translucent
+  surfaces — heavy backdrop-blur + saturation, specular top edge, glass rim,
+  float shadow; optional `.glass-sheen` light sweep (reduced-motion safe).
+- ✅ **Light + dark theme, one global toggle**: token system in globals.css —
+  every colour is a CSS variable ("R G B" triplets). Tailwind's palette
+  (gray ramp INVERTED, white/black SWAPPED, surface/brand) is variable-backed,
+  so flipping `data-theme` on <html> re-skins every existing utility class with
+  no per-file edits. Glass composites, backdrop blobs, scene grid and fixed
+  status tints all have light-mode values. `components/theme-toggle.tsx` +
+  pre-paint no-flash script in app/layout.tsx; toggle in the dashboard header
+  and the public nav; choice persisted to localStorage. Print resets tokens so
+  reports stay black-on-white in either theme.
