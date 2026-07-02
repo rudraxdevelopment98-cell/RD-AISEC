@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { classifyFinding } from "@/lib/finding-map";
+import { learnFromFinding } from "@/lib/suppression";
 
-async function requireUser() {
+async function requireUser(): Promise<string> {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  return session.user.email ?? "";
 }
 
 const STATUSES = ["open", "fixed", "accepted", "false_positive"];
@@ -23,11 +25,15 @@ export async function bulkDeleteFindings(formData: FormData) {
 
 /** Bulk set status on selected findings. */
 export async function bulkSetStatus(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const status = String(formData.get("status") ?? "");
   if (ids.length && STATUSES.includes(status)) {
     await prisma.finding.updateMany({ where: { id: { in: ids } }, data: { status } });
+    // Learn from every finding marked a false positive in bulk.
+    if (status === "false_positive") {
+      for (const id of ids) await learnFromFinding(id, email).catch(() => {});
+    }
   }
   revalidatePath("/dashboard/findings");
 }

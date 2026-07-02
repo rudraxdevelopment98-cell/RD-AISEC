@@ -14,6 +14,7 @@ import { classifyFinding } from "@/lib/finding-map";
 import { encryptSecret } from "@/lib/crypto";
 import { isSafeHeader, describeHeader } from "@/lib/auth-scan";
 import { logAudit } from "@/lib/audit";
+import { learnFromFinding } from "@/lib/suppression";
 
 async function requireUser() {
   const session = await auth();
@@ -256,11 +257,16 @@ export async function addFinding(formData: FormData) {
 }
 
 export async function updateFindingStatus(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
   const engagementId = String(formData.get("engagementId") ?? "");
   const status = oneOf(formData.get("status"), FINDING_STATUSES, "open");
   await prisma.finding.update({ where: { id }, data: { status } });
+  // Learn: marking a finding a false positive teaches the engine to suppress
+  // that class of finding on future scans.
+  if (status === "false_positive") {
+    await learnFromFinding(id, email).catch(() => {});
+  }
   revalidatePath(`/dashboard/engagements/${engagementId}`);
 }
 

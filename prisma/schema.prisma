@@ -351,6 +351,26 @@ model AuditEvent {
   @@index([actor, createdAt])
 }
 
+// Learned false-positive suppression. When an operator marks a finding as a
+// false positive, we derive a signature (vuln class + normalized title) and
+// store it here; the import gate drops future candidates that match, so the
+// engine improves itself from triage. Fully visible + removable (see
+// /dashboard/findings → Learned rules).
+model Suppression {
+  id        String   @id @default(cuid())
+  scope     String   @default("global") // "global" | "host"
+  host      String   @default("")        // set when scope = "host"
+  tool      String   @default("")        // "" = any tool
+  vulnClass String   @default("")        // taxonomy class id ("" = any)
+  titleKey  String                       // normalized title signature
+  reason    String   @default("")        // why it's noise (from the sample)
+  createdBy String   @default("")
+  hits      Int      @default(0)         // times it has suppressed a finding
+  createdAt DateTime @default(now())
+
+  @@index([titleKey])
+}
+
 // Threat intelligence feed synced by a runner (which has internet egress) so the
 // portal always has current data without needing outbound access itself. Today:
 // the CISA KEV catalog (CVEs known to be actively exploited in the wild). One row

@@ -5,6 +5,8 @@ import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
 import { gateFindings } from "@/lib/finding-gate";
+import { loadRules, recordSuppressions } from "@/lib/suppression";
+import { filterSuppressed } from "@/lib/suppression-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
@@ -84,9 +86,15 @@ export async function POST(
       // Parse results into findings, then run every candidate through the
       // accuracy gate (freshness + proof engines) so patched/banner-only false
       // positives are dropped or de-confirmed BEFORE they become findings.
-      const parsed = gateFindings(
+      let parsed = gateFindings(
         tagFindings(parseJobFindings(job.tool, job.target, output), job.tool),
       ).kept;
+      // Learned false positives: drop candidates matching a rule you created by
+      // marking a similar finding as a false positive before.
+      const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
+      const sup = filterSuppressed(parsed, await loadRules(), { tool: job.tool, host });
+      parsed = sup.kept;
+      if (sup.suppressed.length > 0) await recordSuppressions(sup.suppressed, {});
       if (parsed.length > 0) {
         const existing = await prisma.finding.findMany({
           where: { engagementId: job.engagementId },

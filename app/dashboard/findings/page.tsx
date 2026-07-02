@@ -8,6 +8,7 @@ import { NavSelect } from "@/components/nav-select";
 import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { importFindingsCsv } from "@/lib/finding-actions";
+import { deleteSuppression } from "@/lib/suppression";
 import { classifyConfidence } from "@/lib/exploit-confidence";
 
 export const dynamic = "force-dynamic";
@@ -117,6 +118,10 @@ export default async function FindingsPage({
     prisma.engagement.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, name: true } }),
   ]);
 
+  // Learned false-positive rules (self-improving accuracy loop).
+  const suppressions = await prisma.suppression.findMany({ orderBy: { hits: "desc" } });
+  const totalSuppressed = suppressions.reduce((n, s) => n + s.hits, 0);
+
   const attacksInUse = new Set(present.map((p) => p.attack).filter(Boolean));
   const owaspInUse = new Set(present.map((p) => p.owasp).filter(Boolean));
   const categoriesInUse = cats.map((c) => c.category).filter(Boolean);
@@ -204,8 +209,43 @@ export default async function FindingsPage({
       <HelpBanner>
         <p>• Click a framework / severity / category chip to filter; click again to clear.</p>
         <p>• Select findings to bulk delete, set status, or tag a category.</p>
+        <p>• Mark a finding <b>false positive</b> and the engine <b>learns</b> to suppress that class on future scans (see Learned rules below).</p>
         <p>• Export/Import findings as CSV. Confirmed-exploitable findings glow red.</p>
       </HelpBanner>
+
+      {/* Learned false positives — the self-improving accuracy loop. */}
+      {suppressions.length > 0 && (
+        <details className="card mt-4">
+          <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-200">
+            <Icon name="shield" className="h-4 w-4 text-brand" />
+            Learned false positives
+            <span className="tag ring-emerald accent-emerald">{suppressions.length} rule{suppressions.length === 1 ? "" : "s"}</span>
+            {totalSuppressed > 0 && (
+              <span className="tag">{totalSuppressed} auto-suppressed</span>
+            )}
+          </summary>
+          <p className="mt-2 text-xs text-gray-500">
+            Each time you mark a finding a false positive, the engine remembers the
+            pattern and drops matching findings on future scans. Remove a rule to
+            start seeing that finding again.
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {suppressions.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-3 rounded-md border border-surface-border bg-black/20 px-3 py-1.5 text-xs">
+                <span className="min-w-0">
+                  <span className="font-mono text-gray-300">{s.titleKey || "(unclassified)"}</span>
+                  {s.vulnClass && <span className="ml-2 text-gray-500">· {s.vulnClass}</span>}
+                  {s.hits > 0 && <span className="ml-2 text-emerald-300/80">· suppressed {s.hits}×</span>}
+                </span>
+                <form action={deleteSuppression}>
+                  <input type="hidden" name="id" value={s.id} />
+                  <button className="shrink-0 text-gray-500 hover:text-red-400">Remove</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* Action bar: search + scope filters (engagement · created-within) */}
       <div className="mt-5 flex flex-wrap items-center gap-2">
