@@ -263,11 +263,21 @@ export function EngagementMap({ graph, engagementId }: { graph: EngagementGraph;
   function startNode(e: React.PointerEvent, id: string) { e.stopPropagation(); const s = toSvg(e.clientX, e.clientY); act.current = { mode: "node", id, moved: false, sx: s.x, sy: s.y, ox: 0, oy: 0 }; }
   function startPan(e: React.PointerEvent) { const s = toSvg(e.clientX, e.clientY); act.current = { mode: "pan", moved: false, sx: s.x, sy: s.y, ox: view.x, oy: view.y }; }
   function onMove(e: React.PointerEvent) {
-    if (!act.current) return;
+    // Capture the gesture into a local — the state updaters below run async, and
+    // act.current can be nulled by pointer-up before they execute (was crashing
+    // with "Cannot read properties of null (reading 'ox')").
+    const a = act.current;
+    if (!a) return;
     const s = toSvg(e.clientX, e.clientY);
-    if (Math.abs(s.x - act.current.sx) + Math.abs(s.y - act.current.sy) > 2) act.current.moved = true;
-    if (act.current.mode === "pan") setView((v) => ({ ...v, x: act.current!.ox + (s.x - act.current!.sx), y: act.current!.oy + (s.y - act.current!.sy) }));
-    else { const w = toWorld(s.x, s.y, view); const id = act.current.id!; const b = pos[id]; if (b) setDragPos((d) => ({ ...d, [id]: { ...b, x: w.x - b.w / 2, y: w.y - b.h / 2 } })); }
+    if (Math.abs(s.x - a.sx) + Math.abs(s.y - a.sy) > 2) a.moved = true;
+    if (a.mode === "pan") {
+      setView((v) => ({ ...v, x: a.ox + (s.x - a.sx), y: a.oy + (s.y - a.sy) }));
+    } else {
+      const w = toWorld(s.x, s.y, view);
+      const id = a.id!;
+      const b = pos[id];
+      if (b) setDragPos((d) => ({ ...d, [id]: { ...b, x: w.x - b.w / 2, y: w.y - b.h / 2 } }));
+    }
   }
   function endInteract() {
     const a = act.current;
