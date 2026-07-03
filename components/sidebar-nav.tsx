@@ -21,19 +21,14 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
     .sort((a, b) => b.length - a.length)[0];
   const activeSection = groups.find((g) => g.items.some((i) => i.href === activeHref))?.section;
 
-  // Accordion: groups are the top level; expand one to reveal its pages. The
-  // group holding the current page stays open. State persists across in-app
-  // navigations (the layout keeps this mounted).
-  const [open, setOpen] = useState<Set<string>>(() => new Set(activeSection ? [activeSection] : []));
+  // Single-open accordion: only ONE group is expanded at a time, so the sidebar
+  // stays a short list of groups. Navigating to a page opens that page's group
+  // (and closes the previous one). Manual toggle wins until the next navigation.
+  const [open, setOpen] = useState<string | null>(activeSection ?? null);
   useEffect(() => {
-    if (activeSection) setOpen((prev) => (prev.has(activeSection) ? prev : new Set(prev).add(activeSection)));
+    if (activeSection) setOpen(activeSection);
   }, [activeSection]);
-  const toggle = (section: string) =>
-    setOpen((prev) => {
-      const n = new Set(prev);
-      n.has(section) ? n.delete(section) : n.add(section);
-      return n;
-    });
+  const toggle = (section: string) => setOpen((cur) => (cur === section ? null : section));
 
   return (
     <nav className="mt-3 flex flex-col gap-0.5">
@@ -55,7 +50,7 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
           );
         }
 
-        const isOpen = open.has(group.section);
+        const isOpen = open === group.section;
         const inGroup = group.section === activeSection;
         return (
           <div key={group.section} className="mt-0.5">
