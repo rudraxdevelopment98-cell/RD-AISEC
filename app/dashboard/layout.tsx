@@ -15,6 +15,7 @@ import { getMemberAccess } from "@/lib/members";
 import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { AutoscanFab } from "@/components/autoscan-fab";
+import { VoiceCommandCenter } from "@/components/voice-command-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function DashboardLayout({
@@ -178,6 +179,9 @@ export default async function DashboardLayout({
 
       {/* Global floating autoscan launcher — reachable from every page. */}
       {canQueue && <AutoscanFab runners={fabRunners} engagements={fabEngagements} />}
+
+      {/* Hands-free voice control (browser-native, no external service). */}
+      <VoiceCommandCenter links={navLinks} />
     </div>
   );
 }

@@ -55,9 +55,15 @@ function ResultBlock({ result }: { result: ScanResult }) {
   );
 }
 
-export function Scanner({ engagements }: { engagements: EngagementOption[] }) {
+export function Scanner({
+  engagements,
+  defaultTarget = "",
+}: {
+  engagements: EngagementOption[];
+  defaultTarget?: string;
+}) {
   const [mode, setMode] = useState<"single" | "bulk">("single");
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useState(defaultTarget);
   const [targets, setTargets] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -24,7 +24,7 @@ function nextRun(s: { frequency: string; lastRunAt: Date | null }): string {
 export default async function ScanPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; target?: string };
 }) {
   const [engagements, schedules] = await Promise.all([
     listEngagements(),
@@ -51,7 +51,7 @@ export default async function ScanPage({
         </div>
       )}
 
-      <Scanner engagements={engOptions} />
+      <Scanner engagements={engOptions} defaultTarget={searchParams.target ?? ""} />
 
       {/* ── Scheduled scans ─────────────────────────────── */}
       <h2 className="mt-12 flex items-center gap-2 text-lg font-bold">
