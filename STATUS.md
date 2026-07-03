@@ -65,6 +65,21 @@ results back; the portal parses them into findings.
 - **Bug-bounty accuracy engine** (`lib/bb-engine.ts`): states, confidence caps,
   acceptance probability. **Human-review gate** (`lib/review-gate.ts`): owner
   sign-off before high-impact findings publish.
+- **Parser negation guard** (`lib/job-parser.ts` `NEG_VULN` / `looksNegated`):
+  one canonical "line says SAFE / not vulnerable / up to date / no known vulns"
+  check shared by every parser — kills the "matched a keyword inside a negated
+  sentence" false positives (sslscan Heartbleed, WPScan "no known vulnerabilities",
+  sqlmap "is not vulnerable"). WPScan version-inferred vulns are `confirmed:false`
+  (detection, not proof) like nuclei.
+- **Import gate** (`lib/finding-gate.ts`): re-judges CVE-bearing findings on
+  evidence at import — drops patched, de-confirms unverifiable, trusts parser.
+- **Self-improving suppression** (`lib/suppression*.ts`): mark a finding false
+  positive → learns a signature and drops matches on future scans; **confirm a
+  finding real → learns an ALLOW rule that protects that class** (allow beats
+  suppress). All rules visible + reversible on the Findings page.
+- **Real exploit generation** (`lib/exploit-generator.ts`): per-vuln-class PoC
+  (VULNERABLE/SAFE, target-filled) on each finding's Exploit page + browser/
+  DevTools manual-repro playbook (`lib/validation-guide.ts` `manualRepro`).
 - **Assessment pipeline** produces a standard result schema + executive tables
   (`lib/assessment.ts`); **reports** use a human-voice engine + evidence-first
   graded structure + platform-aware submission.
@@ -78,6 +93,11 @@ results back; the portal parses them into findings.
 - **UI**: Neo-style three-pane shell (nav · canvas · Live-Ops rail, collapsible),
   token-based **liquid-glass design system with a light/dark theme toggle**, tabs
   across Jobs / Exploitation / Bug Bounty / Engagement detail, global Autoscan FAB.
+- **Voice Command Center** (`components/voice-command-center.tsx`,
+  `lib/voice-commands.ts`): hands-free, 100% browser-native (Web Speech API —
+  no cloud, no key). Voice→commands ("go to findings", "scan example dot com",
+  "search for XSS"), spoken TTS replies, wake word ("Shiva …") / always-listening.
+  Access-aware routing; pure intent parser is unit-tested. Bottom-left FAB.
 
 ## Runner
 - Current version: **39** (`lib/runner-constants.ts` RUNNER_VERSION must match
