@@ -116,7 +116,7 @@ function layout(nodes: GNode[], edges: EngagementGraph["edges"], depthAll: Recor
   return { pos, cols };
 }
 
-export function EngagementMap({ graph }: { graph: EngagementGraph }) {
+export function EngagementMap({ graph, engagementId }: { graph: EngagementGraph; engagementId?: string }) {
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   const [selected, setSelected] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
@@ -126,8 +126,29 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [dragPos, setDragPos] = useState<Record<string, Box>>({});
+  const [maximized, setMaximized] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const act = useRef<{ mode: "node" | "pan"; id?: string; moved: boolean; sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  // Per-engagement saved layout (drag positions) in localStorage.
+  const storageKey = `rdaisec.map.${engagementId ?? "default"}`;
+  const loadedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedKey.current === storageKey) return;
+    loadedKey.current = storageKey;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      setDragPos(raw ? JSON.parse(raw) : {});
+    } catch { setDragPos({}); }
+  }, [storageKey]);
+  useEffect(() => {
+    if (loadedKey.current !== storageKey) return; // don't save before load
+    try {
+      if (Object.keys(dragPos).length) localStorage.setItem(storageKey, JSON.stringify(dragPos));
+      else localStorage.removeItem(storageKey);
+    } catch { /* ignore quota/private mode */ }
+  }, [dragPos, storageKey]);
 
   const byId = useMemo(() => Object.fromEntries(graph.nodes.map((n) => [n.id, n])), [graph]);
 
@@ -260,22 +281,64 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
   function toggleCollapse(id: string) { setCollapsed((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function resetAll() { setHiddenTypes(new Set()); setMinSev("info"); setCollapsed(new Set()); setQuery(""); setSelected(null); setDragPos({}); setTimeout(() => fitBoxes(Object.values(layout(graph.nodes, graph.edges, depthAll).pos)), 0); }
 
-  function downloadSvg() {
-    const svg = svgRef.current; if (!svg) return;
-    const clone = svg.cloneNode(true) as SVGSVGElement;
+  function serializeSvg(): string {
+    const clone = svgRef.current!.cloneNode(true) as SVGSVGElement;
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    clone.setAttribute("style", "background:#03060d");
-    const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
+    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
+    bg.setAttribute("width", String(VW)); bg.setAttribute("height", String(VH));
+    bg.setAttribute("fill", "#03060d");
+    clone.insertBefore(bg, clone.firstChild);
+    return new XMLSerializer().serializeToString(clone);
+  }
+  function download(url: string, name: string) {
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  }
+  function downloadSvg() {
+    if (!svgRef.current) return;
+    const blob = new Blob([serializeSvg()], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "engagement-map.svg"; a.click();
+    download(url, "engagement-map.svg");
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function downloadPng() {
+    if (!svgRef.current) return;
+    const data = serializeSvg();
+    const src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(data)));
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = VW * scale; canvas.height = VH * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#03060d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        download(url, "engagement-map.png");
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+    };
+    img.src = src;
+  }
+  function toggleMaximize() {
+    const el = wrapRef.current;
+    // Native fullscreen where supported; CSS maximize otherwise (iOS Safari).
+    if (el?.requestFullscreen && !maximized) { el.requestFullscreen().catch(() => setMaximized(true)); }
+    else if (document.fullscreenElement) { document.exitFullscreen?.().catch(() => {}); setMaximized(false); }
+    else setMaximized((m) => !m);
   }
 
   const usedTypes = useMemo(() => TYPE_ORDER.filter((t) => graph.nodes.some((n) => n.type === t)), [graph]);
   const isBright = (id: string) => (matchSet ? matchSet.has(id) : focusSet ? focusSet.has(id) : true);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[2.4fr_1fr]">
+    <div
+      ref={wrapRef}
+      className={`grid gap-4 lg:grid-cols-[2.4fr_1fr] ${maximized ? "fixed inset-0 z-[120] overflow-auto bg-[#03060d] p-3" : ""}`}
+    >
       <div className="card overflow-hidden p-2">
         {/* Toolbar */}
         <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[11px]">
@@ -283,8 +346,11 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
           <button onClick={() => zoomBy(1.25)} className="btn-ghost px-2 py-1 text-[11px]">＋</button>
           <button onClick={() => zoomBy(0.8)} className="btn-ghost px-2 py-1 text-[11px]">－</button>
           <button onClick={resetAll} className="btn-ghost px-2 py-1 text-[11px]">Reset</button>
-          <button onClick={downloadSvg} className="btn-ghost px-2 py-1 text-[11px]">⬇ SVG</button>
+          <button onClick={downloadPng} className="btn-ghost px-2 py-1 text-[11px]">⬇ PNG</button>
+          <button onClick={downloadSvg} className="btn-ghost px-2 py-1 text-[11px]">SVG</button>
+          <button onClick={toggleMaximize} className="btn-ghost px-2 py-1 text-[11px]" title="Fullscreen">{maximized ? "⤢ Exit" : "⛶ Full"}</button>
           <span className="font-mono text-[10px] text-gray-600">{Math.round(view.k * 100)}%</span>
+          {Object.keys(dragPos).length > 0 && <span className="text-[10px] text-emerald-400/70" title="Your layout is saved for this engagement">↺ layout saved</span>}
           <input
             value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search nodes…"

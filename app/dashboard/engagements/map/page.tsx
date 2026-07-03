@@ -102,7 +102,7 @@ export default async function EngagementMapPage({
       </div>
 
       <div className="mt-4">
-        <EngagementMap graph={graph} />
+        <EngagementMap graph={graph} engagementId={selectedId} />
       </div>
     </div>
   );

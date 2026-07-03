@@ -613,7 +613,7 @@ export default async function EngagementDetail({
         engagement — linked and explorable. Tap any bubble for details.
       </p>
       <div className="mt-3">
-        <EngagementMap graph={engGraph} />
+        <EngagementMap graph={engGraph} engagementId={e.id} />
       </div>
       </TabPanel>
 
