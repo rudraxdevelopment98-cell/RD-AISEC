@@ -21,7 +21,7 @@ export type NavItem = {
   access?: AccessClass; // defaults to "grantable"
 };
 
-export type NavGroup = { section: string; items: NavItem[] };
+export type NavGroup = { section: string; icon: string; items: NavItem[] };
 
 // Full navigation, reorganized by what you're doing: plan work → run offensive
 // ops → reference knowledge → admin. Items are filtered per-user by access.
@@ -30,6 +30,7 @@ export const NAV: NavGroup[] = [
   // Land here.
   {
     section: "Home",
+    icon: "grid",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid", access: "always" },
     ],
@@ -38,6 +39,7 @@ export const NAV: NavGroup[] = [
   // workspace over the shared engagement engine below.
   {
     section: "Services",
+    icon: "shield",
     items: [
       { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
       { href: "/dashboard/pentest", label: "Penetration Testing", icon: "skull" },
@@ -48,6 +50,7 @@ export const NAV: NavGroup[] = [
   // The shared engine every service line runs on: cases → findings → exploit.
   {
     section: "Workspace",
+    icon: "briefcase",
     items: [
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
@@ -59,6 +62,7 @@ export const NAV: NavGroup[] = [
   // Run the tools that feed the work.
   {
     section: "Recon & Scanning",
+    icon: "radar",
     items: [
       { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
       { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
@@ -71,6 +75,7 @@ export const NAV: NavGroup[] = [
   // Observe, measure, and get help — everything you look AT rather than run.
   {
     section: "Intelligence",
+    icon: "chart",
     items: [
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
@@ -82,6 +87,7 @@ export const NAV: NavGroup[] = [
   // Learn + reference, all in one place.
   {
     section: "Library",
+    icon: "book",
     items: [
       { href: "/dashboard/guide", label: "How it works", icon: "book", access: "always" },
       { href: "/dashboard/learn", label: "Learn", icon: "book", access: "always" },
@@ -94,6 +100,7 @@ export const NAV: NavGroup[] = [
   // Manage the portal.
   {
     section: "Admin",
+    icon: "lock",
     items: [
       { href: "/dashboard/members", label: "Members", icon: "server", access: "owner" },
       { href: "/dashboard/settings", label: "Settings", icon: "wrench", access: "owner" },
