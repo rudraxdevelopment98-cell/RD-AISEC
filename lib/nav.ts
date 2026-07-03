@@ -25,13 +25,13 @@ export type NavGroup = { section: string; items: NavItem[] };
 
 // Full navigation, reorganized by what you're doing: plan work → run offensive
 // ops → reference knowledge → admin. Items are filtered per-user by access.
+// Grouped by intent — "what am I here to do" — so every page has an obvious home.
 export const NAV: NavGroup[] = [
+  // Land here.
   {
-    section: "Overview",
+    section: "Home",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid", access: "always" },
-      { href: "/dashboard/guide", label: "How it works", icon: "book", access: "always" },
-      { href: "/dashboard/learn", label: "Learn", icon: "book", access: "always" },
     ],
   },
   // The four service lines — what kind of work you're doing. Each is a real
@@ -56,36 +56,46 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
     ],
   },
-  // Running the scans behind the work.
+  // Run the tools that feed the work.
   {
-    section: "Scanning",
+    section: "Recon & Scanning",
     items: [
       { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
       { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
+      { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
       { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
-      { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],
   },
+  // Observe, measure, and get help — everything you look AT rather than run.
   {
-    section: "Insights & tools",
+    section: "Intelligence",
     items: [
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
+      { href: "/dashboard/siem", label: "SIEM · Activity", icon: "clock", access: "owner" },
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
+      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
+    ],
+  },
+  // Learn + reference, all in one place.
+  {
+    section: "Library",
+    items: [
+      { href: "/dashboard/guide", label: "How it works", icon: "book", access: "always" },
+      { href: "/dashboard/learn", label: "Learn", icon: "book", access: "always" },
       { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
       { href: "/dashboard/frameworks", label: "Frameworks", icon: "shield" },
       { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
       { href: "/dashboard/library", label: "Resource Vault", icon: "lock" },
-      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
     ],
   },
+  // Manage the portal.
   {
     section: "Admin",
     items: [
       { href: "/dashboard/members", label: "Members", icon: "server", access: "owner" },
-      { href: "/dashboard/siem", label: "SIEM · Activity", icon: "clock", access: "owner" },
       { href: "/dashboard/settings", label: "Settings", icon: "wrench", access: "owner" },
     ],
   },
