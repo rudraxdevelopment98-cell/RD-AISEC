@@ -42,6 +42,8 @@ model Engagement {
   schedules    ScheduledScan[]
   bugPrograms  BugProgram[]
   pipeline     Pipeline?
+  evidence     Evidence[]
+  assessments  Assessment[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -96,6 +98,76 @@ model Resource {
   engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
   engagementId String?
   createdAt    DateTime    @default(now())
+}
+
+// ── Digital Forensics ────────────────────────────────────────────────────────
+// A piece of acquired evidence in a forensics engagement, with an integrity hash
+// and a chain-of-custody log so handling is auditable.
+model Evidence {
+  id           String         @id @default(cuid())
+  engagement   Engagement     @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId String
+  name         String
+  // "disk" | "memory" | "file" | "log" | "network" | "mobile" | "cloud" | "other"
+  kind         String         @default("file")
+  source       String         @default("") // where it came from (device, path, host)
+  hashAlgo     String         @default("sha256")
+  hashValue    String         @default("") // integrity hash of the acquired image/file
+  size         String         @default("") // human size, e.g. "500 GB"
+  storage      String         @default("") // where the image is stored (drive/vault)
+  acquiredBy   String         @default("")
+  acquiredAt   DateTime       @default(now())
+  notes        String         @default("")
+  custody      CustodyEvent[]
+  createdAt    DateTime       @default(now())
+
+  @@index([engagementId])
+}
+
+// One link in an evidence item's chain of custody.
+model CustodyEvent {
+  id         String   @id @default(cuid())
+  evidence   Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  evidenceId String
+  // "acquired" | "transferred" | "analyzed" | "stored" | "released" | "note"
+  action     String   @default("note")
+  actor      String   @default("")
+  notes      String   @default("")
+  at         DateTime @default(now())
+
+  @@index([evidenceId])
+}
+
+// ── Security Consulting ──────────────────────────────────────────────────────
+// A control/maturity assessment against a framework (CIS, NIST CSF, ASVS…). Each
+// control gets a result + maturity level; the rollup drives the advisory report.
+model Assessment {
+  id           String          @id @default(cuid())
+  engagement   Engagement      @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  engagementId String
+  name         String
+  framework    String          @default("custom") // template id
+  notes        String          @default("")
+  controls     ControlResult[]
+  createdAt    DateTime        @default(now())
+
+  @@index([engagementId])
+}
+
+model ControlResult {
+  id           String     @id @default(cuid())
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessmentId String
+  controlId    String     // stable id from the framework template
+  domain       String     @default("")
+  title        String
+  // "pass" | "partial" | "fail" | "na"
+  status       String     @default("na")
+  maturity     Int        @default(0) // 0..5
+  notes        String     @default("")
+  recommendation String   @default("")
+
+  @@index([assessmentId])
 }
 
 // A registered execution host (e.g. a Kali VM in UTM on an external drive).

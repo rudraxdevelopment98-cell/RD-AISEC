@@ -12,6 +12,8 @@ import { Tabs, TabPanel } from "@/components/tabs";
 import { FindingsBulk } from "@/components/findings-bulk";
 import { EngagementMap } from "@/components/engagement-map";
 import { buildEngagementGraph } from "@/lib/engagement-graph";
+import { EvidencePanel } from "@/components/evidence-panel";
+import { AssessmentPanel } from "@/components/assessment-panel";
 import { classifyConfidence } from "@/lib/exploit-confidence";
 import {
   getEngagement,
@@ -127,6 +129,18 @@ export default async function EngagementDetail({
     jobs: mapJobs,
     programs: mapPrograms,
   });
+
+  // Discipline-specific data: forensics evidence + custody, consulting assessments.
+  const isForensics = e.type === "forensics";
+  const isConsulting = e.type === "consulting";
+  const [evidence, assessments] = await Promise.all([
+    isForensics
+      ? prisma.evidence.findMany({ where: { engagementId: e.id }, orderBy: { acquiredAt: "desc" }, include: { custody: { orderBy: { at: "asc" } } } })
+      : Promise.resolve([]),
+    isConsulting
+      ? prisma.assessment.findMany({ where: { engagementId: e.id }, orderBy: { createdAt: "desc" }, include: { controls: { orderBy: { controlId: "asc" } } } })
+      : Promise.resolve([]),
+  ]);
 
   // Engagement command center — one hub to drive every workflow for this case.
   // Tiles with `action` run immediately (one click); the rest navigate.
@@ -276,6 +290,8 @@ export default async function EngagementDetail({
           { id: "command", label: "⚡ Command Center" },
           { id: "pipeline", label: "🤖 Assessment Pipeline" },
           { id: "findings", label: `🐞 Findings (${e.findings.length})` },
+          ...(isForensics ? [{ id: "evidence", label: `🧪 Evidence (${evidence.length})` }] : []),
+          ...(isConsulting ? [{ id: "controls", label: `🛡 Controls (${assessments.length})` }] : []),
           { id: "map", label: "🌌 Map" },
           { id: "resources", label: `📎 Resources (${e.resources.length})` },
         ]}
@@ -599,6 +615,18 @@ export default async function EngagementDetail({
       </div>
 
       </TabPanel>
+
+      {isForensics && (
+        <TabPanel id="evidence">
+          <EvidencePanel engagementId={e.id} evidence={evidence} />
+        </TabPanel>
+      )}
+
+      {isConsulting && (
+        <TabPanel id="controls">
+          <AssessmentPanel engagementId={e.id} assessments={assessments} />
+        </TabPanel>
+      )}
 
       <TabPanel id="map">
       {/* Engagement data map — 3D galaxy of this case's hosts/findings/people. */}
