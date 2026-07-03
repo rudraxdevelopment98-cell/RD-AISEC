@@ -1,0 +1,1 @@
+ALTER TABLE "Finding" ADD COLUMN "sources" TEXT NOT NULL DEFAULT '';

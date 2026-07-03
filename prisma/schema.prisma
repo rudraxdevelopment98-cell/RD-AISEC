@@ -277,6 +277,10 @@ model Finding {
   reviewed       Boolean    @default(false)
   // Free-form category/tag for grouping (e.g. "web", "infra", "to-report").
   category       String     @default("")
+  // Comma-joined tool ids that independently detected this issue (cross-tool
+  // corroboration). Grows as signature-matching duplicates are merged in; a
+  // count >1 means multiple tools agreed. NOT a proof signal — display only.
+  sources        String     @default("")
   createdAt      DateTime   @default(now())
 }
 

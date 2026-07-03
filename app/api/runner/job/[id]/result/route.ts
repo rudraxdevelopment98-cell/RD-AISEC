@@ -7,6 +7,7 @@ import { tagFindings } from "@/lib/finding-map";
 import { gateFindings } from "@/lib/finding-gate";
 import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
+import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
@@ -98,10 +99,13 @@ export async function POST(
       if (parsed.length > 0) {
         const existing = await prisma.finding.findMany({
           where: { engagementId: job.engagementId },
-          select: { title: true },
+          select: { id: true, title: true, description: true, sources: true },
         });
-        const seen = new Set(existing.map((f) => f.title));
-        const fresh = parsed.filter((f) => !seen.has(f.title));
+        // Signature de-dup + cross-tool corroboration (merge, don't duplicate).
+        const { fresh, merges } = dedupFindings(parsed, existing, job.tool, host);
+        for (const m of merges) {
+          await prisma.finding.update({ where: { id: m.id }, data: { sources: m.sources } }).catch(() => {});
+        }
         if (fresh.length > 0) {
           await prisma.finding.createMany({
             data: fresh.map((f) => ({ ...f, engagementId: job.engagementId! })),

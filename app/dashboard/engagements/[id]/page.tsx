@@ -607,6 +607,7 @@ export default async function EngagementDetail({
                 confirmedFlag: f.confirmed,
               }).level,
               category: f.category,
+              sources: f.sources,
               engagementId: e.id,
               engagementName: e.name,
             }))}

@@ -7,6 +7,7 @@ import { SeverityBadge, FindingStatusBadge, ConfidenceBadge } from "@/components
 import type { Confidence } from "@/lib/exploit-confidence";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { bulkDeleteFindings, bulkSetStatus, bulkSetCategory } from "@/lib/finding-actions";
+import { sourceCount } from "@/lib/dedup-core";
 
 export type FindingRow = {
   id: string;
@@ -18,6 +19,7 @@ export type FindingRow = {
   confirmed: boolean;
   confidence: Confidence;
   category: string;
+  sources?: string;
   engagementId: string;
   engagementName: string | null;
 };
@@ -117,6 +119,11 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                 </Link>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ConfidenceBadge value={f.confidence} />
+                  {sourceCount(f.sources) > 1 && (
+                    <span className="tag ring-emerald accent-emerald" title={`Independently detected by: ${f.sources}`}>
+                      🔗 {sourceCount(f.sources)} tools
+                    </span>
+                  )}
                   {f.category && <span className="tag">{f.category}</span>}
                   <span className="flex items-center gap-1">
                     <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>

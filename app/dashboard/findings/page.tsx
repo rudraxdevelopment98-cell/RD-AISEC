@@ -444,6 +444,7 @@ export default async function FindingsPage({
               confirmedFlag: f.confirmed,
             }).level,
             category: f.category,
+            sources: f.sources,
             engagementId: f.engagementId,
             engagementName: f.engagement?.name ?? null,
           }))}

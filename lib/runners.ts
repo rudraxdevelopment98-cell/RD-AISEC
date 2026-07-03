@@ -17,6 +17,7 @@ import { parseJobFindings } from "@/lib/job-parser";
 import { gateFindings } from "@/lib/finding-gate";
 import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
+import { dedupFindings } from "@/lib/dedup-core";
 import { logAudit } from "@/lib/audit";
 import { tagFindings } from "@/lib/finding-map";
 import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
@@ -620,29 +621,29 @@ export async function importJobFindings(formData: FormData) {
   let findings = gateFindings(
     tagFindings(parseJobFindings(job.tool, job.target, job.output), job.tool),
   ).kept;
+  const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
   {
-    const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
     const sup = filterSuppressed(findings, await loadRules(), { tool: job.tool, host });
     findings = sup.kept;
     if (sup.suppressed.length > 0) await recordSuppressions(sup.suppressed, {});
   }
   if (findings.length > 0) {
-    // Dedup against existing findings so re-importing the same job (or a job
-    // already auto-imported) doesn't create duplicates.
+    // Signature de-dup + corroboration: a near-duplicate of an existing finding
+    // (same vuln class + normalized title + host, from any tool) is merged in as
+    // a corroborating source rather than creating a duplicate.
     const existing = await prisma.finding.findMany({
       where: { engagementId },
-      select: { title: true },
+      select: { id: true, title: true, description: true, sources: true },
     });
-    const seen = new Set(existing.map((f) => f.title));
-    const fresh = findings.filter((f) => !seen.has(f.title));
+    const { fresh, merges } = dedupFindings(findings, existing, job.tool, host);
     if (fresh.length > 0) {
-      await prisma.finding.createMany({
-        data: fresh.map((f) => ({ ...f, engagementId })),
-      });
-      await prisma.engagement.update({
-        where: { id: engagementId },
-        data: { updatedAt: new Date() },
-      });
+      await prisma.finding.createMany({ data: fresh.map((f) => ({ ...f, engagementId })) });
+    }
+    for (const m of merges) {
+      await prisma.finding.update({ where: { id: m.id }, data: { sources: m.sources } }).catch(() => {});
+    }
+    if (fresh.length > 0 || merges.length > 0) {
+      await prisma.engagement.update({ where: { id: engagementId }, data: { updatedAt: new Date() } });
     }
   }
 
