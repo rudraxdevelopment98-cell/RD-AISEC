@@ -136,6 +136,11 @@ export default async function FindingsPage({
     sp.engagement ||
     sp.since
   );
+  // Chip filters live in a collapsible drawer; open it when one is active so the
+  // user sees what's applied, otherwise keep it closed to maximize the list area.
+  const chipFilterActive = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.category);
+  const activeChipCount =
+    (sp.attack ? 1 : 0) + (sp.owasp ? 1 : 0) + (sp.severity ? 1 : 0) + (sp.status ? 1 : 0) + (sp.category ? 1 : 0);
 
   // CSV export honors the current filters (real filter keys only).
   const exportQs = new URLSearchParams();
@@ -307,8 +312,18 @@ export default async function FindingsPage({
         />
       </div>
 
-      {/* Filter groups */}
-      <div className="mt-4 space-y-3">
+      {/* Filter groups — tucked into a drawer so the findings list gets the room */}
+      <details className="group mt-4 rounded-xl border border-surface-border bg-surface-card/30" open={chipFilterActive}>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-300">
+          <Icon name="search" className="h-4 w-4 text-brand" />
+          Filters
+          {activeChipCount > 0 && (
+            <span className="tag ring-emerald accent-emerald">{activeChipCount} active</span>
+          )}
+          <span className="ml-auto text-xs font-normal text-gray-500 group-open:hidden">Show ▾</span>
+          <span className="ml-auto hidden text-xs font-normal text-gray-500 group-open:inline">Hide ▴</span>
+        </summary>
+        <div className="space-y-3 px-3 pb-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-xs font-semibold text-gray-500">ATT&amp;CK</span>
           {MITRE_TACTICS.filter((t) => attacksInUse.has(t.id)).map((t) => (
@@ -377,7 +392,8 @@ export default async function FindingsPage({
             ))}
           </div>
         )}
-      </div>
+        </div>
+      </details>
 
       {/* Active-filter summary + clear */}
       <div className="mt-4 flex items-center justify-between gap-3">

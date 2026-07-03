@@ -97,30 +97,33 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
             key={f.id}
             className={`card ${SEV_GLOW[f.severity] ?? ""}`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-2">
-                <input
-                  type="checkbox"
-                  checked={selected.has(f.id)}
-                  onChange={() => toggle(f.id)}
-                  className="mt-1 shrink-0"
-                  aria-label="Select finding"
-                />
-                {f.confidence === "proven" && (
-                  <span className="dot-blink mt-1.5 shrink-0" title="Proven exploitable" />
-                )}
-                <Link href={`/dashboard/engagements/${f.engagementId}`} className="font-semibold text-white hover:text-brand">
+            {/* Title first (full width), badges wrap on their own row beneath —
+                so a long multi-line title never collides with the frosted
+                badges (the mobile "ghost pill over the title" bug). */}
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={selected.has(f.id)}
+                onChange={() => toggle(f.id)}
+                className="mt-1 shrink-0"
+                aria-label="Select finding"
+              />
+              {f.confidence === "proven" && (
+                <span className="dot-blink mt-1.5 shrink-0" title="Proven exploitable" />
+              )}
+              <div className="min-w-0 flex-1">
+                <Link href={`/dashboard/engagements/${f.engagementId}`} className="font-semibold text-white hover:text-brand break-words">
                   {f.title}
                 </Link>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                <ConfidenceBadge value={f.confidence} />
-                {f.category && <span className="tag">{f.category}</span>}
-                <span className="flex items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
-                  <SeverityBadge value={f.severity} />
-                </span>
-                <FindingStatusBadge value={f.status} />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <ConfidenceBadge value={f.confidence} />
+                  {f.category && <span className="tag">{f.category}</span>}
+                  <span className="flex items-center gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
+                    <SeverityBadge value={f.severity} />
+                  </span>
+                  <FindingStatusBadge value={f.status} />
+                </div>
               </div>
             </div>
             <FrameworkBadges attack={f.attack} owasp={f.owasp} className="mt-2 pl-6" linked />
