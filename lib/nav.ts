@@ -34,11 +34,21 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/learn", label: "Learn", icon: "book", access: "always" },
     ],
   },
-  // The daily bug-hunting flow, top to bottom.
+  // The four service lines — what kind of work you're doing. Each is a real
+  // workspace over the shared engagement engine below.
   {
-    section: "Hunt",
+    section: "Services",
     items: [
       { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
+      { href: "/dashboard/pentest", label: "Penetration Testing", icon: "skull" },
+      { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
+      { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
+    ],
+  },
+  // The shared engine every service line runs on: cases → findings → exploit.
+  {
+    section: "Workspace",
+    items: [
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
@@ -46,7 +56,7 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
     ],
   },
-  // Running the scans behind the hunt.
+  // Running the scans behind the work.
   {
     section: "Scanning",
     items: [
@@ -56,15 +66,6 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
-    ],
-  },
-  // The three consulting pillars.
-  {
-    section: "Services",
-    items: [
-      { href: "/dashboard/pentest", label: "Penetration Testing", icon: "target" },
-      { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
-      { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
     ],
   },
   {

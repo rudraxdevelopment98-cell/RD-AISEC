@@ -9,9 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function EngagementsPage({
   searchParams,
 }: {
-  searchParams: { ok?: string };
+  searchParams: { ok?: string; type?: string };
 }) {
   const engagements = await listEngagements();
+  const presetType = ENGAGEMENT_TYPES.includes(searchParams.type as (typeof ENGAGEMENT_TYPES)[number])
+    ? searchParams.type
+    : undefined;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -19,8 +22,9 @@ export default async function EngagementsPage({
         <div>
           <h1 className="text-2xl font-bold">Engagements</h1>
           <p className="mt-1 text-gray-400">
-            Cases for pentests, forensics, and consulting — scope, findings, and
-            status in one place.
+            The shared engine behind every service line — bug bounty, pentest,
+            forensics and consulting. Scope, findings, exploitation and reports
+            for each case in one place.
           </p>
         </div>
       </div>
@@ -32,9 +36,9 @@ export default async function EngagementsPage({
       )}
 
       {/* Create */}
-      <details className="card mt-6">
+      <details className="card mt-6" open={!!presetType}>
         <summary className="cursor-pointer font-semibold text-brand">
-          + New engagement
+          + New engagement{presetType ? ` · ${presetType}` : ""}
         </summary>
         <form action={createEngagement} className="mt-4 grid gap-3 sm:grid-cols-2">
           <input
@@ -50,6 +54,7 @@ export default async function EngagementsPage({
           />
           <select
             name="type"
+            defaultValue={presetType ?? ENGAGEMENT_TYPES[0]}
             className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm capitalize outline-none focus:border-brand"
           >
             {ENGAGEMENT_TYPES.map((t) => (
