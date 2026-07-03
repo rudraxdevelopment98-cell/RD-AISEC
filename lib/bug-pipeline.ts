@@ -51,6 +51,16 @@ const PIPELINE_DEEP: Step[] = [
   // runner swaps in an existing wordlist (or a built-in fallback) if this one is
   // absent, so gobuster no longer dies with "wordlist file does not exist".
   { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
+  // Crawl endpoints + JS (feeds endpoint/secret detection and widens the surface
+  // that the injection passes below have to work with).
+  { tool: "katana", args: "-silent -d 3 -jc -kf all -rl 150", mode: "url" },
+  // Power pass — nuclei DAST fuzzing: mutates parameters to surface the HARD
+  // bugs signature templates miss (SSRF, SQLi, reflected/blind XSS, LFI, open
+  // redirect, SSTI, CRLF). Rate-limited so it stays in time and polite.
+  { tool: "nuclei", args: "-dast -rl 100 -timeout 8 -retries 1 -c 40", mode: "url" },
+  // Dedicated reflected/DOM XSS with context-aware payloads (dalfox confirms a
+  // real firing PoC, not just a reflection).
+  { tool: "dalfox", args: "--skip-bav --worker 30 --timeout 10 --silence", mode: "url" },
   { tool: "nikto", args: "-maxtime 1200", mode: "url" },
   { tool: "sslscan", args: "", mode: "host" },
 ];
