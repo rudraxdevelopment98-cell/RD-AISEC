@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import type { EngagementGraph, GNode } from "@/lib/engagement-graph";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-const W = 900;
-const H = 640;
+// Logical canvas viewport (the SVG viewBox). Content lives in an inner <g> that
+// we pan/zoom, so the world is effectively infinite.
+const VW = 1000;
+const VH = 680;
 
 const TYPE_COLOR: Record<string, string> = {
   engagement: "#34d399",
@@ -40,21 +42,28 @@ function nodeColor(n: GNode): string {
   return TYPE_COLOR[n.type] ?? "#94a3b8";
 }
 function baseRadius(n: GNode): number {
-  if (n.type === "engagement") return 30;
-  if (n.type === "host") return 17;
+  if (n.type === "engagement") return 32;
+  if (n.type === "host") return 18;
   if (n.type === "subdomain") return 14;
   return 12;
 }
+// One-line micro-stat shown under every node so "every small detail" is visible.
+function microStat(n: GNode): string {
+  if (n.type === "host" || n.type === "subdomain") {
+    const f = Number(n.meta?.findings ?? 0);
+    const s = Number(n.meta?.services ?? 0);
+    const worst = n.severity ? ` · ${n.severity}` : "";
+    return `${f} find · ${s} svc${worst}`;
+  }
+  if (n.type === "finding") return String(n.severity ?? "");
+  if (n.type === "engagement") return String(n.meta?.status ?? "");
+  return n.sub ?? "";
+}
 
 type P = { x: number; y: number; z: number };
+type View = { x: number; y: number; k: number };
 
-/**
- * Galaxy layout — the engagement is the core "sun"; everything orbits it on a
- * tilted disk (radial-tree angle by relationship, ring by depth). We project the
- * disk in pseudo-3D: vertical squash for perspective, and a per-node depth `z`
- * (back → front) that drives size, brightness and draw order. Not WebGL — pure
- * SVG/CSS, so it stays dependency-free.
- */
+/** Radial-tree galaxy layout in world coordinates (centered on the core). */
 function layout(graph: EngagementGraph): Record<string, P> {
   const childrenOf: Record<string, string[]> = {};
   const parentOf: Record<string, string> = {};
@@ -69,30 +78,24 @@ function layout(graph: EngagementGraph): Record<string, P> {
     return d;
   };
   const maxDepth = Math.max(1, ...graph.nodes.map((n) => depthOf(n.id)));
-  const ring = (Math.min(W, H) / 2 - 70) / maxDepth;
+  const ring = 150;
   const pos: Record<string, P> = {};
   const place = (id: string, a0: number, a1: number, depth: number) => {
     const mid = (a0 + a1) / 2;
-    if (depth === 0) {
-      pos[id] = { x: W / 2, y: H / 2, z: 0.6 };
-    } else {
+    if (depth === 0) pos[id] = { x: VW / 2, y: VH / 2, z: 0.6 };
+    else {
       const rx = ring * depth;
       const dx = rx * Math.cos(mid);
-      const dy = rx * Math.sin(mid); // disk-plane vertical
-      pos[id] = {
-        x: W / 2 + dx,
-        y: H / 2 + dy * 0.5, // squash for perspective
-        z: dy, // raw depth; normalized below
-      };
+      const dy = rx * Math.sin(mid);
+      pos[id] = { x: VW / 2 + dx, y: VH / 2 + dy * 0.62, z: dy };
     }
     const kids = childrenOf[id] ?? [];
     const span = a1 - a0;
     kids.forEach((k, i) => place(k, a0 + span * (i / kids.length), a0 + span * ((i + 1) / kids.length), depth + 1));
   };
   if (root) place(root, -Math.PI / 2, Math.PI * 1.5, 0);
-  let ox = 40;
-  for (const n of graph.nodes) if (!pos[n.id]) { pos[n.id] = { x: ox, y: H - 24, z: 0 }; ox += 60; }
-  // Normalize z to 0..1 for depth styling.
+  let ox = 60;
+  for (const n of graph.nodes) if (!pos[n.id]) { pos[n.id] = { x: ox, y: VH - 30, z: 0 }; ox += 70; }
   const zs = Object.values(pos).map((p) => p.z);
   const lo = Math.min(...zs), hi = Math.max(...zs), span = hi - lo || 1;
   for (const id of Object.keys(pos)) pos[id].z = (pos[id].z - lo) / span;
@@ -102,49 +105,96 @@ function layout(graph: EngagementGraph): Record<string, P> {
 export function EngagementMap({ graph }: { graph: EngagementGraph }) {
   const initial = useMemo(() => layout(graph), [graph]);
   const [pos, setPos] = useState(initial);
+  const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   const [selected, setSelected] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [tab, setTab] = useState<string>("overview");
+  const [hover, setHover] = useState<string | null>(null);
+  const [tab, setTab] = useState("overview");
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ id: string; moved: boolean } | null>(null);
-
-  useEffect(() => { setPos(initial); setSelected(null); }, [initial]);
+  // Interaction state: dragging a node, or panning the background.
+  const act = useRef<{ mode: "node" | "pan"; id?: string; moved: boolean; sx: number; sy: number; ox: number; oy: number } | null>(null);
 
   const byId = useMemo(() => Object.fromEntries(graph.nodes.map((n) => [n.id, n])), [graph]);
   const sel = selected ? byId[selected] : null;
   const colors = useMemo(() => Array.from(new Set(graph.nodes.map(nodeColor))), [graph]);
+  const core = graph.nodes.find((n) => n.type === "engagement");
 
-  // Draw order: farther (small z) first so nearer bubbles sit on top.
   const drawOrder = useMemo(
     () => [...graph.nodes].sort((a, b) => (pos[a.id]?.z ?? 0) - (pos[b.id]?.z ?? 0)),
     [graph, pos],
   );
 
-  function toSvg(e: React.PointerEvent) {
+  // Convert a pointer event to SVG-viewport coords (0..VW / 0..VH).
+  const toSvg = useCallback((cx: number, cy: number) => {
     const svg = svgRef.current;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    return { x: ((e.clientX - rect.left) / rect.width) * W, y: ((e.clientY - rect.top) / rect.height) * H };
+    if (!svg) return { x: 0, y: 0 };
+    const r = svg.getBoundingClientRect();
+    return { x: ((cx - r.left) / r.width) * VW, y: ((cy - r.top) / r.height) * VH };
+  }, []);
+  // SVG-viewport → world coords (undo the pan/zoom).
+  const toWorld = useCallback((sx: number, sy: number, v: View) => ({ x: (sx - v.x) / v.k, y: (sy - v.y) / v.k }), []);
+
+  // Fit all nodes into view with padding.
+  const fit = useCallback((p = pos) => {
+    const pts = Object.values(p);
+    if (!pts.length) return;
+    const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y);
+    const minX = Math.min(...xs) - 60, maxX = Math.max(...xs) + 60;
+    const minY = Math.min(...ys) - 60, maxY = Math.max(...ys) + 60;
+    const k = clamp(Math.min(VW / (maxX - minX), VH / (maxY - minY)), 0.2, 2.5);
+    setView({ k, x: VW / 2 - ((minX + maxX) / 2) * k, y: VH / 2 - ((minY + maxY) / 2) * k });
+  }, [pos]);
+
+  useEffect(() => { setPos(initial); setSelected(null); }, [initial]);
+  useEffect(() => { fit(initial); /* fit on new graph */ }, [initial]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Native wheel listener (passive:false) so we can zoom-to-cursor.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { x: sx, y: sy } = toSvg(e.clientX, e.clientY);
+      setView((v) => {
+        const k = clamp(v.k * (e.deltaY < 0 ? 1.12 : 0.89), 0.2, 4);
+        const w = toWorld(sx, sy, v);
+        return { k, x: sx - w.x * k, y: sy - w.y * k };
+      });
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [toSvg, toWorld]);
+
+  function startNode(e: React.PointerEvent, id: string) {
+    e.stopPropagation();
+    const s = toSvg(e.clientX, e.clientY);
+    act.current = { mode: "node", id, moved: false, sx: s.x, sy: s.y, ox: 0, oy: 0 };
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   }
-  function startDrag(e: React.PointerEvent, id: string) {
-    e.preventDefault();
-    drag.current = { id, moved: false };
+  function startPan(e: React.PointerEvent) {
+    const s = toSvg(e.clientX, e.clientY);
+    act.current = { mode: "pan", moved: false, sx: s.x, sy: s.y, ox: view.x, oy: view.y };
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   }
   function onMove(e: React.PointerEvent) {
-    if (!drag.current) return;
-    const p = toSvg(e);
-    if (!p) return;
-    drag.current.moved = true;
-    const id = drag.current.id;
-    setPos((cur) => ({ ...cur, [id]: { ...cur[id], x: clamp(p.x, 16, W - 16), y: clamp(p.y, 16, H - 16) } }));
+    if (!act.current) return;
+    const s = toSvg(e.clientX, e.clientY);
+    if (Math.abs(s.x - act.current.sx) + Math.abs(s.y - act.current.sy) > 2) act.current.moved = true;
+    if (act.current.mode === "pan") {
+      setView((v) => ({ ...v, x: act.current!.ox + (s.x - act.current!.sx), y: act.current!.oy + (s.y - act.current!.sy) }));
+    } else if (act.current.mode === "node") {
+      const w = toWorld(s.x, s.y, view);
+      const id = act.current.id!;
+      setPos((cur) => ({ ...cur, [id]: { ...cur[id], x: w.x, y: w.y } }));
+    }
   }
-  function endDrag() {
-    if (drag.current && !drag.current.moved) {
-      setSelected((s) => (s === drag.current!.id ? null : drag.current!.id));
+  function endInteract() {
+    const a = act.current;
+    if (a && a.mode === "node" && !a.moved) {
+      setSelected((s) => (s === a.id ? null : a.id!));
       setTab("overview");
     }
-    drag.current = null;
+    if (a && a.mode === "pan" && !a.moved) setSelected(null);
+    act.current = null;
   }
 
   const counts = useMemo(() => {
@@ -153,24 +203,34 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
     return c;
   }, [graph]);
 
+  const zoomBy = (f: number) =>
+    setView((v) => {
+      const k = clamp(v.k * f, 0.2, 4);
+      const cx = VW / 2, cy = VH / 2;
+      const w = toWorld(cx, cy, v);
+      return { k, x: cx - w.x * k, y: cy - w.y * k };
+    });
+
+  const corePos = core ? pos[core.id] : null;
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[2.4fr_1fr]">
       <div className="card overflow-hidden p-2">
         <style>{`
-          @keyframes gxFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-          @keyframes gxTwinkle { 0%,100%{opacity:.25} 50%{opacity:.7} }
+          @keyframes gxFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+          @keyframes gxTwinkle { 0%,100%{opacity:.2} 50%{opacity:.65} }
           .gx-float { animation: gxFloat 6s ease-in-out infinite; }
           @media (prefers-reduced-motion: reduce){ .gx-float{animation:none} }
         `}</style>
-        <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-gray-500">
-          <button onClick={() => { setPos(layout(graph)); setSelected(null); }} className="btn-ghost px-2 py-1 text-[11px]">
-            Reset galaxy
-          </button>
-          <span className="flex items-center gap-1">
-            <Icon name="search" className="h-3 w-3" /> Zoom
-            <input type="range" min={0.6} max={2} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="accent-emerald-500" />
-          </span>
-          <span className="ml-auto flex flex-wrap gap-2">
+
+        {/* Toolbar */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[11px] text-gray-400">
+          <button onClick={() => fit()} className="btn-ghost px-2 py-1 text-[11px]">Fit</button>
+          <button onClick={() => zoomBy(1.25)} className="btn-ghost px-2 py-1 text-[11px]">＋</button>
+          <button onClick={() => zoomBy(0.8)} className="btn-ghost px-2 py-1 text-[11px]">－</button>
+          <button onClick={() => { const p = layout(graph); setPos(p); setSelected(null); fit(p); }} className="btn-ghost px-2 py-1 text-[11px]">Reset</button>
+          <span className="ml-1 font-mono text-[10px] text-gray-600">{Math.round(view.k * 100)}%</span>
+          <span className="ml-auto flex flex-wrap gap-2 text-[10px]">
             {(["host", "subdomain", "finding", "program", "person"] as const).map((t) =>
               counts[t] ? (
                 <span key={t} className="flex items-center gap-1">
@@ -181,81 +241,116 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
             )}
           </span>
         </div>
-        <div className="overflow-auto rounded-lg" style={{ background: "radial-gradient(120% 90% at 50% 40%, #0b1220 0%, #060912 60%, #03050b 100%)" }}>
+
+        <div className="relative rounded-lg" style={{ background: "radial-gradient(120% 90% at 50% 42%, #0a1628 0%, #060d18 55%, #02040a 100%)" }}>
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${W} ${H}`}
+            viewBox={`0 0 ${VW} ${VH}`}
             className="h-auto w-full touch-none select-none"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center", minWidth: zoom > 1 ? `${zoom * 100}%` : undefined }}
+            style={{ cursor: act.current?.mode === "pan" ? "grabbing" : "grab" }}
+            onPointerDown={startPan}
             onPointerMove={onMove}
-            onPointerUp={endDrag}
-            onPointerLeave={endDrag}
+            onPointerUp={endInteract}
+            onPointerLeave={endInteract}
           >
             <defs>
-              {/* Glassy-sphere gradient per color — light highlight top-left → color. */}
+              <pattern id="gxGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M40 0 H0 V40" fill="none" stroke="rgba(56,189,248,0.08)" strokeWidth="1" />
+              </pattern>
               {colors.map((c, i) => (
                 <radialGradient key={i} id={`gx-${i}`} cx="35%" cy="30%" r="75%">
                   <stop offset="0%" stopColor="#ffffff" stopOpacity={0.9} />
                   <stop offset="35%" stopColor={c} stopOpacity={0.95} />
-                  <stop offset="100%" stopColor={c} stopOpacity={0.65} />
+                  <stop offset="100%" stopColor={c} stopOpacity={0.6} />
                 </radialGradient>
               ))}
               <radialGradient id="gx-core" cx="35%" cy="30%" r="75%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity={1} />
                 <stop offset="30%" stopColor="#34d399" stopOpacity={0.95} />
-                <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0.55} />
+              </radialGradient>
+              <radialGradient id="gxSweep" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
               </radialGradient>
             </defs>
 
-            {/* Starfield */}
-            {STARS.map((s, i) => (
-              <circle key={`s${i}`} cx={s.x} cy={s.y} r={s.r} fill="#cbd5e1" opacity={0.4} style={{ animation: `gxTwinkle ${3 + (i % 5)}s ease-in-out ${i % 7}s infinite` }} />
-            ))}
+            {/* World layer (pan + zoom) */}
+            <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+              {/* Grid backdrop */}
+              <rect x={-2000} y={-2000} width={5000} height={5000} fill="url(#gxGrid)" />
 
-            {/* Edges (orbital links) */}
-            {graph.edges.map((e, i) => {
-              const a = pos[e.from], b = pos[e.to];
-              if (!a || !b) return null;
-              const active = selected === e.from || selected === e.to;
-              return (
-                <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                  stroke={active ? "#34d399" : "rgba(120,140,180,0.18)"} strokeWidth={active ? 1.6 : 0.8} />
-              );
-            })}
-
-            {/* Bubbles, depth-sorted */}
-            {drawOrder.map((n, idx) => {
-              const p = pos[n.id];
-              if (!p) return null;
-              const depth = 0.7 + 0.55 * p.z; // nearer = bigger
-              const r = baseRadius(n) * depth;
-              const col = nodeColor(n);
-              const gi = colors.indexOf(col);
-              const isSel = selected === n.id;
-              const isCore = n.type === "engagement";
-              const opacity = 0.55 + 0.45 * p.z;
-              return (
-                <g key={n.id} transform={`translate(${p.x},${p.y})`} className="cursor-pointer" onPointerDown={(ev) => startDrag(ev, n.id)}>
-                  <g className="gx-float" style={{ animationDelay: `${(idx % 12) * 0.4}s` }}>
-                    {/* glow halo */}
-                    <circle r={r + (isSel ? 10 : 6)} fill={col} opacity={isSel ? 0.28 : 0.14} />
-                    {(isSel || (n.type === "finding" && (n.severity === "critical" || n.severity === "high"))) && (
-                      <circle r={r + 8} fill="none" stroke={col} strokeWidth={1} strokeOpacity={0.6} />
-                    )}
-                    {/* sphere */}
-                    <circle r={r} fill={`url(#${isCore ? "gx-core" : `gx-${gi}`})`} opacity={opacity}
-                      stroke={col} strokeOpacity={0.5} strokeWidth={isSel ? 2 : 1} />
-                    {/* specular highlight */}
-                    <circle cx={-r * 0.3} cy={-r * 0.35} r={r * 0.28} fill="#ffffff" opacity={0.5 * opacity} />
-                    {(isCore || r > 12) && (
-                      <text textAnchor="middle" y={r + 12} fontSize={isCore ? 12 : 10} fill="#e2e8f0" opacity={0.6 + 0.4 * p.z}>
-                        {n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label}
-                      </text>
-                    )}
+              {/* HUD radar centered on the engagement core */}
+              {corePos && (
+                <g transform={`translate(${corePos.x},${corePos.y})`}>
+                  {[90, 150, 220, 300].map((r, i) => (
+                    <circle key={i} r={r} fill="none" stroke="rgba(45,212,191,0.14)" strokeWidth={1} strokeDasharray={i % 2 ? "4 6" : undefined} />
+                  ))}
+                  {[0, 45, 90, 135].map((a) => (
+                    <line key={a} x1={-300} y1={0} x2={300} y2={0} transform={`rotate(${a})`} stroke="rgba(45,212,191,0.08)" strokeWidth={1} />
+                  ))}
+                  {/* rotating sweep */}
+                  <g>
+                    <path d="M0 0 L300 0 A300 300 0 0 1 212 212 Z" fill="url(#gxSweep)" opacity={0.5} />
+                    <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="8s" repeatCount="indefinite" />
                   </g>
                 </g>
-              );
-            })}
+              )}
+
+              {/* Edges */}
+              {graph.edges.map((e, i) => {
+                const a = pos[e.from], b = pos[e.to];
+                if (!a || !b) return null;
+                const active = selected === e.from || selected === e.to || hover === e.from || hover === e.to;
+                return (
+                  <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                    stroke={active ? "#34d399" : "rgba(120,150,190,0.2)"} strokeWidth={active ? 1.8 : 0.9} />
+                );
+              })}
+
+              {/* Nodes */}
+              {drawOrder.map((n, idx) => {
+                const p = pos[n.id];
+                if (!p) return null;
+                const depth = 0.72 + 0.5 * p.z;
+                const r = baseRadius(n) * depth;
+                const col = nodeColor(n);
+                const gi = colors.indexOf(col);
+                const isSel = selected === n.id;
+                const isHover = hover === n.id;
+                const isCore = n.type === "engagement";
+                const op = 0.6 + 0.4 * p.z;
+                return (
+                  <g key={n.id} transform={`translate(${p.x},${p.y})`} className="cursor-pointer"
+                    onPointerDown={(ev) => startNode(ev, n.id)}
+                    onPointerEnter={() => setHover(n.id)} onPointerLeave={() => setHover((h) => (h === n.id ? null : h))}>
+                    <g className="gx-float" style={{ animationDelay: `${(idx % 10) * 0.5}s` }}>
+                      <circle r={r + (isSel || isHover ? 10 : 6)} fill={col} opacity={isSel ? 0.3 : isHover ? 0.22 : 0.13} />
+                      {(isSel || (n.type === "finding" && (n.severity === "critical" || n.severity === "high"))) && (
+                        <circle r={r + 8} fill="none" stroke={col} strokeWidth={1} strokeOpacity={0.6} />
+                      )}
+                      <circle r={r} fill={`url(#${isCore ? "gx-core" : `gx-${gi}`})`} opacity={op} stroke={col} strokeOpacity={0.55} strokeWidth={isSel ? 2 : 1} />
+                      <circle cx={-r * 0.3} cy={-r * 0.35} r={r * 0.26} fill="#fff" opacity={0.45 * op} />
+                      {/* Labels — always shown so every detail is visible. */}
+                      <text textAnchor="middle" y={r + 11} fontSize={isCore ? 13 : 10} fontFamily="ui-monospace, monospace" fill="#e2e8f0" opacity={0.85}>
+                        {n.label.length > 26 ? n.label.slice(0, 25) + "…" : n.label}
+                      </text>
+                      <text textAnchor="middle" y={r + 22} fontSize={8} fontFamily="ui-monospace, monospace" fill={col} opacity={0.75}>
+                        {microStat(n)}
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* Fixed HUD frame (screen space) */}
+            {[[8, 8, 1, 1], [VW - 8, 8, -1, 1], [8, VH - 8, 1, -1], [VW - 8, VH - 8, -1, -1]].map(([x, y, sx, sy], i) => (
+              <path key={i} d={`M${x} ${y + sy * 22} V${y} H${x + sx * 22}`} fill="none" stroke="rgba(45,212,191,0.5)" strokeWidth={1.5} />
+            ))}
+            <text x={16} y={VH - 16} fontSize={9} fontFamily="ui-monospace, monospace" fill="rgba(148,163,184,0.6)">
+              {graph.nodes.length} NODES · {graph.edges.length} LINKS · drag bg to pan · scroll to zoom · drag node to move
+            </text>
           </svg>
         </div>
       </div>
@@ -264,8 +359,8 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
         {!sel ? (
           <div className="flex h-full flex-col items-center justify-center py-8 text-center text-sm text-gray-500">
             <Icon name="globe" className="mb-2 h-6 w-6 text-gray-600" />
-            Tap any bubble to open its details.
-            <span className="mt-1 text-xs text-gray-600">Drag to rearrange · zoom · reset galaxy.</span>
+            Tap any node to open its details.
+            <span className="mt-1 text-xs text-gray-600">Pan · zoom · drag · fit.</span>
           </div>
         ) : (
           <NodeDetail node={sel} tab={tab} setTab={setTab} />
@@ -274,18 +369,6 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
     </div>
   );
 }
-
-// Deterministic starfield (no Math.random at module scope for SSR stability).
-const STARS = Array.from({ length: 70 }, (_, i) => {
-  const a = (i * 137.5) % 360;
-  const rad = (a * Math.PI) / 180;
-  const dist = ((i * 53) % 400) + 30;
-  return {
-    x: clamp(W / 2 + dist * Math.cos(rad) * 1.1, 4, W - 4),
-    y: clamp(H / 2 + dist * Math.sin(rad) * 0.7, 4, H - 4),
-    r: (i % 3) * 0.5 + 0.6,
-  };
-});
 
 function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (t: string) => void }) {
   const tabs = detailTabs(node);
@@ -323,7 +406,6 @@ function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (
             {!node.meta && <p className="text-gray-500">No extra details.</p>}
           </dl>
         )}
-
         {active === "findings" && (
           <ul className="space-y-1.5">
             {(node.findings ?? []).length === 0 && <li className="text-xs text-gray-500">No findings on this host.</li>}
@@ -338,7 +420,6 @@ function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (
             ))}
           </ul>
         )}
-
         {active === "services" && (
           <div className="flex flex-wrap gap-1.5">
             {(node.services ?? []).length === 0 && <p className="text-xs text-gray-500">No open ports recorded.</p>}
@@ -347,7 +428,6 @@ function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (
             ))}
           </div>
         )}
-
         {active === "finding" && node.type === "finding" && (
           <Link href={`/dashboard/findings/${node.id.replace(/^f:/, "")}/exploit`} className="btn-ghost inline-flex text-sm">
             ⚔ Open this finding →
