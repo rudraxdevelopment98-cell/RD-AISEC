@@ -40,6 +40,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
+      { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
       { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
       { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },

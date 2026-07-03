@@ -10,6 +10,8 @@ import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { FindingsBulk } from "@/components/findings-bulk";
+import { EngagementMap } from "@/components/engagement-map";
+import { buildEngagementGraph } from "@/lib/engagement-graph";
 import { classifyConfidence } from "@/lib/exploit-confidence";
 import {
   getEngagement,
@@ -102,6 +104,29 @@ export default async function EngagementDetail({
     prisma.runner.count(),
     engagementReadiness({ id: e.id, authorized: e.authorized, scope: e.scope }),
   ]);
+
+  // Engagement data map (3D galaxy): hosts/subdomains/services/findings +
+  // programs + collaborators, built from this engagement's own data.
+  const [mapJobs, mapPrograms] = await Promise.all([
+    prisma.job.findMany({
+      where: { engagementId: e.id },
+      select: { tool: true, target: true, status: true, queuedBy: true },
+      take: 500,
+    }),
+    prisma.bugProgram.findMany({ where: { engagementId: e.id }, select: { id: true, name: true } }),
+  ]);
+  const engGraph = buildEngagementGraph({
+    engagement: {
+      id: e.id, name: e.name, client: e.client, type: e.type, status: e.status,
+      scope: e.scope, ownerEmail: e.ownerEmail, sourceRepo: e.sourceRepo,
+    },
+    findings: e.findings.map((f) => ({
+      id: f.id, title: f.title, severity: f.severity, status: f.status,
+      confirmed: f.confirmed, description: f.description,
+    })),
+    jobs: mapJobs,
+    programs: mapPrograms,
+  });
 
   // Engagement command center — one hub to drive every workflow for this case.
   // Tiles with `action` run immediately (one click); the rest navigate.
@@ -251,6 +276,7 @@ export default async function EngagementDetail({
           { id: "command", label: "⚡ Command Center" },
           { id: "pipeline", label: "🤖 Assessment Pipeline" },
           { id: "findings", label: `🐞 Findings (${e.findings.length})` },
+          { id: "map", label: "🌌 Map" },
           { id: "resources", label: `📎 Resources (${e.resources.length})` },
         ]}
       >
@@ -572,6 +598,23 @@ export default async function EngagementDetail({
         )}
       </div>
 
+      </TabPanel>
+
+      <TabPanel id="map">
+      {/* Engagement data map — 3D galaxy of this case's hosts/findings/people. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">🌌 Engagement map</h2>
+        <Link href={`/dashboard/engagements/map?e=${e.id}`} className="text-xs text-brand hover:underline">
+          Open full-screen <Icon name="arrow" className="inline h-3 w-3" />
+        </Link>
+      </div>
+      <p className="mt-1 text-sm text-gray-400">
+        Hosts, subdomains, services, findings, programs and collaborators for this
+        engagement — linked and explorable. Tap any bubble for details.
+      </p>
+      <div className="mt-3">
+        <EngagementMap graph={engGraph} />
+      </div>
       </TabPanel>
 
       <TabPanel id="resources">
