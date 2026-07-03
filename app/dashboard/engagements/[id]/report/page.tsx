@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { getEngagement } from "@/lib/engagements";
+import { prepAssessment, frameworkName } from "@/lib/report-extras";
+import { statusLabel } from "@/lib/consulting-core";
 import { severityCounts, gradeFindings, type GradedFinding } from "@/lib/report";
 import {
   toAssessmentRow,
@@ -27,6 +30,13 @@ export default async function ReportPage({
 }) {
   const e = await getEngagement(params.id);
   if (!e) notFound();
+
+  // Discipline extras — consulting posture + forensics evidence for this case.
+  const [rawAssessments, evidence] = await Promise.all([
+    prisma.assessment.findMany({ where: { engagementId: e.id }, orderBy: { createdAt: "desc" }, include: { controls: { orderBy: { controlId: "asc" } } } }),
+    prisma.evidence.findMany({ where: { engagementId: e.id }, orderBy: { acquiredAt: "desc" }, include: { custody: { orderBy: { at: "asc" } } } }),
+  ]);
+  const assessments = rawAssessments.map(prepAssessment);
 
   const counts = severityCounts(e.findings);
   const kev = await getKevSet();
@@ -453,6 +463,95 @@ export default async function ReportPage({
             </>
           );
         })()}
+
+        {/* Security Posture Assessment (consulting) */}
+        {assessments.length > 0 && (
+          <section className="mt-6">
+            <h2 className="text-lg font-semibold">Security Posture Assessment</h2>
+            <div className="mt-3 space-y-4">
+              {assessments.map((a) => (
+                <div key={a.id} className="rounded-xl border border-surface-border p-3 print:border-gray-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-white print:text-black">{a.name} — {frameworkName(a.framework)}</h3>
+                    <span className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-white print:text-black">{a.score.score}</span>
+                      <span className="text-xs text-gray-500">/100 · maturity {a.score.maturityAvg.toFixed(1)}/5</span>
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-border print:border print:border-gray-300">
+                    <div className="h-full" style={{ width: `${a.score.score}%`, background: a.score.score >= 70 ? "#10b981" : a.score.score >= 40 ? "#f59e0b" : "#ef4444" }} />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                    {a.score.pass} pass · {a.score.partial} partial · {a.score.fail} fail · {a.score.na} n/a
+                  </p>
+                  {a.score.byDomain.length > 1 && (
+                    <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                      {a.score.byDomain.map((d) => (
+                        <div key={d.domain} className="flex items-center gap-2 text-[11px]">
+                          <span className="w-24 shrink-0 truncate text-gray-500 print:text-black">{d.domain}</span>
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-border">
+                            <div className="h-full" style={{ width: `${d.score}%`, background: d.score >= 70 ? "#10b981" : d.score >= 40 ? "#f59e0b" : "#ef4444" }} />
+                          </div>
+                          <span className="w-8 shrink-0 text-right text-gray-500">{d.score}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {a.gaps.length > 0 && (
+                    <div className="mt-3 overflow-x-auto">
+                      <p className="text-xs font-semibold text-gray-400 print:text-black">Gaps &amp; recommendations</p>
+                      <table className="mt-1 w-full text-left text-xs">
+                        <thead className="text-[10px] uppercase tracking-wide text-gray-500">
+                          <tr><th className="py-1 pr-3">Control</th><th className="py-1 pr-3">Status</th><th className="py-1">Recommendation</th></tr>
+                        </thead>
+                        <tbody className="text-gray-300 print:text-black">
+                          {a.gaps.map((c) => (
+                            <tr key={c.controlId} className="border-t border-surface-border align-top print:border-gray-300">
+                              <td className="py-1 pr-3">{c.title}</td>
+                              <td className={`py-1 pr-3 ${c.status === "fail" ? "text-red-300" : "text-amber-300"}`}>{statusLabel(c.status)}</td>
+                              <td className="py-1">{c.recommendation || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Evidence & Chain of Custody (forensics) */}
+        {evidence.length > 0 && (
+          <section className="mt-6">
+            <h2 className="text-lg font-semibold">Evidence &amp; Chain of Custody</h2>
+            <div className="mt-3 space-y-3">
+              {evidence.map((ev) => (
+                <div key={ev.id} className="rounded-xl border border-surface-border p-3 print:border-gray-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-white print:text-black">{ev.name}</h3>
+                    <span className="text-[11px] text-gray-500">{ev.kind}{ev.size ? ` · ${ev.size}` : ""}</span>
+                  </div>
+                  <dl className="mt-2 grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
+                    {ev.source && <div><dt className="inline text-gray-500">Source: </dt><dd className="inline text-gray-300 print:text-black">{ev.source}</dd></div>}
+                    <div><dt className="inline text-gray-500">Acquired: </dt><dd className="inline text-gray-300 print:text-black">{ev.acquiredBy || "—"} · {new Date(ev.acquiredAt).toISOString().slice(0, 16).replace("T", " ")}</dd></div>
+                    <div className="sm:col-span-2"><dt className="inline text-gray-500">Integrity: </dt><dd className="inline break-all font-mono text-gray-300 print:text-black">{ev.hashValue ? `${ev.hashAlgo}:${ev.hashValue}` : "— no hash recorded"}</dd></div>
+                  </dl>
+                  {ev.custody.length > 0 && (
+                    <ol className="mt-2 space-y-0.5 border-t border-surface-border pt-2 text-[11px] text-gray-400 print:border-gray-300 print:text-black">
+                      {ev.custody.map((c) => (
+                        <li key={c.id}>
+                          <span className="text-gray-500">{new Date(c.at).toISOString().slice(0, 16).replace("T", " ")}</span> — <b>{c.action}</b> by {c.actor || "—"}{c.notes ? `: ${c.notes}` : ""}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <footer className="mt-8 border-t border-surface-border pt-4 text-xs text-gray-500 print:border-gray-300">
           Generated by RD-AISEC. For authorized security testing and education

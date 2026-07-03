@@ -9,6 +9,12 @@ import {
   executiveDashboard,
   type AssessmentRow,
 } from "@/lib/assessment";
+import {
+  assessmentMarkdown,
+  evidenceMarkdown,
+  type RAssessment,
+  type REvidence,
+} from "@/lib/report-extras";
 
 export type EngagementWithFindings = Engagement & { findings: Finding[] };
 
@@ -154,7 +160,11 @@ function renderFinding(f: GradedFinding, n: number, lines: string[]): void {
  * RISK SCORE is computed from validated+confirmed findings ONLY — informational
  * and recon artifacts never inflate it.
  */
-export function buildMarkdown(e: EngagementWithFindings, kev?: Set<string>): string {
+export function buildMarkdown(
+  e: EngagementWithFindings,
+  kev?: Set<string>,
+  extras?: { assessments?: RAssessment[]; evidence?: REvidence[] },
+): string {
   const lines: string[] = [];
 
   // Grade + bucket every finding under the master policy.
@@ -289,6 +299,13 @@ export function buildMarkdown(e: EngagementWithFindings, kev?: Set<string>): str
     for (const f of informational) lines.push(`- ${f.title}`);
   }
   lines.push("");
+
+  // Discipline sections — consulting posture + forensics evidence, folded into
+  // the same deliverable.
+  const assessMd = assessmentMarkdown(extras?.assessments ?? []);
+  if (assessMd) { lines.push(assessMd); lines.push(""); }
+  const evMd = evidenceMarkdown(extras?.evidence ?? []);
+  if (evMd) { lines.push(evMd); lines.push(""); }
 
   lines.push("---");
   lines.push(

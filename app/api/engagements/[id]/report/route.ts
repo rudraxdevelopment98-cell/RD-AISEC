@@ -13,13 +13,20 @@ export async function GET(
 
   const engagement = await prisma.engagement.findUnique({
     where: { id: params.id },
-    include: { findings: true },
+    include: {
+      findings: true,
+      assessments: { include: { controls: { orderBy: { controlId: "asc" } } } },
+      evidence: { orderBy: { acquiredAt: "desc" }, include: { custody: { orderBy: { at: "asc" } } } },
+    },
   });
   if (!engagement) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const markdown = buildMarkdown(engagement, await getKevSet());
+  const markdown = buildMarkdown(engagement, await getKevSet(), {
+    assessments: engagement.assessments,
+    evidence: engagement.evidence,
+  });
   return new NextResponse(markdown, {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
