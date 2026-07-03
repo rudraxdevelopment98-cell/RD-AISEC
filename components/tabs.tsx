@@ -25,8 +25,11 @@ export function Tabs({
       <div
         role="tablist"
         // Pinned to the top of the scroll area so the tab strip stays visible
-        // while a long panel scrolls underneath it.
-        className="sticky top-0 z-20 flex flex-nowrap gap-1 overflow-x-auto border-b border-surface-border bg-surface/85 backdrop-blur"
+        // while a long panel scrolls underneath it. Tabs WRAP onto a second row
+        // when they don't fit — deliberately NOT a horizontal scroll: an element
+        // that is itself an x-scroll container (overflow-x-auto) fails to stick
+        // in WebKit/Safari, which broke the pinning AND showed an ugly scrollbar.
+        className="sticky top-0 z-20 -mx-1 flex flex-wrap gap-1 border-b border-surface-border bg-surface/95 px-1 py-1 backdrop-blur"
       >
         {tabs.map((t) => {
           const on = active === t.id;
