@@ -50,7 +50,26 @@ function microStat(n: GNode): string {
 
 type Box = { x: number; y: number; w: number; h: number };
 type View = { x: number; y: number; k: number };
-type Cols = { col: number; x: number; label: string }[];
+type Cols = { col: number; x: number; label: string; type: string }[];
+
+// Small inline SVG "device" glyphs per node type, drawn inside each card.
+function NodeGlyph({ type, color }: { type: string; color: string }) {
+  const s = { fill: "none", stroke: color, strokeWidth: 1.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (type) {
+    case "host":
+      return (<g {...s}><rect x={-6} y={-6} width={12} height={5} rx={1} /><rect x={-6} y={1} width={12} height={5} rx={1} /><circle cx={-3} cy={-3.5} r={0.7} fill={color} stroke="none" /><circle cx={-3} cy={3.5} r={0.7} fill={color} stroke="none" /></g>);
+    case "subdomain":
+      return (<g {...s}><circle r={6} /><ellipse rx={2.6} ry={6} /><line x1={-6} y1={0} x2={6} y2={0} /></g>);
+    case "finding":
+      return (<g {...s}><path d="M0 -6 L6 5 H-6 Z" /><line x1={0} y1={-2} x2={0} y2={2} /><circle cx={0} cy={3.6} r={0.7} fill={color} stroke="none" /></g>);
+    case "program":
+      return (<g {...s}><circle r={6} /><circle r={3} /><circle r={0.9} fill={color} stroke="none" /></g>);
+    case "person":
+      return (<g {...s}><circle cx={0} cy={-2.5} r={2.6} /><path d="M-5 6 A5 5 0 0 1 5 6" /></g>);
+    default: // engagement / briefcase
+      return (<g {...s}><rect x={-6} y={-3} width={12} height={8} rx={1} /><path d="M-2 -3 V-5 H2 V-3" /></g>);
+  }
+}
 
 const H = 40, X_GAP = 250, Y_STEP = 56, PAD = 70;
 
@@ -92,7 +111,7 @@ function layout(nodes: GNode[], edges: EngagementGraph["edges"], depthAll: Recor
   const cols: Cols = Object.keys(colTypes).map((cs) => {
     const c = Number(cs);
     const dom = Object.entries(colTypes[c]).sort((a, b) => b[1] - a[1])[0][0];
-    return { col: c, x: PAD + c * X_GAP, label: COL_LABEL[dom] ?? dom };
+    return { col: c, x: PAD + c * X_GAP, label: COL_LABEL[dom] ?? dom, type: dom };
   }).sort((a, b) => a.col - b.col);
   return { pos, cols };
 }
@@ -151,6 +170,16 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
     for (const id of Object.keys(dragPos)) if (m[id]) m[id] = { ...m[id], x: dragPos[id].x, y: dragPos[id].y };
     return m;
   }, [basePos, dragPos]);
+
+  // Content bounding box (for tier bands + minimap).
+  const bounds = useMemo(() => {
+    const bs = Object.values(pos);
+    if (!bs.length) return { x0: 0, y0: 0, x1: VW, y1: VH };
+    return {
+      x0: Math.min(...bs.map((b) => b.x)), y0: Math.min(...bs.map((b) => b.y)),
+      x1: Math.max(...bs.map((b) => b.x + b.w)), y1: Math.max(...bs.map((b) => b.y + b.h)),
+    };
+  }, [pos]);
 
   const sel = selected && visibleIds.has(selected) ? byId[selected] : null;
 
@@ -306,14 +335,19 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
             <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
               <rect x={-3000} y={-3000} width={7000} height={7000} fill="url(#gxGrid)" />
 
-              {/* Column / tier headers + dividers */}
-              {cols.map((c) => (
-                <g key={c.col}>
-                  <line x1={c.x - 24} y1={20} x2={c.x - 24} y2={VH * 3} stroke="rgba(56,189,248,0.08)" strokeWidth={1} />
-                  <text x={c.x} y={40} fontSize={11} fontWeight={700} letterSpacing={2}
-                    fill="rgba(56,189,248,0.55)" style={{ textTransform: "uppercase" }}>{c.label}</text>
-                </g>
-              ))}
+              {/* Shaded tier bands (one per column, tinted by its type) */}
+              {cols.map((c) => {
+                const col = TYPE_COLOR[c.type] ?? "#38bdf8";
+                const bandY = bounds.y0 - 44, bandH = bounds.y1 - bounds.y0 + 70;
+                return (
+                  <g key={`band-${c.col}`}>
+                    <rect x={c.x - 26} y={bandY} width={X_GAP - 10} height={bandH} rx={12}
+                      fill={col} fillOpacity={0.04} stroke={col} strokeOpacity={0.12} />
+                    <text x={c.x - 8} y={bandY + 20} fontSize={11} fontWeight={700} letterSpacing={2}
+                      fill={col} fillOpacity={0.7} style={{ textTransform: "uppercase" }}>{c.label}</text>
+                  </g>
+                );
+              })}
 
               {/* Links */}
               {visibleEdges.map((e, i) => {
@@ -345,12 +379,13 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
                       fill={isCore ? "rgba(16,52,42,0.94)" : "rgba(13,20,34,0.94)"}
                       stroke={isMatch ? "#facc15" : col} strokeOpacity={isSel || isMatch ? 1 : isHover ? 0.85 : 0.5} strokeWidth={isSel || isMatch ? 2 : 1.2} />
                     <rect width={4} height={b.h} rx={2} fill={col} />
-                    <circle cx={18} cy={b.h / 2} r={isCore ? 7 : 5} fill={col} />
-                    {isCore && <circle cx={18} cy={b.h / 2} r={10} fill="none" stroke={col} strokeOpacity={0.5} strokeWidth={1} />}
-                    <text x={32} y={b.h / 2 - 3} fontSize={isCore ? 12 : 11} fontWeight={600} fill="#f1f5f9">
+                    {/* device-style glyph */}
+                    <circle cx={19} cy={b.h / 2} r={11} fill={col} fillOpacity={0.14} />
+                    <g transform={`translate(19,${b.h / 2})`}><NodeGlyph type={n.type} color={col} /></g>
+                    <text x={36} y={b.h / 2 - 3} fontSize={isCore ? 12 : 11} fontWeight={600} fill="#f1f5f9">
                       {n.label.length > 28 ? n.label.slice(0, 27) + "…" : n.label}
                     </text>
-                    <text x={32} y={b.h / 2 + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={col} opacity={0.85}>
+                    <text x={36} y={b.h / 2 + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={col} opacity={0.85}>
                       {microStat(n).length > 32 ? microStat(n).slice(0, 31) + "…" : microStat(n)}
                     </text>
                     {/* collapse/expand toggle */}
@@ -375,6 +410,11 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
               {visibleNodes.length}/{graph.nodes.length} nodes · pan · scroll-zoom · drag card · +/− collapse
             </text>
           </svg>
+
+          <Minimap
+            nodes={visibleNodes} pos={pos} bounds={bounds} view={view}
+            onNavigate={(wx, wy) => setView((v) => ({ ...v, x: VW / 2 - wx * v.k, y: VH / 2 - wy * v.k }))}
+          />
         </div>
 
         {/* Severity stat row */}
@@ -467,4 +507,42 @@ function detailTabs(node: GNode): string[] {
   if (node.type === "host" || node.type === "subdomain") return ["overview", "findings", "services"];
   if (node.type === "finding") return ["overview", "finding"];
   return ["overview"];
+}
+
+/** Bottom-right minimap: all nodes + the current viewport rect; click to recenter. */
+function Minimap({
+  nodes, pos, bounds, view, onNavigate,
+}: {
+  nodes: GNode[];
+  pos: Record<string, Box>;
+  bounds: { x0: number; y0: number; x1: number; y1: number };
+  view: View;
+  onNavigate: (wx: number, wy: number) => void;
+}) {
+  const MW = 168, MH = 112, P = 5;
+  const wW = Math.max(1, bounds.x1 - bounds.x0), wH = Math.max(1, bounds.y1 - bounds.y0);
+  const s = Math.min((MW - P * 2) / wW, (MH - P * 2) / wH);
+  const mx = (wx: number) => P + (wx - bounds.x0) * s;
+  const my = (wy: number) => P + (wy - bounds.y0) * s;
+  // Visible world region from the current view transform.
+  const vx0 = (0 - view.x) / view.k, vy0 = (0 - view.y) / view.k;
+  const vx1 = (VW - view.x) / view.k, vy1 = (VH - view.y) / view.k;
+
+  function click(e: React.PointerEvent<SVGSVGElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const lx = ((e.clientX - r.left) / r.width) * MW, ly = ((e.clientY - r.top) / r.height) * MH;
+    onNavigate(bounds.x0 + (lx - P) / s, bounds.y0 + (ly - P) / s);
+  }
+  return (
+    <div className="pointer-events-auto absolute bottom-2 right-2 z-10 rounded-md border border-cyan-500/20 bg-black/60 p-0.5 backdrop-blur">
+      <svg width={MW} height={MH} viewBox={`0 0 ${MW} ${MH}`} className="cursor-pointer" onPointerDown={click}>
+        {nodes.map((n) => {
+          const b = pos[n.id]; if (!b) return null;
+          return <circle key={n.id} cx={mx(b.x + b.w / 2)} cy={my(b.y + b.h / 2)} r={1.6} fill={nodeColor(n)} opacity={0.85} />;
+        })}
+        <rect x={mx(vx0)} y={my(vy0)} width={(vx1 - vx0) * s} height={(vy1 - vy0) * s}
+          fill="rgba(52,211,153,0.12)" stroke="#34d399" strokeWidth={1} />
+      </svg>
+    </div>
+  );
 }
