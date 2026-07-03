@@ -25,6 +25,22 @@ function normSeverity(s: string): string {
 }
 
 /**
+ * Canonical NEGATION guard — a single source of truth for "this line actually
+ * says the target is SAFE / NOT vulnerable". Tools print vulnerability keywords
+ * inside negated sentences ("not vulnerable to Heartbleed", "no known
+ * vulnerabilities", "0 vulnerabilities identified", "up to date"), and matching
+ * the bare keyword there was our biggest false-positive source. Every parser
+ * that keys off a keyword should reject the line when NEG_VULN matches it.
+ */
+export const NEG_VULN =
+  /\bnot\b[\w\s'"-]{0,32}?vulnerable|does\s+not\s+appear|no\s+evidence|isn'?t\s+vulnerable|non-?vulnerable|not\s+affected|\bNOT\s+VULNERABLE\b|\b(0|no)\s+(known\s+)?vulnerab|no\s+known\s+vulnerab|\bup\s+to\s+date\b|\blatest\s+version\b|appears?\s+to\s+be\s+(the\s+)?latest/i;
+
+/** True when a line asserts the target is safe / patched, not vulnerable. */
+export function looksNegated(line: string): boolean {
+  return NEG_VULN.test(line);
+}
+
+/**
  * Nmap normal output → one finding per open port. Host-aware: a network scan
  * (multiple "Nmap scan report for" blocks) attributes each port to its host.
  */
@@ -168,9 +184,14 @@ function parseHttpx(target: string, output: string): ParsedFinding[] {
 
 /** sqlmap: detect confirmed SQL injection points and the affected parameters. */
 function parseSqlmap(target: string, output: string): ParsedFinding[] {
-  const vulnerable =
-    /sqlmap identified the following injection point|is vulnerable/i.test(output);
-  if (!vulnerable) return [];
+  // The strong signal is sqlmap's own confirmation header. A bare "is vulnerable"
+  // only counts on a line that isn't negated ("is not vulnerable" / "does not
+  // seem to be injectable").
+  const strong = /sqlmap identified the following injection point/i.test(output);
+  const softHit = output
+    .split("\n")
+    .some((l) => /is vulnerable/i.test(l) && !looksNegated(l));
+  if (!strong && !softHit) return [];
 
   const params = Array.from(output.matchAll(/^Parameter:\s*(.+)$/gim)).map((m) =>
     m[1].trim(),
@@ -354,19 +375,19 @@ function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
   // Exclude NEGATED statements — "not vulnerable", "NOT VULNERABLE", "not
   // affected", "0 vulnerable" — which sslscan/NSE print for SAFE hosts. Matching
   // "vulnerable" inside "not vulnerable" was a critical false-positive source.
-  const NEG = /\bnot\b[\w\s'"-]{0,32}?vulnerable|does\s+not\s+appear|no\s+evidence|isn'?t\s+vulnerable|non-?vulnerable|not\s+affected|\bNOT\s+VULNERABLE\b|\b(0|no)\s+vulnerab/i;
+  // Uses the canonical NEG_VULN guard shared by every parser.
   // Confirming evidence: a line that asserts vulnerability WITHOUT a negation.
   const evidence = output
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => re.test(l) && !NEG.test(l));
+    .filter((l) => re.test(l) && !looksNegated(l));
   if (evidence.length === 0) return [];
   const lines = evidence
     .concat(
       output
         .split("\n")
         .map((l) => l.trim())
-        .filter((l) => /CVE-\d|ms\d\d-\d|exploit/i.test(l) && !NEG.test(l)),
+        .filter((l) => /CVE-\d|ms\d\d-\d|exploit/i.test(l) && !looksNegated(l)),
     )
     .slice(0, 10);
   return [
@@ -508,13 +529,25 @@ function parseWpscan(target: string, output: string): ParsedFinding[] {
   const alerts = output
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l.startsWith("[!]") && /vulnerab|out of date|outdated|known|cve|wpvdb/i.test(l));
+    .filter(
+      (l) =>
+        l.startsWith("[!]") &&
+        /\b(vulnerab|out of date|outdated|cve-\d|wpvulndb|title:)/i.test(l) &&
+        // Drop SAFE/negated lines ("no known vulnerabilities", "up to date") and
+        // WPScan's API-token nag lines, which also start with [!].
+        !looksNegated(l) &&
+        !/no\s+wpvulndb|api\s+token|register(ed)?\s+at|to\s+get\s+more|upgrade\s+to\s+wpscan/i.test(l),
+    );
   if (alerts.length) {
     out.push({
       title: `WordPress vulnerabilities on ${target} (${alerts.length})`,
       severity: "high",
       status: "open",
-      confirmed: true,
+      // Version-based inference from WPVulnDB is a strong DETECTION, not a proven
+      // exploit — leave it unconfirmed ("reported") so the exploit stage can
+      // validate it, matching how nuclei/version matches are treated. Prevents
+      // over-claiming "confirmed" on a bare version comparison.
+      confirmed: false,
       description:
         `WPScan flagged ${alerts.length} issue(s) on ${target}:\n\n` +
         alerts.slice(0, 20).join("\n") +
