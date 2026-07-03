@@ -46,7 +46,11 @@ const PIPELINE_DEEP: Step[] = [
   { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
   { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
   { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4 --host-timeout 30m --min-rate 800 --max-retries 2", mode: "host" },
-  { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", mode: "url" },
+  // common.txt (~4.6k) ships with the `dirb` pkg and finishes in time; the huge
+  // directory-list-2.3-medium (~220k) both times out and is often missing. The
+  // runner swaps in an existing wordlist (or a built-in fallback) if this one is
+  // absent, so gobuster no longer dies with "wordlist file does not exist".
+  { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
   { tool: "nikto", args: "-maxtime 1200", mode: "url" },
   { tool: "sslscan", args: "", mode: "host" },
 ];

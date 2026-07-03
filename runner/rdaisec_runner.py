@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "40"
+RUNNER_VERSION = "41"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -959,8 +959,23 @@ def ensure_installed(tool):
         if shutil.which(bin_name):
             return ""
         pkg = spec.get("pkg") or INSTALL_PKGS.get(tool)
+        go_source = GO_INSTALL.get(tool)
+        # Go-based tools (httpx, katana, naabu, dalfox…) have no apt package — the
+        # apt path below can't help them, so self-heal via `go install` when the
+        # runner has sudo. This is why httpx "always failed": it was never being
+        # auto-installed, unlike the apt tools.
+        if not pkg and go_source:
+            sudo, stdin_in = _sudo_prefix()
+            env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+            print(f"  ⬇ '{tool}' not installed — auto-installing via go install…")
+            _go_install(tool, go_source, sudo, stdin_in, env, f"auto-{tool}")
+            # httpx needs the PD-specific resolver (the Python httpx lib shadows it).
+            ok = bool(resolve_httpx()) if tool == "httpx" else bool(shutil.which(bin_name))
+            if ok:
+                return f"[runner] auto-installed missing tool '{tool}' (go install).\n\n"
+            return f"[runner] could not auto-install '{tool}' — install it from the Machines page.\n\n"
         if not pkg or not shutil.which("apt-get"):
-            return ""  # go-only or non-Debian — leave it to the manual installer
+            return ""  # go-only handled above, or non-Debian — leave to manual install
         sudo, stdin_in = _sudo_prefix()
         env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
         print(f"  ⬇ '{tool}' not installed — auto-installing ({pkg})…")
@@ -970,8 +985,101 @@ def ensure_installed(tool):
         )
         if shutil.which(bin_name):
             return f"[runner] auto-installed missing tool '{tool}'.\n\n"
+        # apt failed but a Go source exists (e.g. nuclei/ffuf) — try go install too.
+        if go_source:
+            _go_install(tool, go_source, sudo, stdin_in, env, f"auto-{tool}")
+            if shutil.which(bin_name):
+                return f"[runner] auto-installed missing tool '{tool}' (go install).\n\n"
         return f"[runner] could not auto-install '{tool}' — install it from the Machines page.\n\n"
     except Exception:  # noqa: BLE001 — auto-install is best-effort
+        return ""
+
+
+# Directory/content wordlists gobuster/ffuf/dirsearch/feroxbuster need. gobuster
+# in particular has NO built-in list and dies instantly with "wordlist file does
+# not exist" when its -w path is missing — the #1 cause of gobuster "failing".
+WORDLIST_CANDIDATES = [
+    "/usr/share/wordlists/dirb/common.txt",
+    "/usr/share/seclists/Discovery/Web-Content/common.txt",
+    "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+    "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt",
+    "/usr/share/wordlists/dirb/big.txt",
+    "/usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+]
+
+# A compact, always-available fallback list written to disk when no system
+# wordlist exists (and apt can't fetch one). Covers the high-signal paths.
+_FALLBACK_WORDS = """admin administrator login logout signin signup register
+dashboard api api/v1 api/v2 graphql swagger swagger-ui openapi docs redoc
+.git .git/config .env .env.local .env.production config config.php config.json
+config.yml config.yaml settings settings.py wp-admin wp-login.php wp-config.php
+wp-content wp-json xmlrpc.php phpinfo.php phpmyadmin adminer server-status
+backup backups backup.zip backup.sql backup.tar.gz db.sql dump.sql database.sql
+old old.zip test test.php dev staging debug console actuator actuator/health
+actuator/env metrics status health info robots.txt sitemap.xml .htaccess
+.htpasswd .DS_Store .svn .svn/entries crossdomain.xml clientaccesspolicy.xml
+upload uploads files file download downloads assets static media images img
+js css includes inc lib vendor node_modules tmp temp cache logs log error.log
+access.log user users account accounts profile settings admin.php index.php
+home main portal secure private internal cgi-bin .well-known/security.txt""".split()
+
+
+def _write_fallback_wordlist() -> str:
+    """Write the built-in wordlist to a stable path and return it."""
+    d = os.path.expanduser("~/.rdaisec")
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "wordlist-common.txt")
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(dict.fromkeys(_FALLBACK_WORDS)) + "\n")
+    return path
+
+
+def resolve_wordlist(argv):
+    """If argv passes `-w <path>` (or --wordlist) to a dir-buster and that path is
+    missing, swap in an existing system wordlist — trying apt once, then falling
+    back to a built-in list. Guarantees gobuster/ffuf/etc. always get a real
+    wordlist instead of instantly failing. Returns a note ('' if nothing changed)."""
+    try:
+        idx = -1
+        for i, tok in enumerate(argv):
+            if tok in ("-w", "--wordlist") and i + 1 < len(argv):
+                idx = i + 1
+                break
+        # feroxbuster/gobuster accept -w; if none given, only add one for tools
+        # that REQUIRE it (gobuster). Detect gobuster by argv[0] basename.
+        base = os.path.basename(argv[0]) if argv else ""
+        wanted = argv[idx] if idx >= 0 else None
+        if wanted and os.path.exists(wanted):
+            return ""  # given wordlist exists — nothing to do
+        if idx < 0 and base != "gobuster":
+            return ""  # no -w and tool doesn't strictly need one
+        # Find an existing system wordlist.
+        chosen = next((p for p in WORDLIST_CANDIDATES if os.path.exists(p)), None)
+        note = ""
+        if not chosen:
+            # Try to fetch one via apt (best-effort, we have sudo).
+            if shutil.which("apt-get"):
+                try:
+                    sudo, stdin_in = _sudo_prefix()
+                    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+                    subprocess.run(sudo + ["apt-get", "install", "-y", "dirb", "seclists"],
+                                   stdin=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT)
+                except Exception:  # noqa: BLE001
+                    pass
+                chosen = next((p for p in WORDLIST_CANDIDATES if os.path.exists(p)), None)
+        if not chosen:
+            chosen = _write_fallback_wordlist()
+            note = "[runner] no system wordlist found — using the built-in fallback list.\n\n"
+        else:
+            note = f"[runner] wordlist not found; using {chosen}.\n\n"
+        if idx >= 0:
+            argv[idx] = chosen
+        else:
+            # gobuster with no -w at all: append one.
+            argv.extend(["-w", chosen])
+        return note
+    except Exception:  # noqa: BLE001 — never break a job over wordlist resolution
         return ""
 
 
@@ -983,6 +1091,10 @@ def run_job(job):
         return err, 1
     # Auto-install a missing allowlisted tool so the job doesn't just fail 127.
     install_note = "" if job.get("tool") == "custom" else ensure_installed(job.get("tool", ""))
+    # Make sure any dir-buster has a wordlist that actually exists (gobuster dies
+    # instantly otherwise). Also covers ffuf/dirsearch/feroxbuster and custom cmds.
+    if any(t in ("-w", "--wordlist") for t in argv) or (argv and os.path.basename(argv[0]) == "gobuster"):
+        install_note += resolve_wordlist(argv)
     # Anonymize TCP-connect traffic through Tor when enabled.
     if ANON_ON and shutil.which("torsocks"):
         argv = ["torsocks", *argv]
