@@ -218,31 +218,46 @@ export default async function FindingsPage({
         <details className="card mt-4">
           <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-200">
             <Icon name="shield" className="h-4 w-4 text-brand" />
-            Learned false positives
+            Learned accuracy rules
             <span className="tag ring-emerald accent-emerald">{suppressions.length} rule{suppressions.length === 1 ? "" : "s"}</span>
             {totalSuppressed > 0 && (
               <span className="tag">{totalSuppressed} auto-suppressed</span>
             )}
           </summary>
           <p className="mt-2 text-xs text-gray-500">
-            Each time you mark a finding a false positive, the engine remembers the
-            pattern and drops matching findings on future scans. Remove a rule to
-            start seeing that finding again.
+            The engine learns from your triage. Mark a finding a false positive and
+            it remembers the pattern and drops matches on future scans
+            (<span className="text-gray-400">suppressed</span>). Confirm a finding
+            as real and that class is protected — never auto-suppressed
+            (<span className="text-emerald-300/80">protected</span>, allow beats
+            suppress). Remove any rule to reverse it.
           </p>
           <ul className="mt-3 space-y-1.5">
-            {suppressions.map((s) => (
+            {suppressions.map((s) => {
+              const isAllow = s.kind === "allow";
+              return (
               <li key={s.id} className="flex items-center justify-between gap-3 rounded-md border border-surface-border bg-black/20 px-3 py-1.5 text-xs">
                 <span className="min-w-0">
+                  {isAllow ? (
+                    <span className="mr-2 tag ring-emerald accent-emerald">protected</span>
+                  ) : (
+                    <span className="mr-2 tag">suppressed</span>
+                  )}
                   <span className="font-mono text-gray-300">{s.titleKey || "(unclassified)"}</span>
                   {s.vulnClass && <span className="ml-2 text-gray-500">· {s.vulnClass}</span>}
-                  {s.hits > 0 && <span className="ml-2 text-emerald-300/80">· suppressed {s.hits}×</span>}
+                  {isAllow ? (
+                    <span className="ml-2 text-emerald-300/80">· confirmed real — never auto-suppressed</span>
+                  ) : (
+                    s.hits > 0 && <span className="ml-2 text-emerald-300/80">· suppressed {s.hits}×</span>
+                  )}
                 </span>
                 <form action={deleteSuppression}>
                   <input type="hidden" name="id" value={s.id} />
                   <button className="shrink-0 text-gray-500 hover:text-red-400">Remove</button>
                 </form>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </details>
       )}

@@ -358,6 +358,9 @@ model AuditEvent {
 // /dashboard/findings → Learned rules).
 model Suppression {
   id        String   @id @default(cuid())
+  // "suppress" = learned false positive (drop matches); "allow" = learned from a
+  // CONFIRMED finding (protect matches — allow always beats suppress).
+  kind      String   @default("suppress")
   scope     String   @default("global") // "global" | "host"
   host      String   @default("")        // set when scope = "host"
   tool      String   @default("")        // "" = any tool

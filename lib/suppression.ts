@@ -16,12 +16,42 @@ export async function loadRules(): Promise<SuppressionRule[]> {
   const rows = await prisma.suppression.findMany({ orderBy: { createdAt: "desc" } });
   return rows.map((r) => ({
     id: r.id,
+    kind: r.kind,
     scope: r.scope,
     host: r.host,
     tool: r.tool,
     vulnClass: r.vulnClass,
     titleKey: r.titleKey,
   }));
+}
+
+/**
+ * Learn an ALLOW rule from a finding you CONFIRMED as real. It protects that
+ * class from ever being auto-suppressed (allow beats suppress), so validated
+ * bugs can't be hidden by a broad false-positive rule. Idempotent.
+ */
+export async function learnConfirmed(findingId: string, by: string): Promise<void> {
+  const f = await prisma.finding.findUnique({
+    where: { id: findingId },
+    select: { title: true, description: true },
+  });
+  if (!f) return;
+  const sig = signatureOf(f);
+  if (!sig.titleKey) return;
+  const existing = await prisma.suppression.findFirst({
+    where: { kind: "allow", titleKey: sig.titleKey, vulnClass: sig.vulnClass },
+  });
+  if (existing) return;
+  await prisma.suppression.create({
+    data: {
+      kind: "allow",
+      scope: "global",
+      vulnClass: sig.vulnClass,
+      titleKey: sig.titleKey,
+      reason: `Confirmed real${by ? ` by ${by}` : ""}`,
+      createdBy: by,
+    },
+  });
 }
 
 /**

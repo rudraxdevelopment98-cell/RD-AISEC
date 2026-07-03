@@ -16,6 +16,7 @@ export type Signature = {
 
 export type SuppressionRule = Signature & {
   id?: string;
+  kind?: string; // "suppress" (drop) | "allow" (protect)
   scope?: string; // "global" | "host"
   host?: string; // set when scope === "host"
   tool?: string; // "" = any tool
@@ -84,10 +85,18 @@ export function filterSuppressed<T extends { title: string; description?: string
   ctx: { tool?: string; host?: string } = {},
 ): { kept: T[]; suppressed: { finding: T; ruleId?: string }[] } {
   if (rules.length === 0) return { kept: findings, suppressed: [] };
+  const allow = rules.filter((r) => r.kind === "allow");
+  const suppress = rules.filter((r) => r.kind !== "allow");
   const kept: T[] = [];
   const suppressed: { finding: T; ruleId?: string }[] = [];
   for (const f of findings) {
-    const r = firstMatch({ ...f, tool: ctx.tool, host: ctx.host }, rules);
+    const cand = { ...f, tool: ctx.tool, host: ctx.host };
+    // A class you've CONFIRMED as real is protected — allow always wins.
+    if (firstMatch(cand, allow)) {
+      kept.push(f);
+      continue;
+    }
+    const r = firstMatch(cand, suppress);
     if (r) suppressed.push({ finding: f, ruleId: r.id });
     else kept.push(f);
   }
