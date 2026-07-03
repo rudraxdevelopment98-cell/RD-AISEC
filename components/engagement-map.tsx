@@ -164,16 +164,18 @@ export function EngagementMap({ graph }: { graph: EngagementGraph }) {
     return () => svg.removeEventListener("wheel", onWheel);
   }, [toSvg, toWorld]);
 
+  // NOTE: we deliberately do NOT call setPointerCapture — on SVG elements it
+  // throws on iOS Safari (crashing the page on tap). The move/up handlers live on
+  // the <svg>, so events are received without capture; leaving the svg ends the
+  // gesture via onPointerLeave.
   function startNode(e: React.PointerEvent, id: string) {
     e.stopPropagation();
     const s = toSvg(e.clientX, e.clientY);
     act.current = { mode: "node", id, moved: false, sx: s.x, sy: s.y, ox: 0, oy: 0 };
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   }
   function startPan(e: React.PointerEvent) {
     const s = toSvg(e.clientX, e.clientY);
     act.current = { mode: "pan", moved: false, sx: s.x, sy: s.y, ox: view.x, oy: view.y };
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   }
   function onMove(e: React.PointerEvent) {
     if (!act.current) return;
