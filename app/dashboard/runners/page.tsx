@@ -320,9 +320,21 @@ python3 rdaisec_runner.py`}
                       )}
                     </div>
                   )}
-                  <p className="mt-2 text-[11px] text-gray-600">Click to expand — settings, tools &amp; anonymity.</p>
+                  <p className="mt-2 text-[11px] text-gray-600">Click to expand — or open the full machine page.</p>
                 </div>
                 </summary>
+
+                {/* Full per-machine page: console, all tools, settings, jobs. */}
+                <Link
+                  href={`/dashboard/runners/${r.id}`}
+                  className="flex items-center justify-between rounded-lg border border-surface-border bg-black/20 px-3 py-2 text-sm text-gray-300 hover:border-brand hover:text-white"
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon name="server" className="h-4 w-4 text-brand" />
+                    Open machine — console · tools · settings
+                  </span>
+                  <Icon name="arrow" className="h-4 w-4 text-gray-500" />
+                </Link>
 
                 {/* Revoke lives in the expanded body (out of the summary). */}
                 <div className="flex justify-end">

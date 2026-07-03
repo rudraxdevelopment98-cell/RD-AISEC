@@ -204,6 +204,21 @@ export async function setRunnerWorkers(formData: FormData) {
   revalidatePath("/dashboard/runners");
 }
 
+/** Rename a machine (owner-managed label; the token/identity is unchanged). */
+export async function renameRunner(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim().slice(0, 60);
+  const back = String(formData.get("back") ?? "/dashboard/runners");
+  if (id && name) {
+    await prisma.runner.update({ where: { id }, data: { name } }).catch(() => {});
+  }
+  revalidatePath("/dashboard/runners");
+  revalidatePath(back);
+  redirect(back);
+}
+
 /**
  * Queue a tool execution for a runner to pick up.
  * Guardrails: engagement must be authorized; tool + preset must be allowlisted;
