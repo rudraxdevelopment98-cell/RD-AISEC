@@ -4,20 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 
 /**
- * Collapsed-by-default top bar. The old always-on global header (search, theme,
- * sign-out, mobile menu) is folded into a single floating button pinned to the
- * top-right corner. Tapping it reveals a compact panel with those controls; the
- * page's own PageHeader is then free to be the thing that sticks to the very top.
+ * The global controls (search / theme / menu / sign-out) collapsed behind a
+ * single button that sits in the page header's top-right corner. Tapping it
+ * makes a pill rubber-band OUT horizontally to reveal the controls (springy
+ * over-shoot easing), then snap closed again.
  *
- * The actual controls are passed as children from the server layout (so the
- * sign-out server action stays server-side). This component only owns the
- * float + open/close + outside-click-to-dismiss.
+ * The controls are passed as children from the server layout (so the sign-out
+ * server action stays server-side). This component owns the float + the
+ * expand/collapse. Children stay mounted (the strip just clips to width 0) so
+ * the nested search palette / nav drawer keep their state and their portaled
+ * popovers survive a collapse.
  */
 export function FloatingControls({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Dismiss on outside click or Escape.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -37,28 +38,30 @@ export function FloatingControls({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={ref}
-      className="absolute right-3 top-3 z-40 flex flex-col items-end gap-2 print:hidden"
+      className="absolute right-3 top-2 z-40 flex items-center justify-end print:hidden"
     >
+      {/* Rubber-band strip — grows out to the LEFT of the button. */}
+      <div
+        className={`flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border bg-surface shadow-lg transition-all duration-500 ${
+          open
+            ? "mr-1.5 max-w-[78vw] border-surface-border px-2 py-1 opacity-100"
+            : "max-w-0 border-transparent px-0 py-0 opacity-0"
+        }`}
+        style={{ transitionTimingFunction: "cubic-bezier(.34, 1.56, .64, 1)" }}
+        onClick={() => setOpen(false)}
+      >
+        {children}
+      </div>
+
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close controls" : "Open controls"}
         aria-expanded={open}
-        className="grid h-10 w-10 place-items-center rounded-full border border-surface-border bg-surface/80 text-gray-200 shadow-lg backdrop-blur transition hover:border-brand hover:text-brand"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-surface-border bg-surface text-gray-200 shadow-lg transition hover:border-brand hover:text-brand"
       >
         <Icon name={open ? "x" : "search"} className="h-5 w-5" />
       </button>
-
-      {/* Always mounted (toggled with `hidden`, not unmounted) so the search
-          palette / nav drawer nested inside keep their state when the panel
-          closes — clicking a trigger opens its portaled popover AND collapses
-          this panel in the same click. */}
-      <div
-        className={`glass-panel w-[min(16rem,calc(100vw-1.5rem))] flex-col gap-2 rounded-xl border border-surface-border p-2.5 shadow-2xl ${open ? "flex" : "hidden"}`}
-        onClick={() => setOpen(false)}
-      >
-        {children}
-      </div>
     </div>
   );
 }

@@ -147,12 +147,9 @@ export default async function DashboardLayout({
             behind one floating button, anchored to the content column's top-
             right so it clears the sidebar + ops-rail on wide screens. */}
         <FloatingControls>
-          <MobileNav groups={nav} email={user?.email ?? null} />
           <CommandPalette links={navLinks} />
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <span className="tag ring-emerald accent-emerald">● Authorized</span>
-          </div>
+          <MobileNav groups={nav} email={user?.email ?? null} />
+          <ThemeToggle />
           <form
             action={async () => {
               "use server";
@@ -160,7 +157,7 @@ export default async function DashboardLayout({
               await signOut({ redirectTo: "/" });
             }}
           >
-            <button type="submit" className="btn-ghost w-full justify-center text-sm">
+            <button type="submit" className="btn-ghost shrink-0 whitespace-nowrap px-3 py-1.5 text-xs">
               Sign out
             </button>
           </form>

@@ -1,17 +1,16 @@
 import type { ReactNode } from "react";
 
 /**
- * Sticky page title bar. Pins to the top of the scrolling content area, just
- * under the always-pinned global app header, so the page's title + primary
- * actions stay visible while the body scrolls.
+ * Sticky page header. ONLY the compact title row (title + primary actions) pins
+ * to the very top for the whole page scroll — the descriptive subtitle and any
+ * ribbon scroll away beneath it, so the pinned bar stays a thin, single line.
  *
- * Full-bleed: the negative horizontal margins cancel <main>'s px-4/sm:px-6 so
- * the frosted bar spans edge to edge and the blur reads as a real header band
- * rather than a floating card. z-30 keeps it above sticky sub-tab strips (z-20)
- * and page content.
+ * Returned as a fragment (no wrapper) on purpose: the sticky bar must be a
+ * direct child of the tall page container so it stays pinned for the entire
+ * scroll, not just while a short wrapper is on screen.
  *
- * Not a horizontal scroll container (unlike the old tab strip) — an element
- * that scrolls in X fails to stick in WebKit; this one only ever sticks.
+ * Opaque (no backdrop-blur) so scrolling stays smooth. The right padding leaves
+ * room for the floating controls button that sits in the header's top-right.
  */
 export function PageHeader({
   title,
@@ -23,26 +22,27 @@ export function PageHeader({
   title: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;
-  /** Extra content rendered beneath the title row (filters, breadcrumbs, tabs). */
+  /** Ribbon/content shown under the title — scrolls away with the subtitle. */
   children?: ReactNode;
   className?: string;
 }) {
   return (
-    <div
-      className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface px-4 py-3 sm:-mx-6 sm:px-6 ${className}`}
-    >
-      {/* pr-12 keeps right-aligned actions clear of the floating controls button
-          that lives in the content column's top-right corner. */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pr-12">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold">{title}</h1>
-          {subtitle && <div className="mt-1 text-sm text-gray-400">{subtitle}</div>}
-        </div>
+    <>
+      <div
+        className={`sticky top-0 z-30 -mx-4 flex items-center justify-between gap-3 border-b border-surface-border bg-surface px-4 py-2.5 pr-14 sm:-mx-6 sm:px-6 sm:pr-16 ${className}`}
+      >
+        <h1 className="min-w-0 flex-1 truncate text-xl font-bold">{title}</h1>
         {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex shrink-0 items-center justify-end gap-2">{actions}</div>
         )}
       </div>
-      {children}
-    </div>
+
+      {(subtitle || children) && (
+        <div className="mt-3">
+          {subtitle && <div className="text-sm text-gray-400">{subtitle}</div>}
+          {children}
+        </div>
+      )}
+    </>
   );
 }
