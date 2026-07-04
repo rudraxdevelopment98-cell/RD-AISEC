@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
 
@@ -14,11 +15,17 @@ type Hit = { id: string; name: string };
  */
 export function CommandPalette({ links }: { links: NavLink[] }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [q, setQ] = useState("");
   const [eng, setEng] = useState<Hit[]>([]);
   const [progs, setProgs] = useState<(Hit & { engagementId: string | null })[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Portals need the DOM — only render the overlay after mount. This also lets
+  // the overlay live in <body>, so it isn't clipped/hidden when the collapsed
+  // FloatingControls panel that hosts this trigger is toggled off.
+  useEffect(() => setMounted(true), []);
 
   // Open on Ctrl/⌘+K.
   useEffect(() => {
@@ -85,7 +92,8 @@ export function CommandPalette({ links }: { links: NavLink[] }) {
         <kbd className="hidden rounded border border-surface-border px-1 text-[10px] text-gray-500 sm:inline">⌘K</kbd>
       </button>
 
-      {open && (
+      {open && mounted &&
+        createPortal(
         <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-[12vh]">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="glass-panel relative w-full max-w-lg rounded-xl border border-surface-border shadow-2xl">
@@ -133,8 +141,9 @@ export function CommandPalette({ links }: { links: NavLink[] }) {
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }

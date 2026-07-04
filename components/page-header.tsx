@@ -31,7 +31,9 @@ export function PageHeader({
     <div
       className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 ${className}`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* pr-12 keeps right-aligned actions clear of the floating controls button
+          that lives in the content column's top-right corner. */}
+      <div className="flex flex-wrap items-start justify-between gap-3 pr-12">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-bold">{title}</h1>
           {subtitle && <div className="mt-1 text-sm text-gray-400">{subtitle}</div>}

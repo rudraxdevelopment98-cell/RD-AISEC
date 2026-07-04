@@ -17,6 +17,7 @@ import { prisma } from "@/lib/db";
 import { AutoscanFab } from "@/components/autoscan-fab";
 import { VoiceCommandCenter } from "@/components/voice-command-center";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { FloatingControls } from "@/components/floating-controls";
 
 export default async function DashboardLayout({
   children,
@@ -52,7 +53,7 @@ export default async function DashboardLayout({
   );
 
   return (
-    <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
+    <div className="app-dashboard flex h-screen overflow-hidden print:h-auto print:overflow-visible">
       {/* Liquid-glass backdrop — morphing colour blobs + grid + neural net */}
       <div className="scene print:hidden" aria-hidden>
         <div className="liquid-bg">
@@ -125,43 +126,9 @@ export default async function DashboardLayout({
       </SidebarShell>
 
       <div className="relative z-10 flex h-screen flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">
-        {/* Top header — pinned on every page */}
-        <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-surface-border bg-surface/80 px-4 py-3 backdrop-blur sm:px-6 print:hidden">
-          <div className="flex min-w-0 items-center gap-3">
-            <MobileNav groups={nav} email={user?.email ?? null} />
-            {/* Brand on mobile (sidebar shows it on sm+) */}
-            <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-xs font-black text-black">
-                R
-              </span>
-              <span className="font-mono text-sm font-bold">
-                RD<span className="text-brand">-AISEC</span>
-              </span>
-            </Link>
-            <p className="hidden text-sm text-gray-500 lg:block">
-              Security operations portal
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <CommandPalette links={navLinks} />
-            <ThemeToggle />
-            <span className="tag ring-emerald accent-emerald hidden lg:inline-flex">
-              ● Authorized session
-            </span>
-            <form
-              action={async () => {
-                "use server";
-                await logAudit({ type: "auth.logout", actor: user?.email, summary: "Signed out" });
-                await signOut({ redirectTo: "/" });
-              }}
-              className="lg:hidden"
-            >
-              <button type="submit" className="text-xs text-gray-400">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </header>
+        {/* The old always-on top header is gone — its search / theme / menu /
+            sign-out now live behind a single floating button (FloatingControls,
+            mounted below), so each page's own PageHeader owns the very top. */}
         {/* Scrollable content area — the center canvas. No per-navigation remount
             or entrance animation: navigation is instant (the keyed fade-up made
             pages feel like they were reloading). Subtle list motion stays via
@@ -175,6 +142,29 @@ export default async function DashboardLayout({
         <main className="flex-1 overflow-y-auto px-4 pb-8 sm:px-6 print:overflow-visible">
           {children}
         </main>
+
+        {/* Collapsed global controls — search / theme / menu / sign-out folded
+            behind one floating button, anchored to the content column's top-
+            right so it clears the sidebar + ops-rail on wide screens. */}
+        <FloatingControls>
+          <MobileNav groups={nav} email={user?.email ?? null} />
+          <CommandPalette links={navLinks} />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <span className="tag ring-emerald accent-emerald">● Authorized</span>
+          </div>
+          <form
+            action={async () => {
+              "use server";
+              await logAudit({ type: "auth.logout", actor: user?.email, summary: "Signed out" });
+              await signOut({ redirectTo: "/" });
+            }}
+          >
+            <button type="submit" className="btn-ghost w-full justify-center text-sm">
+              Sign out
+            </button>
+          </form>
+        </FloatingControls>
       </div>
 
       {/* Right rail — live ops (machines · jobs · findings). Collapsible; wide

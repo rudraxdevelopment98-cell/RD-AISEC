@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Density — zoom the dashboard "engine" out a notch so more fits on screen.
+   Scoped to dashboard pages via :has() (the layout root carries .app-dashboard)
+   so the marketing/landing/login pages keep their 16px scale. All rem-based
+   Tailwind sizing scales proportionally; sticky/fixed positioning is unaffected
+   because font-size doesn't touch it. Tune this one number to taste. */
+html:has(.app-dashboard) {
+  font-size: 14px;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    THEME TOKENS — one source of truth for both themes.
    Colours are stored as bare "R G B" triplets so Tailwind can apply them with
