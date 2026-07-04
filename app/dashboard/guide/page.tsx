@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,10 @@ function Step({
 export default function GuidePage() {
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold">How it works — full guide</h1>
-      <p className="mt-1 text-gray-400">
-        End-to-end: from a bug-bounty program to a confirmed, reported bug. Follow
-        the worked example, then do it on your own engaged program.
-      </p>
+      <PageHeader
+        title="How it works — full guide"
+        subtitle="End-to-end: from a bug-bounty program to a confirmed, reported bug. Follow the worked example, then do it on your own engaged program."
+      />
 
       {/* Worked example banner */}
       <div className="mt-5 rounded-xl border border-brand/30 bg-brand/5 p-4">

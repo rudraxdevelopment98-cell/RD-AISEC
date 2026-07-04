@@ -11,6 +11,7 @@ import {
 } from "@/lib/scheduled-scans";
 import { splitTargets, intervalMs } from "@/lib/scheduled-core";
 import { MAX_BULK_TARGETS } from "@/lib/scanner";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -37,12 +38,10 @@ export default async function ScanPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold">Auto Scan</h1>
-      <p className="mt-1 text-gray-400">
-        Passive web posture check (HTTPS, security headers, cookie hardening) —
-        no machine needed. Run one now, or schedule it to repeat and track
-        posture over time. Every gap becomes a finding on the engagement.
-      </p>
+      <PageHeader
+        title="Auto Scan"
+        subtitle="Passive web posture check (HTTPS, security headers, cookie hardening) — no machine needed. Run one now, or schedule it to repeat and track posture over time. Every gap becomes a finding on the engagement."
+      />
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

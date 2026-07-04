@@ -1,4 +1,5 @@
 import { auth, isOwnerEmail } from "@/auth";
+import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
@@ -84,11 +85,10 @@ export default async function SiemPage({ searchParams }: { searchParams: SP }) {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold">SIEM · Activity</h1>
-      <p className="mt-1 text-gray-400">
-        A timeline of security-relevant events — sign-ins, sign-outs, and (as they
-        are wired in) jobs, findings and exports.
-      </p>
+      <PageHeader
+        title="SIEM · Activity"
+        subtitle="A timeline of security-relevant events — sign-ins, sign-outs, and (as they are wired in) jobs, findings and exports."
+      />
 
       <HelpBanner>
         <p>• Filter by event type, who did it, severity, or time window.</p>

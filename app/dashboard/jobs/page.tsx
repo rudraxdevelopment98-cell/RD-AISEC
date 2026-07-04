@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
@@ -125,11 +126,10 @@ export default async function JobsPage({
       {/* Only auto-refresh while something is live — so filtering History isn't reset. */}
       {active.length > 0 && <AutoRefresh seconds={5} />}
 
-      <h1 className="text-2xl font-bold">Jobs</h1>
-      <p className="mt-1 text-gray-400">
-        Queue tools to run on a connected machine, watch them live, and review
-        completed runs with their results.
-      </p>
+      <PageHeader
+        title="Jobs"
+        subtitle="Queue tools to run on a connected machine, watch them live, and review completed runs with their results."
+      />
 
       <HelpBanner>
         <p>• Pick an engagement, machine, tool and preset, then a target (or pick one from the engagement&apos;s scope).</p>

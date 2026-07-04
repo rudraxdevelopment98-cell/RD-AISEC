@@ -11,6 +11,7 @@ import { lookupVendor, deviceType } from "@/data/oui";
 import { CopyText } from "@/components/copy-text";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { PageHeader } from "@/components/page-header";
 
 const RISK_TONE: Record<string, string> = {
   critical: "border-red-500/50 text-red-300",
@@ -116,12 +117,16 @@ export default async function WifiPage({
       {/* Live-refresh while a scan is running so results appear on their own. */}
       {anyActive && <AutoRefresh seconds={5} />}
 
-      <h1 className="text-2xl font-bold">WiFi</h1>
-      <p className="mt-1 max-w-2xl text-gray-400">
-        Wireless recon from a machine with a WiFi adapter. Scan nearby access
-        points, then (with a monitor-mode dongle) capture handshakes and run deauth
-        on networks you own — via the aircrack-ng suite on your runner.
-      </p>
+      <PageHeader
+        title="WiFi"
+        subtitle={
+          <span className="block max-w-2xl">
+            Wireless recon from a machine with a WiFi adapter. Scan nearby access
+            points, then (with a monitor-mode dongle) capture handshakes and run deauth
+            on networks you own — via the aircrack-ng suite on your runner.
+          </span>
+        }
+      />
 
       <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
         <Icon name="alert" className="mr-1 inline h-4 w-4" />

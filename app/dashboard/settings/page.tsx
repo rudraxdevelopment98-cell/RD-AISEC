@@ -1,4 +1,5 @@
 import { auth, isOwnerEmail } from "@/auth";
+import { PageHeader } from "@/components/page-header";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { prisma } from "@/lib/db";
@@ -29,8 +30,7 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <p className="mt-1 text-gray-400">Portal-wide settings.</p>
+      <PageHeader title="Settings" subtitle="Portal-wide settings." />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">

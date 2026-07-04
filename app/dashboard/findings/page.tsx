@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
@@ -162,15 +163,11 @@ export default async function FindingsPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Findings</h1>
-          <p className="mt-1 text-gray-400">
-            Every finding across all engagements. Filter by framework, severity,
-            or status to triage.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+      <PageHeader
+        title="Findings"
+        subtitle="Every finding across all engagements. Filter by framework, severity, or status to triage."
+        actions={
+          <>
           {findings.length > 0 && (
             <a href={exportHref} className="btn-ghost text-sm" download>
               <Icon name="copy" className="mr-1 inline h-4 w-4" />
@@ -199,8 +196,9 @@ export default async function FindingsPage({
               </form>
             </details>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {sp.ok && (
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">✓ {sp.ok}</div>

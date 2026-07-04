@@ -5,6 +5,7 @@ import { SeverityBadge } from "@/components/badges";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { backfillFrameworkTags } from "@/lib/finding-backfill";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ export default async function AnalyticsPage({
   if (engagements.length === 0) {
     return (
       <div className="mx-auto max-w-4xl">
-        <h1 className="text-2xl font-bold">Analytics</h1>
+        <PageHeader title="Analytics" />
         <div className="card mt-6 text-center">
           <p className="text-gray-400">
             No data yet. Create an engagement and log findings to see analytics
@@ -153,10 +154,10 @@ export default async function AnalyticsPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-bold">Analytics</h1>
-      <p className="mt-1 text-gray-400">
-        A live overview across every engagement.
-      </p>
+      <PageHeader
+        title="Analytics"
+        subtitle="A live overview across every engagement."
+      />
 
       {/* Stat strip */}
       <section className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

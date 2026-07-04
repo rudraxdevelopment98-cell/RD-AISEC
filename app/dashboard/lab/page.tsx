@@ -5,6 +5,7 @@ import { HelpBanner } from "@/components/hint";
 import { ExploitLab } from "@/components/exploit-lab";
 import { templateForFinding } from "@/data/exploit-templates";
 import { SubNav, EXPLOIT_TABS } from "@/components/sub-nav";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +35,15 @@ export default async function LabPage({
   return (
     <div className="mx-auto max-w-4xl">
       <SubNav items={EXPLOIT_TABS} />
-      <h1 className="text-2xl font-bold">Exploit Lab</h1>
-      <p className="mt-1 max-w-2xl text-gray-400">
-        Build PoCs and exploits from templates, then save them straight into your
-        Kali exploit folder. Keep research and notes in your linked Drive.
-      </p>
+      <PageHeader
+        title="Exploit Lab"
+        subtitle={
+          <span className="block max-w-2xl">
+            Build PoCs and exploits from templates, then save them straight into
+            your Kali exploit folder. Keep research and notes in your linked Drive.
+          </span>
+        }
+      />
 
       <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
         <Icon name="alert" className="mr-1 inline h-4 w-4" />

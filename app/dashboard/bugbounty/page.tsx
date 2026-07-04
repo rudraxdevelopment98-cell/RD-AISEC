@@ -13,6 +13,7 @@ import {
 import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
 import { ProgramsManager } from "@/components/programs-manager";
 import { Tabs, TabPanel } from "@/components/tabs";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 // HackerOne sync makes several sequential API calls — give it headroom.
@@ -58,12 +59,16 @@ export default async function BugBountyPage({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold">Bug Bounty</h1>
-      <p className="mt-1 max-w-2xl text-gray-400">
-        Track the programs you hunt on HackerOne, Bugcrowd, and others. Paste a
-        program&apos;s scope, turn it into an authorized engagement, and let the
-        portal automate recon against the in-scope targets.
-      </p>
+      <PageHeader
+        title="Bug Bounty"
+        subtitle={
+          <span className="block max-w-2xl">
+            Track the programs you hunt on HackerOne, Bugcrowd, and others. Paste a
+            program&apos;s scope, turn it into an authorized engagement, and let the
+            portal automate recon against the in-scope targets.
+          </span>
+        }
+      />
 
       <HelpBanner>
         <p>• Save your platform handles for quick links to your dashboards.</p>

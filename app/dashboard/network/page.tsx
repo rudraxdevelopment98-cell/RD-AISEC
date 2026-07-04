@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { parseNmapNetwork, mergeNetworkHosts } from "@/lib/network";
@@ -64,13 +65,17 @@ export default async function NetworkPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-bold">Network map</h1>
-      <p className="mt-1 text-gray-400">
-        Visualize a network from an nmap scan run on your runner. Queue an{" "}
-        <strong>nmap → Network discovery</strong> or <strong>Network scan</strong>{" "}
-        against a CIDR (e.g. <code className="font-mono">10.0.0.0/24</code>), then
-        view live hosts, open ports, and services here.
-      </p>
+      <PageHeader
+        title="Network map"
+        subtitle={
+          <>
+            Visualize a network from an nmap scan run on your runner. Queue an{" "}
+            <strong>nmap → Network discovery</strong> or <strong>Network scan</strong>{" "}
+            against a CIDR (e.g. <code className="font-mono">10.0.0.0/24</code>), then
+            view live hosts, open ports, and services here.
+          </>
+        }
+      />
 
       <HelpBanner>
         <p>• Use the scan form to scan a network your machine is on (it auto-detects subnets).</p>

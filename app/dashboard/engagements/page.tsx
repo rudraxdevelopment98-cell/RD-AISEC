@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/page-header";
 import { listEngagements, createEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES } from "@/lib/engagement-constants";
 import { platformLabel } from "@/lib/bugbounty-core";
@@ -18,16 +19,10 @@ export default async function EngagementsPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Engagements</h1>
-          <p className="mt-1 text-gray-400">
-            The shared engine behind every service line — bug bounty, pentest,
-            forensics and consulting. Scope, findings, exploitation and reports
-            for each case in one place.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Engagements"
+        subtitle="The shared engine behind every service line — bug bounty, pentest, forensics and consulting. Scope, findings, exploitation and reports for each case in one place."
+      />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">

@@ -1,4 +1,5 @@
 import { auth, isOwnerEmail } from "@/auth";
+import { PageHeader } from "@/components/page-header";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { listMembers, ownerEmails } from "@/lib/members";
@@ -65,11 +66,10 @@ export default async function MembersPage({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold">Members</h1>
-      <p className="mt-1 text-gray-400">
-        Invite teammates by email and scope what they can see. They sign in with
-        the same email (Google) — only approved members get in.
-      </p>
+      <PageHeader
+        title="Members"
+        subtitle="Invite teammates by email and scope what they can see. They sign in with the same email (Google) — only approved members get in."
+      />
 
       <HelpBanner>
         <p>• Add a member by email and tick the sections they should access.</p>

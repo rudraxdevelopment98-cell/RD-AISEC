@@ -5,6 +5,7 @@ import { NavSelect } from "@/components/nav-select";
 import { EmptyState } from "@/components/empty-state";
 import { EngagementMap } from "@/components/engagement-map";
 import { buildEngagementGraph } from "@/lib/engagement-graph";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function EngagementMapPage({
   if (engagements.length === 0) {
     return (
       <div className="mx-auto max-w-3xl">
-        <h1 className="text-2xl font-bold">Engagement Map</h1>
+        <PageHeader title="Engagement Map" />
         <div className="mt-4">
           <EmptyState
             icon="globe"
@@ -74,25 +75,27 @@ export default async function EngagementMapPage({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Engagement Map</h1>
-          <p className="mt-1 text-sm text-gray-400">
+      <PageHeader
+        title="Engagement Map"
+        subtitle={
+          <>
             The whole engagement as a 3D galaxy — hosts, subdomains, services,
             findings, programs and collaborators, linked and explorable. This is the
             engagement&apos;s picture; the{" "}
             <Link href="/dashboard/network" className="text-brand hover:underline">Network Map</Link>{" "}
             stays for live local-network scans.
-          </p>
-        </div>
-        <NavSelect
-          param="e"
-          value={selectedId}
-          label="Engagement"
-          allLabel="Pick engagement"
-          options={engagements.map((x) => ({ value: x.id, label: x.name }))}
-        />
-      </div>
+          </>
+        }
+        actions={
+          <NavSelect
+            param="e"
+            value={selectedId}
+            label="Engagement"
+            allLabel="Pick engagement"
+            options={engagements.map((x) => ({ value: x.id, label: x.name }))}
+          />
+        }
+      />
 
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
         <span>{graph.nodes.length} nodes · {graph.edges.length} links</span>

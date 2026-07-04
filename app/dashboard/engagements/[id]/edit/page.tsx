@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { prisma } from "@/lib/db";
 import { updateEngagement, deleteEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES, ENGAGEMENT_STATUSES } from "@/lib/engagement-constants";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,10 @@ export default async function EditEngagementPage({
         ← Back to engagement
       </Link>
 
-      <h1 className="mt-2 text-2xl font-bold">Edit engagement</h1>
-      <p className="mt-1 text-gray-400">
-        Update the scope, authorization, type, and status.
-      </p>
+      <PageHeader
+        title="Edit engagement"
+        subtitle="Update the scope, authorization, type, and status."
+      />
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

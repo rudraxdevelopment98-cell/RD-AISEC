@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopicBySlug } from "@/lib/knowledge";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +25,7 @@ export default function KnowledgeTopicPage({
         ← Knowledge Library
       </Link>
 
-      <header className="card mt-3">
-        <h1 className="text-2xl font-bold text-gradient">{topic.topic}</h1>
-        <p className="mt-2 text-sm text-gray-300">{topic.summary}</p>
+      <PageHeader title={topic.topic} subtitle={topic.summary}>
         {topic.relatedTools.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {topic.relatedTools.map((t) => (
@@ -36,7 +35,7 @@ export default function KnowledgeTopicPage({
             ))}
           </div>
         )}
-      </header>
+      </PageHeader>
 
       <div className="mt-5 space-y-5">
         {topic.sections.map((s) => (

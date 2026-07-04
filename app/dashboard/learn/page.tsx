@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { HelpBanner } from "@/components/hint";
 import { LearnBoard } from "@/components/learn-board";
 import { LEARN_TOPICS } from "@/data/learn";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +22,10 @@ export default async function LearnPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold">Learn — tactics &amp; tasks</h1>
-      <p className="mt-1 text-gray-400">
-        A personal roadmap of techniques to study. Each one says how to practice
-        it right here in the portal. Mark what you&apos;re learning and what
-        you&apos;ve got down.
-      </p>
+      <PageHeader
+        title={<>Learn — tactics &amp; tasks</>}
+        subtitle="A personal roadmap of techniques to study. Each one says how to practice it right here in the portal. Mark what you're learning and what you've got down."
+      />
 
       <HelpBanner>
         <p>• Filter by category or status; tap a topic&apos;s buttons to set <b>to learn / learning / learned</b>.</p>

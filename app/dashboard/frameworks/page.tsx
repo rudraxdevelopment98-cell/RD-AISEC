@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/page-header";
 import {
   MITRE_TACTICS,
   OWASP_TOP10,
@@ -11,14 +12,16 @@ export const dynamic = "force-dynamic";
 export default function FrameworksPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Frameworks &amp; standards</h1>
-        <p className="mt-1 max-w-2xl text-gray-400">
-          The references RD-AISEC works from — attacker tactics, common web risks,
-          a governance model, and the tooling our scans build on. The knowledge
-          base and assistant draw on these, and findings can be mapped to them.
-        </p>
-      </div>
+      <PageHeader
+        title={<>Frameworks &amp; standards</>}
+        subtitle={
+          <span className="block max-w-2xl">
+            The references RD-AISEC works from — attacker tactics, common web risks,
+            a governance model, and the tooling our scans build on. The knowledge
+            base and assistant draw on these, and findings can be mapped to them.
+          </span>
+        }
+      />
 
       {/* MITRE ATT&CK */}
       <section>

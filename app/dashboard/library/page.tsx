@@ -3,6 +3,7 @@ import { createResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { ResourceList, type ResourceItem } from "@/components/resource-list";
 import { DriveProvider, ConnectDriveButton } from "@/components/drive";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +32,10 @@ export default async function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-bold">Resource Vault</h1>
-      <p className="mt-1 text-gray-400">
-        Your catalog of cybersecurity resources — links, books, exploits, tools,
-        and cheatsheets. Big files stay offline on your drive; the vault stores
-        the index and a drive location, so you find it here and open it from your
-        external drive.
-      </p>
+      <PageHeader
+        title="Resource Vault"
+        subtitle="Your catalog of cybersecurity resources — links, books, exploits, tools, and cheatsheets. Big files stay offline on your drive; the vault stores the index and a drive location, so you find it here and open it from your external drive."
+      />
 
       {/* Add resource */}
       <details className="card mt-6">

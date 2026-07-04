@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/page-header";
 import { CreateRunnerForm } from "@/components/runner-create";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
@@ -92,14 +93,18 @@ export default async function RunnersPage({
     <div className="mx-auto max-w-5xl">
       {anyLive && <AutoRefresh seconds={10} />}
 
-      <h1 className="text-2xl font-bold">Machines</h1>
-      <p className="mt-1 text-gray-400">
-        Connect machines you control (e.g. Kali in UTM/Parallels) as runners. Each
-        polls over HTTPS, executes tools locally, and posts results back — nothing
-        offensive runs in the cloud. Anything the portal needs to run goes to the
-        machine you select. See{" "}
-        <code className="font-mono text-xs text-brand">runner/README.md</code>.
-      </p>
+      <PageHeader
+        title="Machines"
+        subtitle={
+          <>
+            Connect machines you control (e.g. Kali in UTM/Parallels) as runners. Each
+            polls over HTTPS, executes tools locally, and posts results back — nothing
+            offensive runs in the cloud. Anything the portal needs to run goes to the
+            machine you select. See{" "}
+            <code className="font-mono text-xs text-brand">runner/README.md</code>.
+          </>
+        }
+      />
 
       <HelpBanner>
         <p>• Create a runner to get a token, then run the Python runner on your machine with it.</p>

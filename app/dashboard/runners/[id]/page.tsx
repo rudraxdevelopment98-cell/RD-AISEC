@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { PageHeader } from "@/components/page-header";
 import { MachineConsole } from "@/components/machine-console";
 import {
   deleteRunner,
@@ -78,27 +79,31 @@ export default async function MachinePage({
       />
 
       {/* ── Header ───────────────────────────────────────── */}
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon name="server" className="h-6 w-6 text-brand" />
-          <h1 className="text-2xl font-bold">{r.name}</h1>
-          <span
-            className={`tag ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
-          >
-            <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`} />
-            {online ? "online" : "offline"}
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Icon name="server" className="h-6 w-6 shrink-0 text-brand" />
+            <span className="truncate">{r.name}</span>
+            <span
+              className={`tag shrink-0 ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
+            >
+              <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`} />
+              {online ? "online" : "offline"}
+            </span>
           </span>
-        </div>
-        <form action={deleteRunner}>
-          <input type="hidden" name="id" value={r.id} />
-          <button className="text-xs text-gray-600 hover:text-red-400">Revoke machine</button>
-        </form>
-      </div>
-      <p className="mt-1 text-sm text-gray-500">
-        {r.lastSeenAt
-          ? `Last seen ${new Date(r.lastSeenAt).toLocaleString()}`
-          : "Never connected — run the agent on the machine with its token."}
-      </p>
+        }
+        subtitle={
+          r.lastSeenAt
+            ? `Last seen ${new Date(r.lastSeenAt).toLocaleString()}`
+            : "Never connected — run the agent on the machine with its token."
+        }
+        actions={
+          <form action={deleteRunner}>
+            <input type="hidden" name="id" value={r.id} />
+            <button className="text-xs text-gray-600 hover:text-red-400">Revoke machine</button>
+          </form>
+        }
+      />
 
       {searchParams.queued && (
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { importBurpFindings } from "@/lib/burp-actions";
 import { HelpBanner } from "@/components/hint";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,10 @@ export default async function ImportPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold">Import findings</h1>
-      <p className="mt-1 text-gray-400">
-        Bring results from tools you run by hand into an engagement. Burp Suite
-        manual testing → export the issues as XML and import them here; they join
-        the same findings list and report as your automated scans. No AI involved.
-      </p>
+      <PageHeader
+        title="Import findings"
+        subtitle="Bring results from tools you run by hand into an engagement. Burp Suite manual testing → export the issues as XML and import them here; they join the same findings list and report as your automated scans. No AI involved."
+      />
 
       <HelpBanner>
         <p>• In Burp: Target → Site map → right-click → Report issues (XML).</p>
