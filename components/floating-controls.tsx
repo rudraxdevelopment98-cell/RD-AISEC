@@ -38,7 +38,7 @@ export function FloatingControls({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={ref}
-      className="absolute right-3 top-2 z-40 flex items-center justify-end print:hidden"
+      className="absolute right-3 top-0 z-40 flex h-[var(--app-header-h)] items-center justify-end print:hidden"
     >
       {/* Rubber-band strip — grows out to the LEFT of the button. */}
       <div

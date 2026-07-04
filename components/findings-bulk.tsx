@@ -60,8 +60,9 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
 
   return (
     <div className="mt-4">
-      {/* Action bar */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-surface-card/40 p-2 text-xs">
+      {/* Action bar — sticks under the page title bar so bulk controls stay in
+          reach while the list scrolls. */}
+      <div className="sticky-under-header flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-surface p-2 text-xs">
         <label className="flex items-center gap-1.5 text-gray-400">
           <input
             type="checkbox"

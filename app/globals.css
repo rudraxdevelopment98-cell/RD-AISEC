@@ -11,6 +11,20 @@ html:has(.app-dashboard) {
   font-size: 14px;
 }
 
+/* Sticky header stack — the compact page title bar is a FIXED height so the
+   floating search button aligns to it and secondary bars (sub-tabs, filter /
+   action ribbons) can pin directly beneath it. Give any such bar the
+   `.sticky-under-header` class and it stacks under the title, staying visible
+   as the page scrolls. */
+:root {
+  --app-header-h: 3.25rem;
+}
+.sticky-under-header {
+  position: sticky;
+  top: var(--app-header-h);
+  z-index: 20;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    THEME TOKENS — one source of truth for both themes.
    Colours are stored as bare "R G B" triplets so Tailwind can apply them with

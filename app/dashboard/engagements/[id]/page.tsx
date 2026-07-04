@@ -9,6 +9,7 @@ import {
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Tabs, TabPanel } from "@/components/tabs";
+import { PageHeader } from "@/components/page-header";
 import { FindingsBulk } from "@/components/findings-bulk";
 import { EngagementMap } from "@/components/engagement-map";
 import { buildEngagementGraph } from "@/lib/engagement-graph";
@@ -226,11 +227,13 @@ export default async function EngagementDetail({
         ]}
       />
 
+      <PageHeader title={e.name} />
+
       {/* Header */}
       <header className="card mt-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">{e.name}</h1>
+            <div className="text-2xl font-bold">{e.name}</div>
             <p className="mt-1 text-sm text-gray-400">
               <span className="capitalize">{e.type}</span>
               {e.client && <> · {e.client}</>}

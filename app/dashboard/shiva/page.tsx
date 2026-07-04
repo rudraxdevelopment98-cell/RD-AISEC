@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { Tabs, TabPanel } from "@/components/tabs";
+import { PageHeader } from "@/components/page-header";
 import { McpScannerPlayground } from "@/components/mcp/scanner-playground";
 import { McpGatewaySimulator } from "@/components/mcp/gateway-simulator";
 import { McpAttackRange } from "@/components/mcp/attack-range";
@@ -39,15 +40,16 @@ export default function ShivaIndex() {
 
   return (
     <div className="mx-auto max-w-6xl">
+      <PageHeader title="Shiva" />
       {/* Hero / header */}
-      <header className="card relative overflow-hidden">
+      <header className="card relative mt-3 overflow-hidden">
         <div className="relative flex flex-wrap items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand">
             <Icon name="shield" className="h-7 w-7" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-white">Shiva</h1>
+              <div className="text-2xl font-bold text-white">Shiva</div>
               <span className="tag ring-sky accent-sky text-xs">MCP / agent-tool security</span>
               <span className="tag ring-emerald accent-emerald text-xs">live engine</span>
             </div>

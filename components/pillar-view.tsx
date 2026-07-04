@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/page-header";
 import { Workflow } from "@/components/workflow";
 import { EngagementStatusBadge } from "@/components/badges";
 import type { Pillar } from "@/data/portal";
@@ -15,14 +16,15 @@ export function PillarView({
   const openTotal = engagements.reduce((n, e) => n + e.open, 0);
   return (
     <div className="mx-auto max-w-4xl">
-      <header className="card relative overflow-hidden">
+      <PageHeader title={pillar.title} subtitle={pillar.tagline} />
+      <header className="card relative mt-3 overflow-hidden">
         <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ring-${pillar.accent}`} />
         <div className="flex items-center gap-3">
           <span className={`flex h-12 w-12 items-center justify-center rounded-xl border ring-${pillar.accent} accent-${pillar.accent}`}>
             <Icon name={pillar.icon} className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold text-gradient">{pillar.title}</h1>
+            <div className="text-2xl font-bold text-gradient">{pillar.title}</div>
             <p className={`text-sm accent-${pillar.accent}`}>{pillar.tagline}</p>
           </div>
         </div>

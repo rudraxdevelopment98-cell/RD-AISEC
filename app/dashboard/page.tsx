@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { Counter } from "@/components/counter";
 import { SeverityBadge } from "@/components/badges";
 import { NeuralBg } from "@/components/neural-bg";
+import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -298,6 +299,7 @@ export default async function DashboardOverview({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader title="Dashboard" />
       {searchParams?.denied && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           You don&apos;t have access to that section. Ask an owner to grant it on the

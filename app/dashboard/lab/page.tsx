@@ -34,7 +34,6 @@ export default async function LabPage({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <SubNav items={EXPLOIT_TABS} />
       <PageHeader
         title="Exploit Lab"
         subtitle={
@@ -44,6 +43,7 @@ export default async function LabPage({
           </span>
         }
       />
+      <SubNav items={EXPLOIT_TABS} />
 
       <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
         <Icon name="alert" className="mr-1 inline h-4 w-4" />

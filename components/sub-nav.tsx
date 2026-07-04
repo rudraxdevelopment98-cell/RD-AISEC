@@ -16,7 +16,7 @@ export function SubNav({
 }) {
   const pathname = usePathname();
   return (
-    <div className="mb-5 flex flex-nowrap gap-1 overflow-x-auto border-b border-surface-border">
+    <div className="sticky-under-header mb-5 flex flex-wrap gap-1 border-b border-surface-border bg-surface">
       {items.map((it) => {
         const active = pathname === it.href || pathname.startsWith(it.href + "/");
         return (
