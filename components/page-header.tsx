@@ -29,7 +29,7 @@ export function PageHeader({
 }) {
   return (
     <div
-      className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 ${className}`}
+      className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 ${className}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

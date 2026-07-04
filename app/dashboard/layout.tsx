@@ -166,7 +166,13 @@ export default async function DashboardLayout({
             or entrance animation: navigation is instant (the keyed fade-up made
             pages feel like they were reloading). Subtle list motion stays via
             `.stagger-in` on specific lists. */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 print:overflow-visible">
+        {/* No TOP padding: a scroll container's padding-top offsets where
+            `position: sticky; top-0` children pin (mobile Safari especially),
+            leaving a gap band above the stuck header/tab-bar that content bleeds
+            through. Padding lives on the sides + bottom only; the sticky
+            PageHeader / tab strip now hug the global header flush. Pages add
+            their own breathing room via the PageHeader (or a top card). */}
+        <main className="flex-1 overflow-y-auto px-4 pb-8 sm:px-6 print:overflow-visible">
           {children}
         </main>
       </div>
