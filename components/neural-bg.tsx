@@ -29,7 +29,7 @@ function buildEdges(): Edge[] {
 export function NeuralBg() {
   const edges = buildEdges();
   // Send signals along the shortest few edges for a lively-but-subtle feel.
-  const signals = [...edges].sort((x, y) => x.d - y.d).slice(0, 7);
+  const signals = [...edges].sort((x, y) => x.d - y.d).slice(0, 4);
 
   return (
     <svg

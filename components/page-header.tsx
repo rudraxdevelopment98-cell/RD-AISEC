@@ -29,7 +29,7 @@ export function PageHeader({
 }) {
   return (
     <div
-      className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 ${className}`}
+      className={`sticky top-0 z-30 -mx-4 mb-5 border-b border-surface-border bg-surface px-4 py-3 sm:-mx-6 sm:px-6 ${className}`}
     >
       {/* pr-12 keeps right-aligned actions clear of the floating controls button
           that lives in the content column's top-right corner. */}

@@ -29,7 +29,7 @@ export function Tabs({
         // when they don't fit — deliberately NOT a horizontal scroll: an element
         // that is itself an x-scroll container (overflow-x-auto) fails to stick
         // in WebKit/Safari, which broke the pinning AND showed an ugly scrollbar.
-        className="sticky top-0 z-20 -mx-1 flex flex-wrap gap-1 border-b border-surface-border bg-surface/95 px-1 py-1 backdrop-blur"
+        className="sticky top-0 z-20 -mx-1 flex flex-wrap gap-1 border-b border-surface-border bg-surface px-1 py-1"
       >
         {tabs.map((t) => {
           const on = active === t.id;

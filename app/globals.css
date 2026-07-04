@@ -159,10 +159,12 @@ body {
      canvas. This one class themes nearly every surface in the app. */
   .card {
     @apply relative rounded-2xl p-5;
-    background: var(--card-bg);
+    /* Opaque backing (surface-card) UNDER the glass sheen, so the card needs no
+       backdrop-filter. Dozens of live blur layers repainting on every scroll
+       frame was the main source of dashboard jank; the look is preserved via the
+       sheen gradient + lit rim + shadow. */
+    background: var(--card-bg), rgb(var(--surface-card));
     border: 1px solid var(--card-border);
-    backdrop-filter: blur(22px) saturate(185%);
-    -webkit-backdrop-filter: blur(22px) saturate(185%);
     box-shadow: var(--card-shadow);
   }
   .card-hover {
@@ -171,7 +173,7 @@ body {
   .card-hover:hover {
     transform: translateY(-2px);
     border-color: rgb(var(--brand) / 0.38);
-    background: var(--card-hover-bg);
+    background: var(--card-hover-bg), rgb(var(--surface-card));
     box-shadow:
       var(--card-shadow),
       0 0 0 1px rgb(var(--brand) / 0.10),
@@ -216,10 +218,8 @@ body {
   /* Frosted-glass ghost button — translucent, blurred, rim-lit. */
   .btn-ghost {
     @apply btn text-gray-200;
-    background: var(--ghost-bg);
+    background: var(--ghost-bg), rgb(var(--surface-card));
     border: 1px solid var(--ghost-border);
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .btn-ghost:hover {
@@ -239,8 +239,6 @@ body {
       linear-gradient(158deg, rgb(var(--brand) / 0.22), rgb(var(--brand-dark) / 0.06) 60%),
       rgb(var(--brand) / 0.05);
     border: 1px solid rgb(var(--brand) / 0.35);
-    backdrop-filter: blur(14px) saturate(170%);
-    -webkit-backdrop-filter: blur(14px) saturate(170%);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .btn-glass:hover {
@@ -253,8 +251,6 @@ body {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-gray-300;
     background: var(--input-bg);
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(8px) saturate(150%);
-    -webkit-backdrop-filter: blur(8px) saturate(150%);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .nav-link {
@@ -286,8 +282,6 @@ body {
     @apply rounded-xl px-3 py-2 text-sm text-gray-100 outline-none transition;
     background: var(--input-bg);
     border: 1px solid var(--input-border);
-    backdrop-filter: blur(10px) saturate(150%);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .glass-input:focus {
@@ -506,7 +500,11 @@ body {
 
 /* ── Liquid glass backdrop — slow morphing colour blobs behind the frost ── */
 .liquid-bg { position: absolute; inset: 0; overflow: hidden; filter: blur(80px); opacity: 0.16; }
-.liquid-bg span { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: liquid 22s ease-in-out infinite; }
+/* Static blobs — NOT animated. Animating transforms inside an 80px blur forced
+   a full-viewport gaussian re-blur every frame (the biggest constant drain);
+   frozen, the blur composites once and is cached. The soft glow looks identical
+   moment-to-moment. */
+.liquid-bg span { position: absolute; border-radius: 50%; mix-blend-mode: screen; }
 /* Neutral, very subtle blobs — the morphing "liquid glass" refraction stays for
    the frosted cards, but there's NO colour glow on the near-black canvas. */
 .liquid-bg .b1 { width: 42vmax; height: 42vmax; left: -8%; top: -12%;
