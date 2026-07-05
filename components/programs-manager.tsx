@@ -14,6 +14,7 @@ import {
   createEngagementFromProgram,
   setBugAuto,
   runProgramNow,
+  resyncProgramScope,
   bulkDeletePrograms,
   bulkSetProgramCategory,
   bulkSetProgramStatus,
@@ -345,6 +346,18 @@ export function ProgramsManager({
                     <form action={createEngagementFromProgram}>
                       <input type="hidden" name="id" value={p.id} />
                       <button className="text-emerald-400 hover:text-emerald-300">Create engagement</button>
+                    </form>
+                  )}
+
+                  {p.url && (
+                    <form action={resyncProgramScope}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <button
+                        className="text-violet-300 hover:text-violet-200"
+                        title="Re-fetch scope from the program link and add any newly published targets"
+                      >
+                        ↻ Resync scope
+                      </button>
                     </form>
                   )}
 

@@ -57,6 +57,30 @@ export default async function BugBountyPage({
     prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
   ]);
 
+  const programRows = programs.map((p) => ({
+    id: p.id,
+    platform: p.platform,
+    name: p.name,
+    url: p.url,
+    reward: p.reward,
+    scope: p.scope,
+    outScope: p.outScope,
+    category: p.category,
+    status: p.status,
+    auto: p.auto,
+    autoRunnerId: p.autoRunnerId,
+    lastAutoAt: p.lastAutoAt ? p.lastAutoAt.toISOString() : null,
+    engagement: p.engagement
+      ? {
+          id: p.engagement.id,
+          name: p.engagement.name,
+          findings: p.engagement.findings,
+          jobs: p.engagement.jobs,
+        }
+      : null,
+  }));
+  const engagedRows = programRows.filter((p) => p.engagement);
+
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
@@ -94,6 +118,7 @@ export default async function BugBountyPage({
       <Tabs
         tabs={[
           { id: "programs", label: <span className="inline-flex items-center gap-1.5"><Icon name="target" className="h-4 w-4" />Programs ({programs.length})</span> },
+          { id: "engaged", label: <span className="inline-flex items-center gap-1.5"><Icon name="briefcase" className="h-4 w-4" />Engaged ({engagedRows.length})</span> },
           { id: "accounts", label: <span className="inline-flex items-center gap-1.5"><Icon name="fingerprint" className="h-4 w-4" />Accounts ({accounts.length})</span> },
         ]}
         defaultTab="programs"
@@ -133,32 +158,25 @@ export default async function BugBountyPage({
       </details>
 
       <div className="mt-4">
-        <ProgramsManager
-          programs={programs.map((p) => ({
-            id: p.id,
-            platform: p.platform,
-            name: p.name,
-            url: p.url,
-            reward: p.reward,
-            scope: p.scope,
-            outScope: p.outScope,
-            category: p.category,
-            status: p.status,
-            auto: p.auto,
-            autoRunnerId: p.autoRunnerId,
-            lastAutoAt: p.lastAutoAt ? p.lastAutoAt.toISOString() : null,
-            engagement: p.engagement
-              ? {
-                  id: p.engagement.id,
-                  name: p.engagement.name,
-                  findings: p.engagement.findings,
-                  jobs: p.engagement.jobs,
-                }
-              : null,
-          }))}
-          runners={runners}
-        />
+        <ProgramsManager programs={programRows} runners={runners} />
       </div>
+      </TabPanel>
+
+      {/* ══════════ ENGAGED ══════════ */}
+      <TabPanel id="engaged">
+        <p className="text-sm text-gray-400">
+          Programs you&apos;ve turned into engagements — your active hunts, kept separate so
+          they&apos;re easy to find and don&apos;t get lost among every program when you resync scope.
+        </p>
+        <div className="mt-3">
+          {engagedRows.length === 0 ? (
+            <p className="card text-sm text-gray-500">
+              No engaged programs yet. In the Programs tab, use &quot;Create engagement&quot; on a program to start hunting it.
+            </p>
+          ) : (
+            <ProgramsManager programs={engagedRows} runners={runners} />
+          )}
+        </div>
       </TabPanel>
 
       {/* ══════════ ACCOUNTS ══════════ */}

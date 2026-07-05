@@ -26,7 +26,9 @@ export function parseProgramUrl(raw: string): {
   try {
     const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw.trim()}`);
     host = u.hostname.toLowerCase();
-    handle = decodeURIComponent(u.pathname.split("/").filter(Boolean)[0] ?? "");
+    const segs = u.pathname.split("/").filter(Boolean).map((s) => decodeURIComponent(s));
+    // Bugcrowd links are /engagements/{handle} or the legacy /{handle}.
+    handle = segs[0] === "engagements" ? segs[1] ?? "" : segs[0] ?? "";
   } catch {
     return { platform: "other", handle: "", host: "" };
   }
@@ -92,47 +94,51 @@ function harvestHosts(text: string): string[] {
 
 const UA = "Mozilla/5.0 (compatible; RD-AISEC/1.0; scope-import)";
 
-/**
- * Bugcrowd exposes a program's scope as JSON (the same feed its own UI uses):
- * /{handle}/target_groups → groups (each in_scope true/false) → targets. Best
- * effort — Bugcrowd may gate it, in which case we fall back to the page scrape.
- */
-async function scrapeBugcrowd(
-  handle: string,
-): Promise<{ inScope: string[]; outScope: string[] }> {
-  const base = `https://bugcrowd.com/${encodeURIComponent(handle)}`;
-  const gRes = await fetch(`${base}/target_groups`, {
-    headers: { Accept: "application/json", "User-Agent": UA, "X-Requested-With": "XMLHttpRequest" },
+async function bcJson(url: string): Promise<Record<string, unknown>> {
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": UA },
+    redirect: "follow",
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
   });
-  if (!gRes.ok) throw new Error(`bugcrowd target_groups ${gRes.status}`);
-  const gj = await gRes.json();
-  const groups: { name?: string; in_scope?: boolean; targets_url?: string }[] = gj?.groups ?? [];
+  if (!res.ok) throw new Error(`bugcrowd ${res.status}`);
+  // Auth-gated routes return the SPA HTML shell instead of JSON.
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("json")) throw new Error("bugcrowd: not json (gated)");
+  return res.json();
+}
+
+/**
+ * Bugcrowd scope, unauthenticated: the engagement's latest changelog entry is
+ * public JSON and embeds the full brief. changelog.json → latest id →
+ * changelog/{id}.json → data.scope[] (groups with inScope + targets[].name).
+ */
+async function scrapeBugcrowd(
+  handle: string,
+): Promise<{ inScope: string[]; outScope: string[]; name?: string }> {
+  const base = `https://bugcrowd.com/engagements/${encodeURIComponent(handle)}`;
+  const list = await bcJson(`${base}/changelog.json`);
+  const logs = (list?.changelogs as { id?: string; changelogState?: string }[]) ?? [];
+  const latest = logs.find((l) => l.changelogState === "Latest") ?? logs[0];
+  if (!latest?.id) throw new Error("bugcrowd: no changelog");
+
+  const detail = await bcJson(`${base}/changelog/${latest.id}.json`);
+  const data = (detail?.data as Record<string, unknown>) ?? {};
+  const groups =
+    (data.scope as { inScope?: boolean; targets?: { name?: string; uri?: string; ipAddress?: string }[] }[]) ?? [];
+  const name = ((data.brief as { name?: string })?.name ?? "").trim() || undefined;
+
   const inScope = new Set<string>();
   const outScope = new Set<string>();
-  for (const grp of groups.slice(0, 20)) {
-    if (!grp.targets_url) continue;
-    try {
-      const tRes = await fetch(`https://bugcrowd.com${grp.targets_url}`, {
-        headers: { Accept: "application/json", "User-Agent": UA, "X-Requested-With": "XMLHttpRequest" },
-        cache: "no-store",
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!tRes.ok) continue;
-      const tj = await tRes.json();
-      const targets: { name?: string; uri?: string }[] = tj?.targets ?? [];
-      for (const t of targets) {
-        const id = String(t.name || t.uri || "").trim();
-        if (!id) continue;
-        (grp.in_scope === false ? outScope : inScope).add(id);
-      }
-    } catch {
-      /* skip this group */
+  for (const g of groups) {
+    for (const t of g.targets ?? []) {
+      const id = String(t.name || t.uri || t.ipAddress || "").trim();
+      if (!id) continue;
+      (g.inScope === false ? outScope : inScope).add(id);
     }
   }
   if (inScope.size === 0 && outScope.size === 0) throw new Error("bugcrowd: no targets");
-  return { inScope: [...inScope], outScope: [...outScope] };
+  return { inScope: [...inScope], outScope: [...outScope], name };
 }
 
 async function scrapePage(url: string): Promise<{ inScope: string[]; outScope: string[]; name?: string }> {
@@ -179,12 +185,12 @@ export async function fetchProgramScope(
     }
   }
 
-  // 2) Bugcrowd exposes scope as JSON — try that before the generic scrape.
+  // 2) Bugcrowd — the engagement's public changelog JSON carries the full scope.
   if (platform === "bugcrowd" && handle) {
     try {
-      const { inScope, outScope } = await scrapeBugcrowd(handle);
+      const { inScope, outScope, name } = await scrapeBugcrowd(handle);
       if (inScope.length || outScope.length) {
-        return { platform, handle, inScope, outScope, source: "page" };
+        return { platform, handle, name, inScope, outScope, source: "page" };
       }
     } catch {
       /* fall through to the generic scrape */

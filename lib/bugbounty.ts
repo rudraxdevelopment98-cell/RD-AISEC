@@ -6,10 +6,28 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { parseScopeTargets, platformLabel } from "@/lib/bugbounty-core";
 import { isSafeUrl, normalizeTarget, validateTarget } from "@/lib/runner-constants";
-import { encryptSecret } from "@/lib/crypto";
+import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { syncHackerOneAccount, queueProgramPipeline } from "@/lib/bug-pipeline";
+import { fetchProgramScope } from "@/lib/scope-fetch";
 
 const BACK = "/dashboard/bugbounty";
+
+/** Union incoming scope lines into an existing blob (case-insensitive), keeping
+ * existing entries first. Never removes — so a resync only ever ADDS newly
+ * published targets, and manual edits are preserved. */
+function mergeScopeLines(existing: string, incoming: string[]): { text: string; added: number } {
+  const lines = (existing ?? "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const seen = new Set(lines.map((l) => l.toLowerCase()));
+  let added = 0;
+  for (const raw of incoming) {
+    const v = String(raw).trim();
+    if (!v || seen.has(v.toLowerCase())) continue;
+    seen.add(v.toLowerCase());
+    lines.push(v);
+    added++;
+  }
+  return { text: lines.join("\n"), added };
+}
 
 async function requireUser() {
   const session = await auth();
@@ -157,6 +175,59 @@ export async function addBugProgram(formData: FormData) {
   });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent(`${name} added`)}`);
+}
+
+/**
+ * Re-fetch a program's scope from its link and merge in anything newly
+ * published (scope grows over time). Union-only: existing/manual entries are
+ * kept, only new targets are added — so engaged programs never lose scope.
+ */
+export async function resyncProgramScope(formData: FormData) {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const p = await prisma.bugProgram.findUnique({ where: { id } });
+  if (!p) redirect(`${BACK}?error=${encodeURIComponent("Program not found.")}`);
+  if (!p.url) redirect(`${BACK}?error=${encodeURIComponent(`${p.name}: add a program link first, then resync.`)}`);
+
+  // Reuse a saved HackerOne API token for exact H1 scope.
+  let creds: { user: string; token: string } | undefined;
+  const acct = await prisma.bugAccount.findFirst({
+    where: { platform: "hackerone", apiUser: { not: "" }, apiToken: { not: "" } },
+    select: { apiUser: true, apiToken: true },
+  });
+  if (acct?.apiUser && acct?.apiToken) {
+    try {
+      creds = { user: acct.apiUser, token: decryptSecret(acct.apiToken) };
+    } catch {
+      /* scrape instead */
+    }
+  }
+
+  let result;
+  try {
+    result = await fetchProgramScope(p.url, creds);
+  } catch {
+    redirect(`${BACK}?error=${encodeURIComponent(`${p.name}: couldn't read scope from the link.`)}`);
+  }
+  if (result.inScope.length === 0 && result.outScope.length === 0) {
+    redirect(`${BACK}?error=${encodeURIComponent(`${p.name}: no scope found at that link${result.note ? ` — ${result.note}` : "."}`)}`);
+  }
+
+  const inMerge = mergeScopeLines(p.scope, result.inScope);
+  const outMerge = mergeScopeLines(p.outScope, result.outScope);
+  await prisma.bugProgram.update({
+    where: { id },
+    data: { scope: inMerge.text, outScope: outMerge.text },
+  });
+  revalidatePath(BACK);
+  const added = inMerge.added + outMerge.added;
+  redirect(
+    `${BACK}?ok=${encodeURIComponent(
+      added > 0
+        ? `${p.name}: synced — +${inMerge.added} new in-scope, +${outMerge.added} out-of-scope`
+        : `${p.name}: scope already up to date`,
+    )}`,
+  );
 }
 
 export async function updateBugProgram(formData: FormData) {
