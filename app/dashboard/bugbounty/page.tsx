@@ -5,13 +5,13 @@ import { HelpBanner, Hint } from "@/components/hint";
 import {
   saveBugAccount,
   deleteBugAccount,
-  addBugProgram,
   syncHackerOne,
   automateAllPrograms,
   pauseAllPrograms,
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
 import { ProgramsManager } from "@/components/programs-manager";
+import { AddProgramForm } from "@/components/add-program-form";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { PageHeader } from "@/components/page-header";
 
@@ -129,55 +129,7 @@ export default async function BugBountyPage({
         <summary className="cursor-pointer text-sm font-semibold text-gray-200 hover:text-brand">
           ＋ Add a program
         </summary>
-        <form action={addBugProgram} className="mt-3 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <PlatformSelect />
-            <input
-              name="name"
-              required
-              placeholder="Program name"
-              className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </div>
-          <input
-            name="url"
-            placeholder="Program/brief link"
-            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <div>
-            <label className="flex items-center gap-1 text-xs font-semibold text-gray-400">
-              In-scope targets (one per line)
-              <Hint>Paste from the program&apos;s scope. Wildcards (*.example.com) and URLs are cleaned to scannable hosts.</Hint>
-            </label>
-            <textarea
-              name="scope"
-              rows={4}
-              placeholder={"*.example.com\napi.example.com\nexample.com"}
-              className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <textarea
-              name="outScope"
-              rows={2}
-              placeholder="Out of scope (one per line)"
-              className="rounded-lg border border-surface-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand"
-            />
-            <div className="flex flex-col gap-3">
-              <input
-                name="reward"
-                placeholder="Rewards (e.g. up to $5,000)"
-                className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-              <input
-                name="category"
-                placeholder="Category (e.g. web, mobile, priority)"
-                className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </div>
-          </div>
-          <button className="btn-primary text-sm">Add program</button>
-        </form>
+        <AddProgramForm />
       </details>
 
       <div className="mt-4">

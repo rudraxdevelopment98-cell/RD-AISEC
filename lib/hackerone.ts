@@ -69,3 +69,31 @@ export async function fetchScope(
     .map((a) => String(a.asset_identifier ?? "").trim())
     .filter(Boolean);
 }
+
+/**
+ * Both in-scope (submittable, scannable) and out-of-scope asset identifiers for
+ * a program — for auto-filling the "add program" form from a HackerOne link.
+ */
+export async function fetchScopeSplit(
+  user: string,
+  token: string,
+  handle: string,
+): Promise<{ inScope: string[]; outScope: string[] }> {
+  const json = await h1(
+    `/hackers/programs/${encodeURIComponent(handle)}/structured_scopes?page[size]=100`,
+    user,
+    token,
+  );
+  const data: unknown[] = Array.isArray(json?.data) ? json.data : [];
+  const SCANNABLE = new Set(["URL", "WILDCARD", "IP_ADDRESS", "CIDR", "DOMAIN", "OTHER"]);
+  const inScope = new Set<string>();
+  const outScope = new Set<string>();
+  for (const d of data) {
+    const a = (d as { attributes?: Record<string, unknown> }).attributes ?? {};
+    const id = String(a.asset_identifier ?? "").trim();
+    if (!id) continue;
+    if (a.eligible_for_submission === false) outScope.add(id);
+    else if (SCANNABLE.has(String(a.asset_type ?? "URL"))) inScope.add(id);
+  }
+  return { inScope: [...inScope], outScope: [...outScope] };
+}
