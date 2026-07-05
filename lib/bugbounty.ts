@@ -230,6 +230,65 @@ export async function resyncProgramScope(formData: FormData) {
   );
 }
 
+/**
+ * Resync scope for EVERY program that has a link — one button to pull the day's
+ * newly published targets across all platforms (HackerOne API + Bugcrowd + any
+ * scrapeable link). Union-only merge, same as the per-program resync.
+ */
+export async function resyncAllProgramScopes() {
+  await requireUser();
+  const programs = await prisma.bugProgram.findMany({
+    where: { url: { not: "" } },
+    select: { id: true, name: true, url: true, scope: true, outScope: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  let creds: { user: string; token: string } | undefined;
+  const acct = await prisma.bugAccount.findFirst({
+    where: { platform: "hackerone", apiUser: { not: "" }, apiToken: { not: "" } },
+    select: { apiUser: true, apiToken: true },
+  });
+  if (acct?.apiUser && acct?.apiToken) {
+    try {
+      creds = { user: acct.apiUser, token: decryptSecret(acct.apiToken) };
+    } catch {
+      /* scrape instead */
+    }
+  }
+
+  let updated = 0;
+  let added = 0;
+  let failed = 0;
+  // Cap so we stay inside the function time budget; the rest can be re-run.
+  for (const p of programs.slice(0, 30)) {
+    try {
+      const r = await fetchProgramScope(p.url, creds);
+      if (r.inScope.length === 0 && r.outScope.length === 0) {
+        failed++;
+        continue;
+      }
+      const inM = mergeScopeLines(p.scope, r.inScope);
+      const outM = mergeScopeLines(p.outScope, r.outScope);
+      if (inM.added || outM.added) {
+        await prisma.bugProgram.update({
+          where: { id: p.id },
+          data: { scope: inM.text, outScope: outM.text },
+        });
+        updated++;
+        added += inM.added + outM.added;
+      }
+    } catch {
+      failed++;
+    }
+  }
+
+  revalidatePath(BACK);
+  const parts = [`${added} new target(s) across ${updated} program(s)`];
+  if (failed) parts.push(`${failed} couldn't be read (add a token or check the link)`);
+  if (programs.length > 30) parts.push(`ran the first 30 of ${programs.length} — click again for the rest`);
+  redirect(`${BACK}?ok=${encodeURIComponent(`Resync complete: ${parts.join(" · ")}`)}`);
+}
+
 export async function updateBugProgram(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");

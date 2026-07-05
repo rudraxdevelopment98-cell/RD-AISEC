@@ -8,6 +8,7 @@ import {
   syncHackerOne,
   automateAllPrograms,
   pauseAllPrograms,
+  resyncAllProgramScopes,
 } from "@/lib/bugbounty";
 import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
 import { ProgramsManager } from "@/components/programs-manager";
@@ -186,6 +187,21 @@ export default async function BugBountyPage({
         optional HackerOne API token for auto-sync.
         <Hint>No passwords are stored; API tokens are encrypted and never shown again.</Hint>
       </p>
+
+      {/* Resync every program's scope from its link, all at once */}
+      {programs.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-xs">
+          <span className="font-semibold text-brand-glow">↻ Resync all scopes</span>
+          <span className="text-gray-400">
+            Re-fetch every program&apos;s scope from its link — HackerOne (API), Bugcrowd &amp;
+            others — and add any newly published targets. Nothing is removed.
+          </span>
+          <form action={resyncAllProgramScopes} className="ml-auto">
+            <button className="btn-ghost px-2 py-1">Resync all programs</button>
+          </form>
+        </div>
+      )}
+
       {/* Add / connect an account (collapsed by default) */}
       <details className="card mt-3" open={accounts.length === 0}>
         <summary className="cursor-pointer text-sm font-semibold text-gray-200 hover:text-brand">
