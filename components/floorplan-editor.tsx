@@ -8,6 +8,7 @@ import {
   planBounds,
   defaultPlan,
 } from "@/lib/floorplan-core";
+import { candidateFootprint } from "@/lib/rti-core";
 
 const uid = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const snap = (v: number) => Math.round(v * 4) / 4; // 0.25 m grid
@@ -88,6 +89,16 @@ export function FloorPlanEditor({
       anchors: sel.kind === "anchor" ? p.anchors.filter((a) => a.id !== sel.id) : p.anchors,
     }));
     setSel(null);
+  }
+
+  // Auto-helper: size the outer footprint to the WiFi nodes the user placed
+  // (the one thing signal geometry gives reliably — the covered extent).
+  function fitToNodes() {
+    if (plan.anchors.length < 2) { setStatus("place ≥2 nodes first"); setTimeout(() => setStatus(""), 2000); return; }
+    const fp = candidateFootprint(plan.anchors, 0.6);
+    setPlan((p) => ({ ...p, meters: { w: fp.w, h: fp.h } }));
+    setStatus("footprint fit to nodes ✓");
+    setTimeout(() => setStatus(""), 2500);
   }
 
   async function save() {
@@ -179,6 +190,9 @@ export function FloorPlanEditor({
           <NumRow label="Footprint width (m)" value={plan.meters.w} onChange={(v) => setPlan((p) => ({ ...p, meters: { ...p.meters, w: v } }))} />
           <NumRow label="Footprint depth (m)" value={plan.meters.h} onChange={(v) => setPlan((p) => ({ ...p, meters: { ...p.meters, h: v } }))} />
           <NumRow label="Wall height (m)" value={plan.height} step={0.1} onChange={(v) => setPlan((p) => ({ ...p, height: v }))} />
+          <button onClick={fitToNodes} className="btn-ghost mt-1 w-full text-xs" title="Size the outer footprint to the WiFi nodes you placed">
+            📐 Fit footprint to my WiFi nodes
+          </button>
         </div>
 
         {selRoom && (

@@ -5,6 +5,7 @@ import { HelpBanner } from "@/components/hint";
 import { SensingObservatory } from "@/components/sensing-observatory";
 import { WifiCamera } from "@/components/wifi-camera";
 import { FloorPlanEditor } from "@/components/floorplan-editor";
+import { WifiAutomap } from "@/components/wifi-automap";
 import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -98,6 +99,7 @@ export default async function SensingPage() {
             walls); it can&apos;t reliably draw the plan for you, so you set it here.
           </p>
           <FloorPlanEditor initial={homePlan} />
+          <WifiAutomap />
         </TabPanel>
       </Tabs>
     </div>
