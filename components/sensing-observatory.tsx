@@ -6,6 +6,10 @@ import { sampleAt, type SenseTimeline } from "@/lib/wifi-sense-core";
 
 export type SenseMachine = { id: string; name: string; wifi: string[] };
 
+type AnalysisLite = { presentPct?: number; rangeMeters?: number | null; speedMps?: number; direction?: string };
+type CsiLite = { present: boolean; rangeMeters?: number | null; azimuthDeg?: number | null; breathingBpm?: number | null; heartBpm?: number | null; velocityMps?: number };
+type Placement = { present: boolean; range: number; azimuth: number; stature: number; source: "csi" | "rssi" };
+
 const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "empty", label: "Empty" },
@@ -45,13 +49,24 @@ export function SensingObservatory({
   const [senseStatus, setSenseStatus] = useState<"idle" | "starting" | "sampling" | "live" | "error">("idle");
   const [senseMsg, setSenseMsg] = useState("");
   const [timeline, setTimeline] = useState<SenseTimeline | null>(null);
+  // Precise RSSI analysis + latest CSI imaging → the person's real placement.
+  const [analysis, setAnalysis] = useState<AnalysisLite | null>(null);
+  const [csi, setCsi] = useState<CsiLite | null>(null);
 
-  const stateRef = useRef<{ running: boolean; scenario: Scenario; timeline: SenseTimeline | null }>({
+  // Prefer CSI (has a real bearing) when it's fresh; else the RSSI analysis.
+  const placement: Placement | null = csi
+    ? { present: csi.present, range: csi.rangeMeters ?? 2, azimuth: csi.azimuthDeg ?? 0, stature: 1.75, source: "csi" }
+    : analysis
+      ? { present: (analysis.presentPct ?? 0) > 12, range: analysis.rangeMeters ?? 2, azimuth: 0, stature: 1.75, source: "rssi" }
+      : null;
+
+  const stateRef = useRef<{ running: boolean; scenario: Scenario; timeline: SenseTimeline | null; placement: Placement | null }>({
     running,
     scenario,
     timeline: null,
+    placement: null,
   });
-  stateRef.current = { running, scenario, timeline };
+  stateRef.current = { running, scenario, timeline, placement };
 
   const selMachine = machines.find((m) => m.id === machineId);
 
@@ -153,19 +168,47 @@ export function SensingObservatory({
         rings.push(ring);
       }
 
-      // Figure — joints (instanced spheres), bones (line segments), soft glow.
+      // Ground distance references: concentric rings around the AP at 1..4 m so
+      // the person's real range is readable off the floor. World scale: ~0.7
+      // world-units per metre (the ~8 m room maps onto the ~6-unit floor).
+      const M2W = 0.7;
+      const apFloor = new THREE.Vector3(ap.position.x, 0.02, ap.position.z);
+      for (let m = 1; m <= 4; m++) {
+        const ringGeo = new THREE.RingGeometry(m * M2W - 0.01, m * M2W + 0.01, 64);
+        const ring = new THREE.Mesh(
+          ringGeo,
+          new THREE.MeshBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.copy(apFloor);
+        scene.add(ring);
+      }
+      // Line from the AP to the person's ground point — visualises the range.
+      const rangeLineGeo = new THREE.BufferGeometry();
+      rangeLineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+      const rangeLine = new THREE.Line(
+        rangeLineGeo,
+        new THREE.LineBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.5 }),
+      );
+      scene.add(rangeLine);
+
+      // Figure — joints (instanced spheres), bones (line segments), soft glow,
+      // all parented to a GROUP so the whole person can be placed at the measured
+      // (distance, bearing) and scaled to the estimated height.
       const PW = 1.1;
-      const PH = 1.85;
+      const PH = 1.85; // world height of a ~1.85 m person at scale 1
+      const figure = new THREE.Group();
+      scene.add(figure);
       const toWorld = (k: { x: number; y: number }, out: any) => out.set((k.x - 0.5) * PW, (1 - k.y) * PH, 0);
       const jointMat = new THREE.MeshBasicMaterial({ color: 0x9df8d0 });
       const joints = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 12, 12), jointMat, 17);
-      scene.add(joints);
+      figure.add(joints);
       const boneMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.9 });
       const bonePos = new Float32Array(POSE_EDGES.length * 2 * 3);
       const boneGeo = new THREE.BufferGeometry();
       boneGeo.setAttribute("position", new THREE.BufferAttribute(bonePos, 3));
       const bones = new THREE.LineSegments(boneGeo, boneMat);
-      scene.add(bones);
+      figure.add(bones);
       const glowMat = new THREE.MeshBasicMaterial({
         color: 0x10b981,
         transparent: true,
@@ -174,7 +217,11 @@ export function SensingObservatory({
         depthWrite: false,
       });
       const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 1.3, 16, 1, true), glowMat);
-      scene.add(glow);
+      figure.add(glow);
+
+      // Boresight = AP → room centre (origin), on the floor. Azimuth rotates the
+      // person around vertical from this axis; range scales along it.
+      const boresight = new THREE.Vector3(-apFloor.x, 0, -apFloor.z).normalize();
 
       const vA = new THREE.Vector3();
       const vB = new THREE.Vector3();
@@ -198,12 +245,31 @@ export function SensingObservatory({
           ...(ov ? { overridePresent: ov.present, overrideMotion: ov.motion } : {}),
         });
 
-        // Floor field lights up around the person's ground position.
-        const gx = ((f.pose[11].x + f.pose[12].x) / 2 - 0.5) * PW;
+        // Place the person at the MEASURED distance + bearing from the AP, and
+        // scale to the estimated height. Falls back to a default spot in demo.
+        const pl = stateRef.current.placement;
+        const rangeM = Math.max(0.4, Math.min(5.5, pl?.range ?? 2));
+        const azRad = ((pl?.azimuth ?? 0) * Math.PI) / 180;
+        const dirX = boresight.x * Math.cos(azRad) - boresight.z * Math.sin(azRad);
+        const dirZ = boresight.x * Math.sin(azRad) + boresight.z * Math.cos(azRad);
+        const gx = apFloor.x + dirX * rangeM * M2W;
+        const gz = apFloor.z + dirZ * rangeM * M2W;
+        const stature = Math.max(1.2, Math.min(2.1, pl?.stature ?? 1.75));
+        figure.position.set(gx, 0, gz);
+        figure.scale.setScalar(stature / 1.85);
+
+        // Range line from AP to the person's ground point.
+        const rp = rangeLineGeo.attributes.position as any;
+        rp.array[0] = apFloor.x; rp.array[1] = 0.02; rp.array[2] = apFloor.z;
+        rp.array[3] = gx; rp.array[4] = 0.02; rp.array[5] = gz;
+        rp.needsUpdate = true;
+        (rangeLine as any).visible = f.present;
+
+        // Floor field lights up around the person's real ground position.
         const spread = 0.55 + f.motion * 1.6;
         for (let c = 0; c < cellPos.length; c++) {
           const [x, z] = cellPos[c];
-          const d2 = (x - gx) * (x - gx) + z * z * 1.25;
+          const d2 = (x - gx) * (x - gx) + (z - gz) * (z - gz);
           const inten = f.present ? Math.min(1, Math.exp(-d2 / spread) * (0.5 + f.motion * 0.9) + 0.02) : 0.02;
           cells.setColorAt(c, col.setRGB(inten * 0.16, inten * 0.9, inten * 0.22));
         }
@@ -315,6 +381,7 @@ export function SensingObservatory({
               return;
             }
             setTimeline(d.timeline);
+            if (d.analysis) setAnalysis(d.analysis as AnalysisLite);
             setSenseStatus("live");
             return;
           }
@@ -336,9 +403,27 @@ export function SensingObservatory({
   }
   function backToDemo() {
     setTimeline(null);
+    setAnalysis(null);
     setSenseStatus("idle");
     setSenseMsg("");
   }
+
+  // Poll the latest CSI imaging (if a CSI collector is feeding frames). CSI adds
+  // a real bearing + vitals, so when it's fresh it drives the figure's position.
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/sensing/csi", { cache: "no-store" }).then((x) => x.json());
+        if (!stop) setCsi(r?.fresh && r?.analysis ? (r.analysis as CsiLite) : null);
+      } catch {
+        /* ignore */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => { stop = true; clearInterval(id); };
+  }, []);
 
   const f = frame;
   const present = f?.present ?? false;
@@ -426,9 +511,11 @@ export function SensingObservatory({
 
       {/* Vital signs — bottom left */}
       <div className="pointer-events-none absolute bottom-3 left-3 w-[8.5rem] rounded-xl border border-surface-border bg-black/60 p-2.5 backdrop-blur sm:bottom-4 sm:left-4 sm:w-44 sm:p-3">
-        <p className="text-[10px] uppercase tracking-widest text-gray-500">Vital signs</p>
-        <Metric label="❤ Heart rate" value={present ? `${f?.heartBpm}` : "—"} unit="BPM" color="text-rose-300" />
-        <Metric label="🌬 Respiration" value={present ? `${f?.breathingBpm}` : "—"} unit="RPM" color="text-sky-300" />
+        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          Vital signs {csi && <span className="text-emerald-400">· CSI</span>}
+        </p>
+        <Metric label="❤ Heart rate" value={csi?.heartBpm != null ? `${csi.heartBpm}` : present ? `${f?.heartBpm}` : "—"} unit="BPM" color="text-rose-300" />
+        <Metric label="🌬 Respiration" value={csi?.breathingBpm != null ? `${csi.breathingBpm}` : present ? `${f?.breathingBpm}` : "—"} unit="RPM" color="text-sky-300" />
         <Metric label="⚖ Confidence" value={`${Math.round((f?.quality ?? 0) * 100)}`} unit="%" color="text-emerald-300" />
       </div>
 
@@ -438,10 +525,19 @@ export function SensingObservatory({
           WiFi signal {live && <span className="text-emerald-400">· live</span>}
         </p>
         <Row label="RSSI" value={`${rssi} dBm${live ? " avg" : ""}`} />
-        <Row label="Variance" value={variance} />
-        <Row label="Motion" value={(f?.motion ?? 0).toFixed(3)} />
+        <Row label="Distance" value={placement?.present ? `${placement.range.toFixed(1)} m` : "—"} />
+        <Row
+          label="Bearing"
+          value={csi?.azimuthDeg != null ? `${csi.azimuthDeg}°` : placement?.source === "rssi" ? "1 AP" : "—"}
+        />
+        <Row label="Height" value={placement?.present ? `~${placement.stature.toFixed(2)} m` : "—"} />
         <Row label="Persons" value={String(f?.occupancy ?? 0)} />
-        {live && (
+        {(csi || placement) && (
+          <p className="mt-1 text-[10px] text-gray-500">
+            position from {csi ? "CSI (range + angle)" : "RSSI range · bearing needs ≥2 antennas"}
+          </p>
+        )}
+        {live && !csi && (
           <p className="mt-1 text-[10px] text-gray-500">movement {timeline!.presentPct}% of {Math.round(timeline!.durationSec)}s</p>
         )}
         <div className={`mt-2 rounded-lg py-1.5 text-center text-sm font-semibold ${present ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-gray-500"}`}>
