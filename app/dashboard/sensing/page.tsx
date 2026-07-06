@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { HelpBanner } from "@/components/hint";
-import { WifiSensing } from "@/components/wifi-sensing";
+import { SensingObservatory } from "@/components/sensing-observatory";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export default async function SensingPage() {
         </p>
       </HelpBanner>
 
-      <WifiSensing interfaces={interfaces} defaultIface={interfaces[0]} />
+      <SensingObservatory interfaces={interfaces} defaultIface={interfaces[0]} />
     </div>
   );
 }
