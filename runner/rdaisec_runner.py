@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "41"
+RUNNER_VERSION = "42"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -372,6 +372,75 @@ def redact_argv(argv):
     return out
 
 
+# ── Live machine stats (Linux /proc + /sys, stdlib only) ─────────────────────
+# Reported on every request so the portal's footer monitor shows CPU / RAM /
+# temperature. All best-effort: absent files (non-Linux, VMs w/o thermal) just
+# omit that stat.
+_cpu_prev = None  # (idle, total) from the previous /proc/stat sample
+
+
+def _cpu_pct():
+    global _cpu_prev
+    try:
+        with open("/proc/stat") as f:
+            parts = [int(x) for x in f.readline().split()[1:]]
+        idle = parts[3] + (parts[4] if len(parts) > 4 else 0)  # idle + iowait
+        total = sum(parts)
+        prev = _cpu_prev
+        _cpu_prev = (idle, total)
+        if prev is None:
+            return None  # need two samples to compute a delta
+        d_total = total - prev[1]
+        if d_total <= 0:
+            return None
+        return max(0, min(100, round((1 - (idle - prev[0]) / d_total) * 100)))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _mem_pct():
+    try:
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, _, v = line.partition(":")
+                info[k] = int(v.strip().split()[0])
+        total = info.get("MemTotal", 0)
+        avail = info.get("MemAvailable", info.get("MemFree", 0))
+        if total <= 0:
+            return None
+        return max(0, min(100, round((1 - avail / total) * 100)))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _temp_c():
+    best = None
+    try:
+        import glob
+
+        for p in glob.glob("/sys/class/thermal/thermal_zone*/temp"):
+            try:
+                with open(p) as f:
+                    raw = int(f.read().strip())
+                c = raw / 1000 if raw > 1000 else raw
+                if best is None or c > best:
+                    best = c
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+    return round(best) if best is not None else None
+
+
+def _loadavg():
+    try:
+        with open("/proc/loadavg") as f:
+            return " ".join(f.read().split()[:3])
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
@@ -385,6 +454,15 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
     req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
+    cpu, mem, temp, load = _cpu_pct(), _mem_pct(), _temp_c(), _loadavg()
+    if cpu is not None:
+        req.add_header("X-Runner-Cpu", str(cpu))
+    if mem is not None:
+        req.add_header("X-Runner-Mem", str(mem))
+    if temp is not None:
+        req.add_header("X-Runner-Temp", str(temp))
+    if load:
+        req.add_header("X-Runner-Load", load)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)

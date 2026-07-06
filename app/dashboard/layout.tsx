@@ -18,6 +18,7 @@ import { AutoscanFab } from "@/components/autoscan-fab";
 import { VoiceCommandCenter } from "@/components/voice-command-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FloatingControls } from "@/components/floating-controls";
+import { ActivityBar } from "@/components/activity-bar";
 
 export default async function DashboardLayout({
   children,
@@ -162,6 +163,9 @@ export default async function DashboardLayout({
             </button>
           </form>
         </FloatingControls>
+
+        {/* Footer status line — live processing / machine monitor. */}
+        <ActivityBar />
       </div>
 
       {/* Right rail — live ops (machines · jobs · findings). Collapsible; wide

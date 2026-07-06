@@ -41,6 +41,19 @@ export async function authenticateRunner(req: Request) {
   const wifiMonitor = (req.headers.get("x-runner-wifi-monitor") ?? "") === "1";
   // Which allowlisted tools actually have a binary present on the runner.
   const installed = (req.headers.get("x-runner-installed") ?? "").slice(0, 512);
+  // Live machine stats for the footer monitor (0..100; temp in °C). Absent on
+  // older runners → leave the stored value untouched.
+  const pct = (h: string): number | undefined => {
+    const v = req.headers.get(h);
+    if (v == null || v === "") return undefined;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : undefined;
+  };
+  const cpuPct = pct("x-runner-cpu");
+  const memPct = pct("x-runner-mem");
+  const tempRaw = req.headers.get("x-runner-temp");
+  const tempC = tempRaw ? Math.round(Number(tempRaw)) : undefined;
+  const loadAvg = (req.headers.get("x-runner-load") ?? "").slice(0, 40);
 
   await prisma.runner
     .update({
@@ -55,6 +68,10 @@ export async function authenticateRunner(req: Request) {
         wifi,
         wifiMonitor,
         installed,
+        ...(cpuPct !== undefined ? { cpuPct } : {}),
+        ...(memPct !== undefined ? { memPct } : {}),
+        ...(tempC !== undefined && Number.isFinite(tempC) ? { tempC } : {}),
+        ...(loadAvg ? { loadAvg } : {}),
       },
     })
     .catch(() => {});

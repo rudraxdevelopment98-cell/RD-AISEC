@@ -190,6 +190,10 @@ model Runner {
   wifi       String    @default("")    // comma-separated wireless interface names
   wifiMonitor Boolean  @default(false) // any adapter supports monitor mode
   installed  String    @default("")    // comma-separated tool ids whose binary is present
+  cpuPct     Int?      // last reported CPU utilisation %
+  memPct     Int?      // last reported RAM utilisation %
+  tempC      Int?      // last reported CPU temperature °C
+  loadAvg    String    @default("") // reported "1m 5m 15m" load averages
   createdAt  DateTime  @default(now())
   jobs       Job[]
   installs   Install[]
