@@ -518,3 +518,13 @@ model CsiCapture {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// The user's home floor plan (rooms + walls + WiFi node positions) for the 3D
+// sensing view. One per owner; `data` holds the JSON FloorPlan (lib/floorplan-core).
+model HomePlan {
+  id         String   @id @default(cuid())
+  ownerEmail String   @unique
+  data       String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

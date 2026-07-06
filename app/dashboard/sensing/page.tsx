@@ -1,18 +1,29 @@
 import { prisma } from "@/lib/db";
+import { auth } from "@/auth";
 import { PageHeader } from "@/components/page-header";
 import { HelpBanner } from "@/components/hint";
 import { SensingObservatory } from "@/components/sensing-observatory";
 import { WifiCamera } from "@/components/wifi-camera";
+import { FloorPlanEditor } from "@/components/floorplan-editor";
+import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
 export default async function SensingPage() {
+  const session = await auth();
+  const email = session?.user?.email ?? "";
   const runners = await prisma.runner.findMany({
     orderBy: { lastSeenAt: "desc" },
     select: { id: true, name: true, lastSeenAt: true, wifi: true },
   });
+  // Load the saved home floor plan (or a starter template).
+  const planRow = email ? await prisma.homePlan.findUnique({ where: { ownerEmail: email } }) : null;
+  let homePlan = defaultPlan();
+  if (planRow?.data) {
+    try { homePlan = normalizePlan(JSON.parse(planRow.data)); } catch { /* keep default */ }
+  }
   const now = Date.now();
   // Online machines + their wireless interfaces — the real adapters we sample
   // RSSI from (and where a real CSI feed would come from).
@@ -62,6 +73,7 @@ export default async function SensingPage() {
         tabs={[
           { id: "camera", label: "📷 WiFi Camera (2D)" },
           { id: "observatory", label: "🛰 3D Observatory" },
+          { id: "home", label: "🏠 Home Plan" },
         ]}
       >
         <TabPanel id="camera">
@@ -76,6 +88,16 @@ export default async function SensingPage() {
 
         <TabPanel id="observatory">
           <SensingObservatory interfaces={interfaces} defaultIface={interfaces[0]} machines={machines} />
+        </TabPanel>
+
+        <TabPanel id="home">
+          <p className="mb-3 text-sm text-gray-400">
+            Lay out your home once — rooms, walls and where your WiFi router / CSI node sit. The 3D
+            Observatory renders it as <b>transparent glass walls</b> and places sensed people inside
+            it at real coordinates. WiFi can localize people within a known plan (and see through
+            walls); it can&apos;t reliably draw the plan for you, so you set it here.
+          </p>
+          <FloorPlanEditor initial={homePlan} />
         </TabPanel>
       </Tabs>
     </div>

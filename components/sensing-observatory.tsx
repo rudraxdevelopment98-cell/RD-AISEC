@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { simulateFrame, POSE_EDGES, type SensingFrame, type Scenario } from "@/lib/sensing-core";
 import { sampleAt, type SenseTimeline } from "@/lib/wifi-sense-core";
+import { type FloorPlan, planBounds, wallSegments, placeInPlan } from "@/lib/floorplan-core";
 
 export type SenseMachine = { id: string; name: string; wifi: string[] };
 
@@ -52,6 +53,8 @@ export function SensingObservatory({
   // Precise RSSI analysis + latest CSI imaging → the person's real placement.
   const [analysis, setAnalysis] = useState<AnalysisLite | null>(null);
   const [csi, setCsi] = useState<CsiLite | null>(null);
+  // The home floor plan — transparent walls + real in-plan placement.
+  const [plan, setPlan] = useState<FloorPlan | null>(null);
 
   // Prefer CSI (has a real bearing) when it's fresh; else the RSSI analysis.
   const placement: Placement | null = csi
@@ -67,6 +70,9 @@ export function SensingObservatory({
     placement: null,
   });
   stateRef.current = { running, scenario, timeline, placement };
+
+  // Rebuild the 3D scene (walls + node positions) whenever the plan changes.
+  const planKey = plan ? JSON.stringify({ m: plan.meters, h: plan.height, r: plan.rooms, a: plan.anchors }) : "";
 
   const selMachine = machines.find((m) => m.id === machineId);
 
@@ -149,12 +155,56 @@ export function SensingObservatory({
       cells.instanceMatrix.needsUpdate = true;
       scene.add(cells);
 
-      // Access point + expanding propagation rings.
+      // ── Home floor plan → transparent glass walls, centred on the origin ──
+      // The plan (metres) maps to world units so its larger side ≈ 6 units. When
+      // a plan is present the sensing node + person live in PLAN coordinates.
+      const pb = plan ? planBounds(plan) : null;
+      const M2W = pb ? Math.min(0.9, 6 / Math.max(pb.w, pb.h)) : 0.7;
+      const planToWorld = (px: number, py: number) =>
+        new THREE.Vector3(pb ? (px - pb.w / 2) * M2W : px, 0, pb ? (py - pb.h / 2) * M2W : py);
+      const senseAnchor =
+        plan ? (plan.anchors.find((a) => a.kind === "rx") ?? plan.anchors.find((a) => a.kind === "ap") ?? null) : null;
+
+      if (plan && pb) {
+        const wallH = plan.height * M2W;
+        const wallMat = new THREE.MeshBasicMaterial({
+          color: 0x9fd6ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false,
+        });
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x9fd6ff, transparent: true, opacity: 0.35 });
+        for (const s of wallSegments(plan)) {
+          const a = planToWorld(s.x1, s.y1);
+          const c = planToWorld(s.x2, s.y2);
+          const len = a.distanceTo(c);
+          if (len < 1e-3) continue;
+          const wall = new THREE.Mesh(new THREE.BoxGeometry(len, wallH, 0.03), wallMat);
+          wall.position.set((a.x + c.x) / 2, wallH / 2, (a.z + c.z) / 2);
+          wall.rotation.y = -Math.atan2(c.z - a.z, c.x - a.x);
+          scene.add(wall);
+          // Bright top rim so the glass wall reads clearly.
+          const rimGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(a.x, wallH, a.z), new THREE.Vector3(c.x, wallH, c.z),
+          ]);
+          scene.add(new THREE.Line(rimGeo, edgeMat));
+        }
+        // WiFi node markers at their real plan positions (AP = blue, RX = green).
+        for (const an of plan.anchors) {
+          const w = planToWorld(an.x, an.y);
+          const node = new THREE.Mesh(
+            new THREE.SphereGeometry(0.09, 12, 12),
+            new THREE.MeshBasicMaterial({ color: an.kind === "ap" ? 0x60a5fa : 0x6ee7b7 }),
+          );
+          node.position.set(w.x, 0.16, w.z);
+          scene.add(node);
+        }
+      }
+
+      // Sensing node (the AP/RX the range is measured from) + propagation rings.
+      const senseWorld = senseAnchor ? planToWorld(senseAnchor.x, senseAnchor.y) : new THREE.Vector3(GW * SP * 0.34, 0, GD * SP * 0.34);
       const ap = new THREE.Mesh(
-        new THREE.BoxGeometry(0.18, 0.18, 0.18),
+        new THREE.BoxGeometry(0.16, 0.16, 0.16),
         new THREE.MeshBasicMaterial({ color: 0x60a5fa }),
       );
-      ap.position.set(GW * SP * 0.34, 1.0, GD * SP * 0.34);
+      ap.position.set(senseWorld.x, 1.0, senseWorld.z);
       scene.add(ap);
       const rings: any[] = [];
       for (let k = 0; k < 4; k++) {
@@ -168,22 +218,21 @@ export function SensingObservatory({
         rings.push(ring);
       }
 
-      // Ground distance references: concentric rings around the AP at 1..4 m so
-      // the person's real range is readable off the floor. World scale: ~0.7
-      // world-units per metre (the ~8 m room maps onto the ~6-unit floor).
-      const M2W = 0.7;
-      const apFloor = new THREE.Vector3(ap.position.x, 0.02, ap.position.z);
-      for (let m = 1; m <= 4; m++) {
-        const ringGeo = new THREE.RingGeometry(m * M2W - 0.01, m * M2W + 0.01, 64);
-        const ring = new THREE.Mesh(
-          ringGeo,
-          new THREE.MeshBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
-        );
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.copy(apFloor);
-        scene.add(ring);
+      const apFloor = new THREE.Vector3(senseWorld.x, 0.02, senseWorld.z);
+      // Distance-reference rings only without a plan (the plan gives real walls).
+      if (!plan) {
+        for (let m = 1; m <= 4; m++) {
+          const ringGeo = new THREE.RingGeometry(m * M2W - 0.01, m * M2W + 0.01, 64);
+          const ring = new THREE.Mesh(
+            ringGeo,
+            new THREE.MeshBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.copy(apFloor);
+          scene.add(ring);
+        }
       }
-      // Line from the AP to the person's ground point — visualises the range.
+      // Line from the sensing node to the person's ground point (the range).
       const rangeLineGeo = new THREE.BufferGeometry();
       rangeLineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
       const rangeLine = new THREE.Line(
@@ -245,15 +294,23 @@ export function SensingObservatory({
           ...(ov ? { overridePresent: ov.present, overrideMotion: ov.motion } : {}),
         });
 
-        // Place the person at the MEASURED distance + bearing from the AP, and
-        // scale to the estimated height. Falls back to a default spot in demo.
+        // Place the person at the MEASURED distance + bearing, scaled to the
+        // estimated height. With a floor plan, resolve into plan coordinates
+        // (so the figure walks through the real rooms); else use the AP axis.
         const pl = stateRef.current.placement;
-        const rangeM = Math.max(0.4, Math.min(5.5, pl?.range ?? 2));
-        const azRad = ((pl?.azimuth ?? 0) * Math.PI) / 180;
-        const dirX = boresight.x * Math.cos(azRad) - boresight.z * Math.sin(azRad);
-        const dirZ = boresight.x * Math.sin(azRad) + boresight.z * Math.cos(azRad);
-        const gx = apFloor.x + dirX * rangeM * M2W;
-        const gz = apFloor.z + dirZ * rangeM * M2W;
+        const rangeM = Math.max(0.3, Math.min(20, pl?.range ?? 2));
+        let gx: number, gz: number;
+        if (plan && senseAnchor) {
+          const pp = placeInPlan(plan, senseAnchor, rangeM, pl?.azimuth ?? 0);
+          const wpos = planToWorld(pp.x, pp.y);
+          gx = wpos.x; gz = wpos.z;
+        } else {
+          const azRad = ((pl?.azimuth ?? 0) * Math.PI) / 180;
+          const dirX = boresight.x * Math.cos(azRad) - boresight.z * Math.sin(azRad);
+          const dirZ = boresight.x * Math.sin(azRad) + boresight.z * Math.cos(azRad);
+          gx = apFloor.x + dirX * rangeM * M2W;
+          gz = apFloor.z + dirZ * rangeM * M2W;
+        }
         const stature = Math.max(1.2, Math.min(2.1, pl?.stature ?? 1.75));
         figure.position.set(gx, 0, gz);
         figure.scale.setScalar(stature / 1.85);
@@ -343,9 +400,9 @@ export function SensingObservatory({
       disposed = true;
       cleanup();
     };
-    // build the scene once; live params flow through stateRef
+    // rebuild the scene when the floor plan changes; live params flow via stateRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [planKey]);
 
   async function senseNow() {
     if (!machineId || !senseIface) {
@@ -423,6 +480,16 @@ export function SensingObservatory({
     tick();
     const id = setInterval(tick, 3000);
     return () => { stop = true; clearInterval(id); };
+  }, []);
+
+  // Load the home floor plan (transparent walls + in-plan placement).
+  useEffect(() => {
+    let stop = false;
+    fetch("/api/sensing/floorplan", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (!stop && d?.plan) setPlan(d.plan as FloorPlan); })
+      .catch(() => {});
+    return () => { stop = true; };
   }, []);
 
   const f = frame;
