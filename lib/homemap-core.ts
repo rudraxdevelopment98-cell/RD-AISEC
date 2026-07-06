@@ -15,6 +15,7 @@
 // Pure (no DB/IO), unit-testable. Authorized spaces only.
 
 import { rssiToMeters, vendorForMac, deviceKind, type Survey, type DeviceKind, type PathLossOpts } from "@/lib/survey-core";
+import { reconstruct, hotCells, freeSpaceRssi, type RtiNode, type RtiLink, type RtiGrid } from "@/lib/rti-core";
 
 /** A capture taken at a known spot (user taps where they stood, in metres). */
 export type Vantage = {
@@ -23,6 +24,11 @@ export type Vantage = {
   y: number; // metres
   survey: Survey;
 };
+
+/** A user-pinned transmitter of KNOWN position (e.g. "my router is here"). Its
+ * fixed location replaces trilateration for that BSSID and, crucially, makes the
+ * excess attenuation on its links real → unlocks honest wall hints. */
+export type Pin = { bssid: string; x: number; y: number; label?: string };
 
 export type PositionedDevice = {
   id: string; // BSSID (AP) or MAC (station)
@@ -35,12 +41,17 @@ export type PositionedDevice = {
   bestRssi: number; // strongest RSSI heard across vantages
   pos: { x: number; y: number } | null; // metres; null if not trilaterable
   positioned: boolean;
+  /** True when pos came from a user pin (exact), not trilateration (estimate). */
+  pinned: boolean;
   vantagesHeard: number;
   /** trilateration residual (m) — lower = better geometric agreement. */
   residual: number | null;
   /** nearest single-vantage distance estimate (m), always available if heard. */
   nearestMeters: number | null;
 };
+
+/** Coarse likely-wall points (metres) from radio tomography, plus the raw grid. */
+export type WallHints = { points: { x: number; y: number; v: number }[]; grid: RtiGrid | null };
 
 export type HomeMap = {
   devices: PositionedDevice[];
@@ -52,6 +63,8 @@ export type HomeMap = {
   positionedCount: number;
   /** True once ≥3 vantages exist — the point at which trilateration is possible. */
   canPosition: boolean;
+  /** Coarse wall hints — only meaningful once ≥1 AP is pinned. */
+  wallHints: WallHints;
 };
 
 /**
@@ -129,8 +142,10 @@ type Agg = {
 /**
  * Fuse the vantages into a positioned device map. Every AP and station heard at
  * ≥3 vantages is trilaterated; others keep a nearest-vantage distance estimate.
+ * Pinned BSSIDs use their exact position (and enable wall hints).
  */
-export function buildHomeMap(vantages: Vantage[], opts: PathLossOpts = {}): HomeMap {
+export function buildHomeMap(vantages: Vantage[], pins: Pin[] = [], opts: PathLossOpts = {}): HomeMap {
+  const pinBy = new Map(pins.map((p) => [p.bssid.toUpperCase(), p]));
   const byId = new Map<string, Agg>();
 
   const note = (
@@ -168,21 +183,24 @@ export function buildHomeMap(vantages: Vantage[], opts: PathLossOpts = {}): Home
 
   const devices: PositionedDevice[] = [];
   for (const [id, a] of byId) {
-    const sol = trilaterate(a.anchors);
+    const pin = pinBy.get(id.toUpperCase());
+    const sol = pin ? null : trilaterate(a.anchors);
+    const pos = pin ? { x: pin.x, y: pin.y } : sol ? { x: sol.x, y: sol.y } : null;
     const vendor = vendorForMac(id);
     devices.push({
       id,
       isAp: a.isAp,
-      essid: a.essid,
+      essid: a.essid || (pin?.label ?? ""),
       vendor,
       kind: deviceKind(vendor, a.isAp),
       channel: a.channel,
       privacy: a.privacy,
       bestRssi: a.bestRssi,
-      pos: sol ? { x: sol.x, y: sol.y } : null,
-      positioned: !!sol,
+      pos,
+      positioned: !!pos,
+      pinned: !!pin,
       vantagesHeard: a.anchors.length,
-      residual: sol ? sol.residual : null,
+      residual: sol ? sol.residual : pin ? 0 : null,
       nearestMeters: a.nearestMeters,
     });
   }
@@ -208,5 +226,38 @@ export function buildHomeMap(vantages: Vantage[], opts: PathLossOpts = {}): Home
     vantageCount: vantages.length,
     positionedCount: devices.filter((d) => d.positioned).length,
     canPosition: vantages.length >= 3,
+    wallHints: wallHints(vantages, pins, opts),
   };
+}
+
+/**
+ * Radio-tomographic wall hints (Wilson–Patwari). Only honest once ≥1 AP is
+ * PINNED: the excess attenuation on a pinned-AP↔vantage link (measured RSSI vs
+ * free-space at the KNOWN distance) reflects real obstructions between them.
+ * (Trilaterated AP positions can't be used here — they're derived from the same
+ * RSSI, so their excess is ~0 by construction.) Coarse with few nodes.
+ */
+export function wallHints(vantages: Vantage[], pins: Pin[], opts: PathLossOpts = {}): WallHints {
+  if (!pins.length || vantages.length < 2) return { points: [], grid: null };
+  const txp = opts.txPowerDbm ?? -40;
+  const nExp = opts.pathLossN ?? 3.0;
+
+  const nodes: RtiNode[] = [];
+  const seen = new Set<string>();
+  for (const p of pins) { nodes.push({ id: `ap:${p.bssid}`, x: p.x, y: p.y }); seen.add(`ap:${p.bssid}`); }
+  for (const v of vantages) nodes.push({ id: `v:${v.id}`, x: v.x, y: v.y });
+
+  const links: RtiLink[] = [];
+  for (const v of vantages) {
+    for (const p of pins) {
+      const ap = v.survey.aps?.find((a) => a.bssid.toUpperCase() === p.bssid.toUpperCase());
+      if (!ap || ap.power >= 0) continue;
+      const dist = Math.hypot(v.x - p.x, v.y - p.y);
+      if (dist < 0.3) continue;
+      links.push({ tx: `ap:${p.bssid}`, rx: `v:${v.id}`, rssi: ap.power, baseline: freeSpaceRssi(dist, txp, nExp) });
+    }
+  }
+  if (links.length < 3) return { points: [], grid: null };
+  const grid = reconstruct(nodes, links, { txPowerDbm: txp, pathLossN: nExp });
+  return { points: hotCells(grid, 0.55), grid };
 }

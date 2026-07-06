@@ -113,12 +113,13 @@ export const PROGRESS: ProgressArea[] = [
       "Motion algorithm: baseline detrending + presence hysteresis (ignores slow drift)",
       "Monitor-mode RF survey (TL-WN721N): every AP + client with real RSSI, vendor, channel, encryption",
       "Auto home map: walk to 3+ spots → trilaterate real device positions + coverage footprint",
+      "Pin known routers → exact anchor positions + coarse radio-tomography wall hints",
+      "Live monitor: auto re-survey loop → per-device motion (still / moving / approaching / receding)",
     ],
     todo: [
       "CSI hardware path for true pose / breathing / heart-rate (ESP32-S3 nodes)",
-      "Continuous (auto-repeating) live sensing + device motion trails",
-      "Radio-tomography walls from a dense multi-node mesh",
-      "Pin known AP locations to sharpen positioning + enable wall hints",
+      "True 2D motion paths (needs a multi-node monitor mesh)",
+      "Persisted device history + presence timeline per room",
     ],
   },
   {
