@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
-import { parseWifiSense, motionTimeline } from "@/lib/wifi-sense-core";
+import { parseWifiSense, motionTimeline, analyzeMotion } from "@/lib/wifi-sense-core";
+import { occupancyField } from "@/lib/wifi-fusion-core";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,11 @@ export async function GET(req: Request) {
   if (job.status === "done") {
     const parsed = parseWifiSense(job.output ?? "");
     const timeline = parsed ? motionTimeline(parsed) : null;
-    return NextResponse.json({ status: "done", timeline });
+    // Precise analysis (speed/direction/range/breathing/person/activity) + the
+    // top-down "WiFi camera" occupancy field — both from the real RSSI capture.
+    const analysis = parsed ? analyzeMotion(parsed) : null;
+    const spatial = analysis ? occupancyField(analysis) : null;
+    return NextResponse.json({ status: "done", timeline, analysis, spatial });
   }
   return NextResponse.json({ status: job.status });
 }
