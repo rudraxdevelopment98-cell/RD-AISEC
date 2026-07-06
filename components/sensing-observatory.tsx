@@ -382,7 +382,7 @@ export function SensingObservatory({
             <span className="tag ring-amber-500/40 text-amber-300">◐ Demo signal</span>
           )}
           {machines.length > 0 ? (
-            <div className="flex items-center gap-1 rounded-lg border border-surface-border bg-surface/80 p-1 backdrop-blur">
+            <div className="flex max-w-[92vw] flex-wrap items-center justify-end gap-1 rounded-lg border border-surface-border bg-surface/80 p-1 backdrop-blur">
               <select
                 value={machineId}
                 onChange={(e) => {
@@ -390,7 +390,7 @@ export function SensingObservatory({
                   const m = machines.find((x) => x.id === e.target.value);
                   setSenseIface(m?.wifi[0] ?? "");
                 }}
-                className="rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
+                className="max-w-[7rem] rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
                 title="Machine running the RD-AISEC engine"
               >
                 {machines.map((m) => (
@@ -400,7 +400,7 @@ export function SensingObservatory({
               <select
                 value={senseIface}
                 onChange={(e) => setSenseIface(e.target.value)}
-                className="rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
+                className="max-w-[7rem] rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
                 title="The interface's connected access point is sampled"
               >
                 {(selMachine?.wifi.length ? selMachine.wifi : ["(no wifi)"]).map((w) => (

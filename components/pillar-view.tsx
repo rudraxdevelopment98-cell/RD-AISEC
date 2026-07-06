@@ -81,7 +81,7 @@ export function PillarView({
                 {e.open > 0 && <span className="tag border-amber-500/40 text-amber-300">{e.open} open</span>}
                 <span className="text-gray-500">{e.findings} finding{e.findings === 1 ? "" : "s"}</span>
                 <EngagementStatusBadge value={e.status} />
-                <Icon name="arrow" className="h-4 w-4 text-gray-600" />
+                <Icon name="arrow" className="h-4 w-4 text-gray-500" />
               </span>
             </Link>
           ))}

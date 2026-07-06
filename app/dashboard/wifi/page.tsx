@@ -356,7 +356,7 @@ export default async function WifiPage({
                             );})}
                           </tbody>
                         </table>
-                        <p className="mt-1 text-[10px] text-gray-600">
+                        <p className="mt-1 text-[11px] text-gray-500">
                           Distance is a rough signal estimate. Inspect runs a 30s targeted
                           capture (needs a monitor-mode adapter).
                         </p>
@@ -706,7 +706,7 @@ export default async function WifiPage({
                             </Link>
                           ))}
                         </div>
-                        <p className="text-[11px] text-gray-600">
+                        <p className="text-[11px] text-gray-500">
                           Crack a captured handshake:{" "}
                           <code className="font-mono">aircrack-ng -w wordlist.txt /tmp/capture-01.cap</code>
                         </p>

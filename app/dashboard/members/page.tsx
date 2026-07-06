@@ -54,7 +54,7 @@ export default async function MembersPage({
         <h1 className="text-2xl font-bold">Members</h1>
         <p className="mt-3 card text-sm text-gray-400">
           Only an owner can manage members. Owners are set via the
-          <code className="mx-1 rounded bg-black/40 px-1">AUTHORIZED_EMAILS</code>
+          <code className="rounded bg-black/40 px-1">AUTHORIZED_EMAILS</code>
           environment variable.
         </p>
       </div>

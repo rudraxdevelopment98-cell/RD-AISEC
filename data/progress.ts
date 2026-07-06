@@ -108,6 +108,7 @@ export const PROGRESS: ProgressArea[] = [
       "Scan / capture / crack, Auto-pwn, Auto Evil-Twin",
       "3D sensing observatory (Three.js): room, figure, propagation",
       "Real presence + motion from the connected AP's RSSI variance",
+      "Motion algorithm: baseline detrending + presence hysteresis (ignores slow drift)",
     ],
     todo: [
       "CSI hardware path for true pose / breathing / heart-rate",
@@ -164,10 +165,11 @@ export const PROGRESS: ProgressArea[] = [
       "Auth, members + access control, SIEM audit trail, monitoring",
       "Sticky headers, floating controls, compact density, smooth scrolling",
       "Footer activity monitor (jobs, ETA, machine stats)",
+      "UI audit — contrast/overlap/alignment pass across main + secondary pages",
     ],
     todo: [
-      "Full UI audit — spacing, alignment, contrast, mobile polish",
       "Accessibility pass (focus, contrast, labels)",
+      "Remaining mobile polish on data-dense tables",
       "Alerts / notifications channel + webhooks + API tokens",
     ],
   },

@@ -171,7 +171,7 @@ export default async function NetworkPage({
             </Link>
           ))}
           {engagementRows.length === 0 && (
-            <span className="text-gray-600">Engage a program to get an engagement-wide merged map.</span>
+            <span className="text-gray-500">Engage a program to get an engagement-wide merged map.</span>
           )}
         </div>
       </div>
@@ -183,7 +183,7 @@ export default async function NetworkPage({
             <Icon name="globe" className="h-4 w-4 text-brand" /> {engName} — full map
             <span className="text-sm font-normal text-gray-500">({engJobs.length} scan{engJobs.length === 1 ? "" : "s"} merged)</span>
           </h2>
-          <section className="mt-4 grid grid-cols-3 gap-4">
+          <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat value={hosts.length} label="hosts up" />
             <Stat value={withPorts} label="with open ports" accent="text-emerald-300" />
             <Stat value={totalPorts} label="open ports" accent="text-amber-300" />
@@ -224,7 +224,7 @@ export default async function NetworkPage({
           />
 
           {/* Summary */}
-          <section className="mt-6 grid grid-cols-3 gap-4">
+          <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat value={hosts.length} label="hosts up" />
             <Stat value={withPorts} label="with open ports" accent="text-emerald-300" />
             <Stat value={totalPorts} label="open ports" accent="text-amber-300" />

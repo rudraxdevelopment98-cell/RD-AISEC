@@ -42,7 +42,7 @@ export function AssessmentPanel({ engagementId, assessments }: { engagementId: s
               <div key={a.id} className="card">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-white">{a.name}</p>
+                    <p className="font-semibold text-white">{a.name || "Untitled assessment"}</p>
                     <p className="text-xs text-gray-500">{FRAMEWORKS.find((f) => f.id === a.framework)?.name ?? a.framework} · {a.controls.length} controls</p>
                   </div>
                   <form action={deleteAssessment}>
@@ -93,7 +93,7 @@ export function AssessmentPanel({ engagementId, assessments }: { engagementId: s
                       <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
                         <span className={`h-2 w-2 shrink-0 rounded-full`} style={{ background: dotColor(c.status) }} />
                         <span className="min-w-0 flex-1 truncate text-gray-200">{c.title}</span>
-                        {c.domain && <span className="hidden shrink-0 text-[10px] text-gray-600 sm:inline">{c.domain}</span>}
+                        {c.domain && <span className="hidden shrink-0 text-[10px] text-gray-500 sm:inline">{c.domain}</span>}
                         <span className={`tag ring-${statusColor(c.status)} accent-${statusColor(c.status)}`}>{statusLabel(c.status)}</span>
                       </summary>
                       <form action={setControl} className="grid gap-2 px-3 pb-3 sm:grid-cols-2">

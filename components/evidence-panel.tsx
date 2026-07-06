@@ -90,7 +90,7 @@ export function EvidencePanel({ engagementId, evidence }: { engagementId: string
                         <span className={`mt-0.5 tag ring-${actionColor(c.action)} accent-${actionColor(c.action)}`}>{actionLabel(c.action)}</span>
                         <span className="min-w-0 flex-1">
                           <span className="text-gray-300">{c.actor || "—"}</span>
-                          <span className="text-gray-600"> · {new Date(c.at).toLocaleString()}</span>
+                          <span className="text-gray-500"> · {new Date(c.at).toLocaleString()}</span>
                           {c.notes && <span className="block text-gray-500">{c.notes}</span>}
                         </span>
                       </li>

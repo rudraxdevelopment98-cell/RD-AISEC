@@ -5,6 +5,7 @@ import { Counter } from "@/components/counter";
 import { SeverityBadge } from "@/components/badges";
 import { NeuralBg } from "@/components/neural-bg";
 import { PageHeader } from "@/components/page-header";
+import { PROGRESS } from "@/data/progress";
 import { prisma } from "@/lib/db";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -289,6 +290,8 @@ export default async function DashboardOverview({
     if (i >= 0 && i < 14) buckets[i].scans++;
   }
   const activity14 = jobsRecent.length + scansRecent.length;
+  const progDone = PROGRESS.reduce((n, a) => n + a.done.length, 0);
+  const progressOverall = Math.round((progDone / (progDone + PROGRESS.reduce((n, a) => n + a.todo.length, 0))) * 100);
 
   const metrics = [
     { label: "Engagements", value: engagementCount, suffix: "", icon: "briefcase", href: "/dashboard/engagements", accent: "text-brand" },
@@ -389,6 +392,33 @@ export default async function DashboardOverview({
         </div>
         <div className="mt-2">
           <Pipeline scans={jobCount + scanCount} findings={findings.length} reports={engagementCount} />
+        </div>
+      </section>
+
+      {/* Build progress — where the platform is, at a glance */}
+      <section className="card fade-up">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-brand-glow">Build progress</h2>
+          <Link href="/dashboard/progress" className="text-xs text-brand hover:underline">
+            Full breakdown →
+          </Link>
+        </div>
+        <div className="mt-2 flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-border">
+            <div className="h-full rounded-full bg-brand" style={{ width: `${progressOverall}%` }} />
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-brand">{progressOverall}%</span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+          {PROGRESS.map((a) => {
+            const pct = Math.round((a.done.length / (a.done.length + a.todo.length)) * 100);
+            return (
+              <div key={a.area} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-gray-400">{a.area}</span>
+                <span className={pct >= 70 ? "text-emerald-400" : pct >= 40 ? "text-amber-300" : "text-gray-500"}>{pct}%</span>
+              </div>
+            );
+          })}
         </div>
       </section>
 

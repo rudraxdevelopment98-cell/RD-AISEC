@@ -71,9 +71,12 @@ export function motionTimeline(
     };
   }
   const rate = s.rate && s.rate > 0 ? s.rate : 10;
-  const win = Math.max(3, Math.round(rate)); // ~1s window
-  const half = Math.floor(win / 2);
-  const thresh = opts.motionThresh ?? 1.2; // dB std-dev = movement
+  const shortWin = Math.max(3, Math.round(rate)); // ~1s: movement energy
+  const longWin = Math.max(shortWin * 3, Math.round(rate * 3)); // ~3s: slow baseline
+  const halfS = Math.floor(shortWin / 2);
+  const halfL = Math.floor(longWin / 2);
+  const highT = opts.motionThresh ?? 1.2; // dB std-dev to turn presence ON
+  const lowT = highT * 0.5; // hysteresis: turn OFF below this
   const scale = opts.scale ?? 3.5; // dB std-dev that maps to full motion
 
   const rssis = s.samples.map((x) => x.rssi);
@@ -81,15 +84,33 @@ export function motionTimeline(
   const rssiMin = Math.min(...rssis);
   const rssiMax = Math.max(...rssis);
 
+  // Detrend: subtract a slow (~3s) baseline so gradual AP-power drift / distance
+  // changes don't read as "motion" — only the fast fluctuation that movement in
+  // the multipath actually causes survives.
+  const detr = rssis.map((v, i) => {
+    const lo = Math.max(0, i - halfL);
+    const hi = Math.min(rssis.length, i + halfL + 1);
+    let sum = 0;
+    for (let k = lo; k < hi; k++) sum += rssis[k];
+    return v - sum / (hi - lo);
+  });
+
+  // Short-window std of the detrended signal → motion. Presence uses hysteresis
+  // (on above highT, off below lowT) so it doesn't flicker at the boundary.
+  let present = false;
   const points: MotionPoint[] = s.samples.map((smp, i) => {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(rssis.length, i + half + 1);
-    const slice = rssis.slice(lo, hi);
-    const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
-    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / slice.length;
+    const lo = Math.max(0, i - halfS);
+    const hi = Math.min(detr.length, i + halfS + 1);
+    let mean = 0;
+    for (let k = lo; k < hi; k++) mean += detr[k];
+    mean /= hi - lo;
+    let variance = 0;
+    for (let k = lo; k < hi; k++) variance += (detr[k] - mean) ** 2;
+    variance /= hi - lo;
     const std = Math.sqrt(variance);
-    const motion = clamp(std / scale);
-    return { t: smp.t, rssi: smp.rssi, motion, present: std >= thresh };
+    if (std >= highT) present = true;
+    else if (std <= lowT) present = false;
+    return { t: smp.t, rssi: smp.rssi, motion: clamp(std / scale), present };
   });
 
   const durationSec = points.length ? points[points.length - 1].t : 0;
