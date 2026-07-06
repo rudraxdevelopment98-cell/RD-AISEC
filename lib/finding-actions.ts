@@ -14,6 +14,33 @@ async function requireUser(): Promise<string> {
 }
 
 const STATUSES = ["open", "fixed", "accepted", "false_positive"];
+const RETEST_STATES = ["", "requested", "passed", "failed"];
+
+/**
+ * Remediation retest loop for a single finding (pentest deliverable). The client
+ * marks a finding fixed → we retest → verified-fixed or still-exploitable.
+ *  - "requested": client says it's fixed, awaiting our retest (no status change)
+ *  - "passed": we confirmed the fix → finding status becomes "fixed"
+ *  - "failed": still exploitable → finding status forced back to "open"
+ */
+export async function setRetest(formData: FormData) {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const retest = String(formData.get("retest") ?? "");
+  const note = String(formData.get("retestNote") ?? "").trim().slice(0, 500);
+  if (!id || !RETEST_STATES.includes(retest)) redirect("/dashboard/findings");
+  await prisma.finding.update({
+    where: { id },
+    data: {
+      retest,
+      retestNote: note,
+      retestedAt: retest === "passed" || retest === "failed" ? new Date() : null,
+      ...(retest === "passed" ? { status: "fixed" } : {}),
+      ...(retest === "failed" ? { status: "open" } : {}),
+    },
+  });
+  revalidatePath("/dashboard/findings");
+}
 
 /** Bulk delete selected findings. */
 export async function bulkDeleteFindings(formData: FormData) {

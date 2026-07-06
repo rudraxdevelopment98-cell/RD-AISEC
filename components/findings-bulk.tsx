@@ -6,9 +6,10 @@ import { Icon } from "@/components/icons";
 import { SeverityBadge, FindingStatusBadge, ConfidenceBadge } from "@/components/badges";
 import type { Confidence } from "@/lib/exploit-confidence";
 import { FrameworkBadges } from "@/components/framework-badges";
-import { bulkDeleteFindings, bulkSetStatus, bulkSetCategory } from "@/lib/finding-actions";
+import { bulkDeleteFindings, bulkSetStatus, bulkSetCategory, setRetest } from "@/lib/finding-actions";
 import { sourceCount } from "@/lib/dedup-core";
 import { signalScore, TIER_LABEL, TIER_CLASS } from "@/lib/finding-signal";
+import { RETEST_LABEL, RETEST_CLASS } from "@/lib/retest-core";
 
 export type FindingRow = {
   id: string;
@@ -21,6 +22,8 @@ export type FindingRow = {
   confidence: Confidence;
   category: string;
   sources?: string;
+  retest?: string;
+  retestNote?: string;
   engagementId: string;
   engagementName: string | null;
 };
@@ -140,6 +143,14 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                     <SeverityBadge value={f.severity} />
                   </span>
                   <FindingStatusBadge value={f.status} />
+                  {f.retest ? (
+                    <span
+                      className={`tag ${RETEST_CLASS[f.retest] ?? ""}`}
+                      title={f.retestNote || RETEST_LABEL[f.retest]}
+                    >
+                      ↻ {RETEST_LABEL[f.retest] ?? f.retest}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -158,6 +169,17 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                 ⚔ Exploit it →
               </Link>
             </div>
+            {/* Remediation retest loop — client fixed it → retest → verified/failed. */}
+            <form action={setRetest} className="mt-2 flex flex-wrap items-center gap-1.5 pl-6 text-[11px]">
+              <input type="hidden" name="id" value={f.id} />
+              <span className="text-[10px] uppercase tracking-wide text-gray-500">Retest</span>
+              <button name="retest" value="requested" className="btn-ghost px-2 py-0.5">Requested</button>
+              <button name="retest" value="passed" className="rounded-md border border-emerald-500/40 px-2 py-0.5 text-emerald-300 hover:bg-emerald-500/10">✓ Fixed</button>
+              <button name="retest" value="failed" className="rounded-md border border-red-500/40 px-2 py-0.5 text-red-300 hover:bg-red-500/10">✗ Still open</button>
+              {f.retest ? (
+                <button name="retest" value="" className="text-gray-600 hover:text-gray-400">clear</button>
+              ) : null}
+            </form>
           </div>
           );
         })}

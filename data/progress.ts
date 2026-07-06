@@ -138,10 +138,12 @@ export const PROGRESS: ProgressArea[] = [
     summary: "Client-ready output and the whole-engagement picture.",
     done: [
       "Client-ready report (findings + posture + evidence + KEV)",
+      "Remediation retest loop: mark fixed → retest → verified / still-exploitable, with a Remediation Status section in the report",
+      "PDF/print export (print-styled report) + Markdown download",
       "Engagement Map: layered topology, filters, minimap, export, saved layout",
     ],
     todo: [
-      "PDF export + branding + AI exec summary",
+      "Branded PDF cover + AI exec summary",
       "Live collaboration on the map",
     ],
   },

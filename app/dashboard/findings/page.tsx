@@ -449,6 +449,8 @@ export default async function FindingsPage({
             }).level,
             category: f.category,
             sources: f.sources,
+            retest: f.retest,
+            retestNote: f.retestNote,
             engagementId: f.engagementId,
             engagementName: f.engagement?.name ?? null,
           }))}

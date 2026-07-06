@@ -297,6 +297,13 @@ model Finding {
   // corroboration). Grows as signature-matching duplicates are merged in; a
   // count >1 means multiple tools agreed. NOT a proof signal — display only.
   sources        String     @default("")
+  // Remediation retest loop (pentest deliverable): after the client fixes a
+  // finding, an operator retests it. "" = not requested; "requested" = client
+  // says fixed, awaiting our retest; "passed" = we confirmed the fix (status →
+  // fixed); "failed" = still exploitable (status → open).
+  retest         String     @default("")
+  retestNote     String     @default("")
+  retestedAt     DateTime?
   createdAt      DateTime   @default(now())
 }
 

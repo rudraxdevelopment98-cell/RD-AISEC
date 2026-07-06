@@ -12,6 +12,7 @@ import {
   executiveDashboard,
 } from "@/lib/assessment";
 import { attackChains } from "@/lib/exploit-strategy";
+import { remediationStats, RETEST_LABEL } from "@/lib/retest-core";
 import { STATE_LABEL } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
 import { getKevSet } from "@/lib/threat-intel";
@@ -57,6 +58,10 @@ export default async function ReportPage({
   const chains = attackChains(
     e.findings.map((f) => ({ id: f.id, title: f.title, description: f.description })),
   );
+  const remediation = remediationStats(
+    e.findings.map((f) => ({ status: f.status, retest: f.retest ?? "", severity: f.severity })),
+  );
+  const retestedFindings = e.findings.filter((f) => f.retest);
 
   const SEV_TEXT: Record<string, string> = {
     critical: "text-red-300",
@@ -290,6 +295,55 @@ export default async function ReportPage({
                           </td>
                           <td className="py-1.5 pr-3 text-gray-400 print:text-black">{r.effort}</td>
                           <td className="py-1.5 pr-3 text-gray-400 print:text-black">{r.when}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {/* Remediation Status — the retest loop: what the client fixed and
+                what we re-verified. This is the pentest deliverable's outcome. */}
+            {retestedFindings.length > 0 && (
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">Remediation Status</h2>
+                <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
+                  Retest outcomes after remediation — verified fixes vs. issues still exploitable.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { label: "Verified fixed", value: remediation.verifiedFixed, cls: "text-emerald-300" },
+                    { label: "Still exploitable", value: remediation.stillExploitable, cls: "text-red-300" },
+                    { label: "Awaiting retest", value: remediation.requested, cls: "text-amber-300" },
+                    { label: "Closed", value: `${remediation.closedPct}%`, cls: "text-white" },
+                  ].map((m) => (
+                    <div key={m.label} className="rounded-lg border border-surface-border px-3 py-2 print:border-gray-300">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 print:text-gray-600">{m.label}</p>
+                      <p className={`mt-0.5 text-xl font-bold ${m.cls} print:text-black`}>{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="py-1.5 pr-3">Finding</th>
+                        <th className="py-1.5 pr-3">Sev</th>
+                        <th className="py-1.5 pr-3">Retest</th>
+                        <th className="py-1.5 pr-3">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-300 print:text-black">
+                      {retestedFindings.map((f) => (
+                        <tr key={f.id} className="border-t border-surface-border align-top print:border-gray-300">
+                          <td className="py-1.5 pr-3">{f.title}</td>
+                          <td className={`py-1.5 pr-3 font-medium capitalize ${SEV_TEXT[f.severity]}`}>{f.severity}</td>
+                          <td className={`py-1.5 pr-3 ${f.retest === "passed" ? "text-emerald-300" : f.retest === "failed" ? "text-red-300" : "text-amber-300"} print:text-black`}>
+                            {RETEST_LABEL[f.retest ?? ""] ?? f.retest}
+                            {f.retestedAt ? <span className="block text-[11px] text-gray-500">{new Date(f.retestedAt).toISOString().slice(0, 10)}</span> : null}
+                          </td>
+                          <td className="py-1.5 pr-3 text-gray-400 print:text-black">{f.retestNote || "—"}</td>
                         </tr>
                       ))}
                     </tbody>
