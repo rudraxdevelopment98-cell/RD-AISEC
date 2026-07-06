@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "44"
+RUNNER_VERSION = "45"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -477,6 +477,62 @@ def _uptime_s():
         return None
 
 
+def _gpu_pct():
+    """GPU utilisation %, best-effort (NVIDIA smi, then AMD/Intel sysfs)."""
+    try:
+        if shutil.which("nvidia-smi"):
+            out = subprocess.run(
+                ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=4,
+            ).stdout.strip().splitlines()
+            if out:
+                return max(0, min(100, int(float(out[0].strip()))))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        import glob
+        for p in glob.glob("/sys/class/drm/card*/device/gpu_busy_percent"):
+            with open(p) as f:
+                return max(0, min(100, int(f.read().strip())))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _power():
+    """(battery_pct, charging 0/1, watts) from /sys/class/power_supply. Best-effort."""
+    try:
+        import glob
+        cap = charging = watts = None
+        for d in sorted(glob.glob("/sys/class/power_supply/BAT*")):
+            try:
+                with open(d + "/capacity") as f:
+                    cap = int(f.read().strip())
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                with open(d + "/status") as f:
+                    charging = 1 if f.read().strip().lower() in ("charging", "full") else 0
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                with open(d + "/power_now") as f:
+                    watts = round(int(f.read().strip()) / 1_000_000)  # µW → W
+            except Exception:  # noqa: BLE001
+                try:
+                    with open(d + "/current_now") as f:
+                        cur = int(f.read().strip())
+                    with open(d + "/voltage_now") as f:
+                        volt = int(f.read().strip())
+                    watts = round(cur * volt / 1e12)
+                except Exception:  # noqa: BLE001
+                    pass
+            break
+        return cap, charging, watts
+    except Exception:  # noqa: BLE001
+        return None, None, None
+
+
 def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
@@ -513,6 +569,16 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     _up = _uptime_s()
     if _up is not None:
         req.add_header("X-Runner-Uptime", str(_up))
+    _gpu = _gpu_pct()
+    if _gpu is not None:
+        req.add_header("X-Runner-Gpu", str(_gpu))
+    _bat, _chg, _w = _power()
+    if _bat is not None:
+        req.add_header("X-Runner-Battery", str(_bat))
+    if _chg is not None:
+        req.add_header("X-Runner-Charging", str(_chg))
+    if _w is not None:
+        req.add_header("X-Runner-Power", str(_w))
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)

@@ -11,6 +11,10 @@ export type MachineStat = {
   loadAvg?: string | null;
   cores?: number | null;
   uptimeSec?: number | null;
+  gpuPct?: number | null;
+  batteryPct?: number | null;
+  charging?: boolean | null;
+  powerW?: number | null;
   maxWorkers?: number | null;
 };
 
@@ -52,11 +56,17 @@ export function MachineStats({ s, compact = false }: { s: MachineStat; compact?:
         pct={diskPct}
         right={s.diskUsedMb != null ? `${fmtGB(s.diskUsedMb)} / ${fmtGB(s.diskTotalMb)}` : "—"}
       />
+      {s.gpuPct != null && <Bar label="GPU" pct={s.gpuPct} right={`${s.gpuPct}%`} />}
       {!compact && (
         <div className="flex flex-wrap gap-1.5 pt-0.5 text-[10px]">
           {s.tempC != null && (
             <span className={`tag ${s.tempC >= 80 ? "text-red-300" : s.tempC >= 70 ? "text-amber-300" : ""}`}>
               {s.tempC}°C
+            </span>
+          )}
+          {s.batteryPct != null && (
+            <span className="tag">
+              {s.charging ? "⚡" : "🔋"} {s.batteryPct}%{s.powerW != null ? ` · ${s.powerW}W` : ""}
             </span>
           )}
           {s.cores != null && <span className="tag">{s.cores} cores</span>}

@@ -126,7 +126,7 @@ export default async function MachinePage({
         <Stat
           label="Runner version"
           value={r.version ? `v${r.version}` : "—"}
-          sub={outdated ? "self-updating…" : online ? "current" : ""}
+          sub={outdated ? "updates when idle · restart to update now" : online ? "latest" : ""}
           warn={outdated}
         />
         <Stat

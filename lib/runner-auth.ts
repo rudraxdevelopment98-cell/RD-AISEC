@@ -67,6 +67,11 @@ export async function authenticateRunner(req: Request) {
   const diskTotalMb = intH("x-runner-disk-total");
   const cores = intH("x-runner-cores");
   const uptimeSec = intH("x-runner-uptime");
+  const gpuPct = pct("x-runner-gpu");
+  const batteryPct = pct("x-runner-battery");
+  const powerW = intH("x-runner-power");
+  const chargingH = req.headers.get("x-runner-charging");
+  const charging = chargingH == null || chargingH === "" ? undefined : chargingH === "1";
 
   await prisma.runner
     .update({
@@ -91,6 +96,10 @@ export async function authenticateRunner(req: Request) {
         ...(diskTotalMb !== undefined ? { diskTotalMb } : {}),
         ...(cores !== undefined ? { cores } : {}),
         ...(uptimeSec !== undefined ? { uptimeSec } : {}),
+        ...(gpuPct !== undefined ? { gpuPct } : {}),
+        ...(batteryPct !== undefined ? { batteryPct } : {}),
+        ...(powerW !== undefined ? { powerW } : {}),
+        ...(charging !== undefined ? { charging } : {}),
       },
     })
     .catch(() => {});
