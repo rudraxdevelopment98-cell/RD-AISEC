@@ -57,6 +57,28 @@ export default async function MachinePage({
   const installable = installableTools();
   const missing = installable.filter((t) => !installedSet.has(t));
   const outdated = !!r.version && r.version !== RUNNER_VERSION;
+
+  // Why an outdated runner hasn't self-updated: it only updates while idle, so a
+  // busy machine with a backlog stays on the old version. Surface that + a rough
+  // ETA to clear the queue.
+  const [runningCount, queuedCount, recentDone] = await Promise.all([
+    prisma.job.count({ where: { runnerId: r.id, status: "running" } }),
+    prisma.job.count({ where: { runnerId: r.id, status: "queued" } }),
+    prisma.job.findMany({
+      where: { runnerId: r.id, status: { in: ["done", "failed"] }, startedAt: { not: null }, finishedAt: { not: null } },
+      orderBy: { finishedAt: "desc" },
+      take: 20,
+      select: { startedAt: true, finishedAt: true },
+    }),
+  ]);
+  const busy = runningCount > 0 || queuedCount > 0;
+  const durs = recentDone
+    .map((j) => (new Date(j.finishedAt!).getTime() - new Date(j.startedAt!).getTime()) / 1000)
+    .filter((s) => s > 0 && s < 3600);
+  const avgSec = durs.length ? durs.reduce((a, b) => a + b, 0) / durs.length : 90;
+  const etaSec = Math.round((queuedCount / Math.max(1, r.maxWorkers)) * avgSec + runningCount * avgSec * 0.5);
+  const etaText = etaSec < 60 ? `~${etaSec}s` : etaSec < 3600 ? `~${Math.round(etaSec / 60)}m` : `~${Math.floor(etaSec / 3600)}h ${Math.round((etaSec % 3600) / 60)}m`;
+
   const activeInstalls = r.installs.filter((i) => i.status === "pending" || i.status === "installing");
   const subnets = (r.subnets ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const wifi = (r.wifi ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -116,6 +138,32 @@ export default async function MachinePage({
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
+        </div>
+      )}
+
+      {/* ── Update status ────────────────────────────────── */}
+      {outdated && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <p className="font-semibold">
+            <Icon name="alert" className="mr-1 inline h-4 w-4" />
+            Runner update available — v{r.version} → v{RUNNER_VERSION}
+          </p>
+          {busy ? (
+            <p className="mt-1 text-amber-200/90">
+              This machine only self-updates while <b>idle</b>, and right now it&apos;s running{" "}
+              {runningCount} job{runningCount === 1 ? "" : "s"}
+              {queuedCount > 0 ? ` with ${queuedCount} queued (${etaText} to clear)` : ""} — so it hasn&apos;t
+              updated yet. <b>Restart the runner</b> to update immediately, or use <b>⚡ Turbo</b> below to
+              drain the queue faster.
+            </p>
+          ) : (
+            <p className="mt-1 text-amber-200/90">
+              It&apos;s idle now, so it should self-update within a few minutes — or restart it to update right away.
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-amber-200/60">
+            Updates jump straight to the latest (v{RUNNER_VERSION}) — intermediate versions are skipped.
+          </p>
         </div>
       )}
 
