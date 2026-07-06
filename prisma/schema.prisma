@@ -506,3 +506,15 @@ model ThreatFeed {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Latest CSI (Channel State Information) analysis per owner — the "WiFi camera"
+// imaging result posted by a CSI collector (ESP32-CSI / nexmon / Intel 5300).
+// One row per owner (upserted); `data` holds the JSON CsiAnalysis the UI polls.
+model CsiCapture {
+  id         String   @id @default(cuid())
+  ownerEmail String   @unique
+  data       String   @default("") // JSON CsiAnalysis
+  frames     Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

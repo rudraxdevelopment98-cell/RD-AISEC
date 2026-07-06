@@ -133,11 +133,13 @@ export function WifiCamera({
   const [iface, setIface] = useState(
     defaultIface ?? firstMachine?.wifi?.[0] ?? "wlan0",
   );
-  const [mode, setMode] = useState<"live" | "demo">(machines.length ? "live" : "demo");
+  const [mode, setMode] = useState<"live" | "csi" | "demo">(machines.length ? "live" : "demo");
   const [running, setRunning] = useState(machines.length === 0);
   const [status, setStatus] = useState<string>("");
   const [analysis, setAnalysis] = useState<Partial<SenseAnalysis> | null>(null);
   const [spatial, setSpatial] = useState<SpatialFrame | null>(null);
+  // CSI-only extras (velocity sign, angle-of-arrival, heart rate).
+  const [csiExtra, setCsiExtra] = useState<{ heartBpm: number | null; azimuthDeg: number | null; fresh: boolean } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<SpatialFrame | null>(null);
@@ -211,6 +213,42 @@ export function WifiCamera({
     return () => { liveLoop.current = false; };
   }, [mode, running, runLive]);
 
+  // CSI mode: poll the latest imaging result posted by a CSI collector.
+  useEffect(() => {
+    if (mode !== "csi" || !running) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/sensing/csi").then((x) => x.json());
+        const cs = r?.analysis;
+        if (cs && cs.spatial) {
+          setSpatial(cs.spatial);
+          setAnalysis({
+            presentPct: cs.present ? 100 : 0,
+            personEstimate: cs.occupancy ?? 0,
+            speedMps: Math.abs(cs.velocityMps ?? 0),
+            speedLabel: Math.abs(cs.velocityMps ?? 0) > 0.35 ? "walking" : "still",
+            direction: (cs.velocityMps ?? 0) > 0.05 ? "approaching" : (cs.velocityMps ?? 0) < -0.05 ? "receding" : "lateral",
+            rangeMeters: cs.rangeMeters ?? null,
+            breathingBpm: cs.breathingBpm ?? null,
+            movement: cs.motion ?? 0,
+            confidence: cs.quality ?? 0,
+            activity: cs.present ? (Math.abs(cs.velocityMps ?? 0) > 0.35 ? "walking" : cs.breathingBpm ? "breathing" : "still") : "empty",
+          });
+          setCsiExtra({ heartBpm: cs.heartBpm ?? null, azimuthDeg: cs.azimuthDeg ?? null, fresh: !!r.fresh });
+          setStatus(r.fresh ? "CSI live" : `CSI · last seen ${Math.round((r.ageMs ?? 0) / 1000)}s ago`);
+        } else {
+          setStatus("waiting for CSI collector… (run runner/csi_collector.py)");
+        }
+      } catch {
+        setStatus("CSI poll failed");
+      }
+    };
+    tick();
+    const id = setInterval(() => { if (!stop) tick(); }, 1500);
+    return () => { stop = true; clearInterval(id); };
+  }, [mode, running]);
+
   const a = analysis ?? {};
   const present = (a.presentPct ?? 0) > 12 || (a.personEstimate ?? 0) > 0;
 
@@ -232,6 +270,13 @@ export function WifiCamera({
             className={`tag ${mode === "live" ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400"} disabled:opacity-40`}
           >
             Live · real WiFi
+          </button>
+          <button
+            onClick={() => setMode("csi")}
+            className={`tag ${mode === "csi" ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400"}`}
+            title="Full CSI imaging — needs a CSI collector running"
+          >
+            CSI · imaging
           </button>
           <button
             onClick={() => setMode("demo")}
@@ -280,7 +325,11 @@ export function WifiCamera({
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-white">WiFi camera — top-down occupancy</span>
             <span className="tag">
-              {mode === "demo" ? "DEMO" : spatial?.mode === "multilateration" ? "multi-AP" : "single-AP · radial"}
+              {mode === "demo"
+                ? "DEMO"
+                : mode === "csi"
+                  ? csiExtra?.azimuthDeg != null ? "CSI · 2D (AoA)" : "CSI · imaging"
+                  : spatial?.mode === "multilateration" ? "multi-AP" : "single-AP · radial"}
             </span>
           </div>
           <canvas
@@ -303,8 +352,17 @@ export function WifiCamera({
           <Tile label="Direction" value={dirArrow(a.direction)} sub={a.direction ?? "—"} accent="sky" />
           <Tile label="Breathing" value={a.breathingBpm != null ? `${a.breathingBpm}` : "—"} sub="breaths/min" accent="rose" />
           <Tile label="Range" value={a.rangeMeters != null ? `${a.rangeMeters}` : "—"} sub="metres (approx)" />
-          <Tile label="Motion" value={`${Math.round((a.movement ?? 0) * 100)}%`} sub="activity level" accent="amber" />
-          <Tile label="Confidence" value={`${Math.round((a.confidence ?? 0) * 100)}%`} sub="analysis" />
+          {mode === "csi" ? (
+            <>
+              <Tile label="Heart rate" value={csiExtra?.heartBpm != null ? `${csiExtra.heartBpm}` : "—"} sub="beats/min · CSI" accent="rose" />
+              <Tile label="Angle" value={csiExtra?.azimuthDeg != null ? `${csiExtra.azimuthDeg}°` : "—"} sub="bearing (AoA)" accent="sky" />
+            </>
+          ) : (
+            <>
+              <Tile label="Motion" value={`${Math.round((a.movement ?? 0) * 100)}%`} sub="activity level" accent="amber" />
+              <Tile label="Confidence" value={`${Math.round((a.confidence ?? 0) * 100)}%`} sub="analysis" />
+            </>
+          )}
         </div>
       </div>
     </div>
