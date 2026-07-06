@@ -69,6 +69,7 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
       { href: "/dashboard/network", label: "Network Map", icon: "globe" },
       { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
+      { href: "/dashboard/sensing", label: "WiFi Sensing", icon: "radar" },
       { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
     ],
   },
