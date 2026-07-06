@@ -11,6 +11,7 @@ import { SEVERITY_ORDER } from "@/lib/report";
 import { importFindingsCsv } from "@/lib/finding-actions";
 import { deleteSuppression } from "@/lib/suppression";
 import { classifyConfidence } from "@/lib/exploit-confidence";
+import { bySignalDesc } from "@/lib/finding-signal";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,9 @@ const SEV_RANK: Record<string, number> = {
   info: 4,
 };
 const SORT_OPTIONS = [
+  { value: "signal", label: "Priority (smart triage)" },
   { value: "severity", label: "Severity (high→low)" },
+  { value: "recent", label: "Most recent" },
   { value: "oldest", label: "Oldest first" },
   { value: "status", label: "Status" },
 ];
@@ -151,15 +154,18 @@ export default async function FindingsPage({
   if (sp.engagement) exportQs.set("engagement", sp.engagement);
   const exportHref = `/api/findings/export${exportQs.toString() ? `?${exportQs}` : ""}`;
 
-  // Sort the loaded set (query is createdAt desc = "recent" default).
+  // Sort the loaded set. Default is smart-triage "signal" so real, actionable
+  // bugs surface above the noise; other sorts stay available.
   const sorted =
-    sp.sort === "oldest"
-      ? [...findings].reverse()
-      : sp.sort === "severity"
-        ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
-        : sp.sort === "status"
-          ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
-          : findings;
+    sp.sort === "recent"
+      ? findings
+      : sp.sort === "oldest"
+        ? [...findings].reverse()
+        : sp.sort === "severity"
+          ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+          : sp.sort === "status"
+            ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
+            : [...findings].sort(bySignalDesc);
 
   return (
     <div className="mx-auto max-w-5xl">

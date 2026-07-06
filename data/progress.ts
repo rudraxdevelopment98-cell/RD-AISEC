@@ -59,6 +59,7 @@ export const PROGRESS: ProgressArea[] = [
       "Exploit confidence: reported → validated → proven",
       "De-dup + cross-tool corroboration (🔗 N tools)",
       "Parser negation guards; searchsploit product-keyword gate",
+      "Triage signal score — ranks real bugs over noise (severity × proof × agreement)",
     ],
     todo: [
       "Cross-tool severity reconciliation",

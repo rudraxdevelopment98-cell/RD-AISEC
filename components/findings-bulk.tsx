@@ -8,6 +8,7 @@ import type { Confidence } from "@/lib/exploit-confidence";
 import { FrameworkBadges } from "@/components/framework-badges";
 import { bulkDeleteFindings, bulkSetStatus, bulkSetCategory } from "@/lib/finding-actions";
 import { sourceCount } from "@/lib/dedup-core";
+import { signalScore, TIER_LABEL, TIER_CLASS } from "@/lib/finding-signal";
 
 export type FindingRow = {
   id: string;
@@ -95,7 +96,9 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
 
       {/* Cards */}
       <div className="mt-3 space-y-3">
-        {findings.map((f) => (
+        {findings.map((f) => {
+          const sig = signalScore(f);
+          return (
           <div
             key={f.id}
             className={`card ${SEV_GLOW[f.severity] ?? ""}`}
@@ -119,6 +122,12 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                   {f.title}
                 </Link>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`tag ${TIER_CLASS[sig.tier]}`}
+                    title={`Triage priority ${sig.score}/100${sig.reasons.length ? " — " + sig.reasons.join(", ") : ""}`}
+                  >
+                    {TIER_LABEL[sig.tier]}
+                  </span>
                   <ConfidenceBadge value={f.confidence} />
                   {sourceCount(f.sources) > 1 && (
                     <span className="tag ring-emerald accent-emerald" title={`Independently detected by: ${f.sources}`}>
@@ -150,7 +159,8 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               </Link>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
