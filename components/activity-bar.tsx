@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fmtGB } from "@/lib/stats-format";
 
 type Activity = {
   onlineRunners: number;
@@ -11,6 +12,10 @@ type Activity = {
     name: string;
     cpuPct: number | null;
     memPct: number | null;
+    memUsedMb: number | null;
+    memTotalMb: number | null;
+    diskUsedMb: number | null;
+    diskTotalMb: number | null;
     tempC: number | null;
     loadAvg: string | null;
   } | null;
@@ -78,7 +83,18 @@ export function ActivityBar() {
           {a.onlineRunners} machine{a.onlineRunners === 1 ? "" : "s"} online
         </span>
         {m?.cpuPct != null && <span title={`${m.name} · CPU`}>CPU {m.cpuPct}%</span>}
-        {m?.memPct != null && <span title={`${m.name} · RAM`}>RAM {m.memPct}%</span>}
+        {m?.memUsedMb != null ? (
+          <span title={`${m.name} · RAM`}>
+            RAM {fmtGB(m.memUsedMb)}/{fmtGB(m.memTotalMb)}
+          </span>
+        ) : (
+          m?.memPct != null && <span title={`${m.name} · RAM`}>RAM {m.memPct}%</span>
+        )}
+        {m?.diskUsedMb != null && (
+          <span title={`${m.name} · Disk`}>
+            Disk {fmtGB(m.diskUsedMb)}/{fmtGB(m.diskTotalMb)}
+          </span>
+        )}
         {m?.tempC != null && (
           <span
             title={`${m.name} · temperature`}

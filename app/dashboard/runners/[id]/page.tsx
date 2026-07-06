@@ -6,6 +6,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { MachineConsole } from "@/components/machine-console";
+import { MachineStats } from "@/components/machine-stats";
+import { turboWorkers } from "@/lib/stats-format";
 import {
   deleteRunner,
   setRunnerAnonymity,
@@ -134,6 +136,21 @@ export default async function MachinePage({
         />
       </div>
 
+      {/* ── Live resources ───────────────────────────────── */}
+      <div className="card mt-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-white">
+            <Icon name="chart" className="mr-1 inline h-4 w-4 text-brand" /> Live resources
+          </p>
+          <span className={`text-[10px] ${online ? "text-emerald-400" : "text-gray-600"}`}>
+            {online ? "live · refreshes on reload" : "offline"}
+          </span>
+        </div>
+        <div className="mt-3">
+          <MachineStats s={r} />
+        </div>
+      </div>
+
       {(subnets.length > 0 || wifi.length > 0) && (
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {subnets.length > 0 && (
@@ -198,6 +215,24 @@ export default async function MachinePage({
           <span>job(s) in parallel</span>
           <button className="btn-ghost px-3 py-1.5 text-xs">Apply</button>
         </form>
+
+        {/* Turbo — one-click high parallelism to drain a job backlog */}
+        <div className="card flex flex-wrap items-center gap-2 text-sm text-gray-400">
+          <span className="text-xs font-semibold">⚡ Turbo</span>
+          <form action={setRunnerWorkers}>
+            <input type="hidden" name="id" value={r.id} />
+            <input type="hidden" name="workers" value={turboWorkers(r.cores)} />
+            <button className="btn-primary px-3 py-1.5 text-xs">⚡ Turbo ({turboWorkers(r.cores)}× parallel)</button>
+          </form>
+          <form action={setRunnerWorkers}>
+            <input type="hidden" name="id" value={r.id} />
+            <input type="hidden" name="workers" value="3" />
+            <button className="btn-ghost px-3 py-1.5 text-xs">Normal (3×)</button>
+          </form>
+          <span className="text-[11px] text-gray-500">
+            Runs many more jobs at once — drains a big queue fast when the machine has spare CPU.
+          </span>
+        </div>
 
         {/* Anonymity */}
         <div className="card flex flex-wrap items-center justify-between gap-2">

@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "42"
+RUNNER_VERSION = "43"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -441,6 +441,42 @@ def _loadavg():
         return ""
 
 
+def _mem_mb():
+    """(used_MB, total_MB) of RAM, or (None, None)."""
+    try:
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, _, v = line.partition(":")
+                info[k] = int(v.strip().split()[0])  # kB
+        total = info.get("MemTotal", 0) // 1024
+        avail = info.get("MemAvailable", info.get("MemFree", 0)) // 1024
+        if total <= 0:
+            return (None, None)
+        return (max(0, total - avail), total)
+    except Exception:  # noqa: BLE001
+        return (None, None)
+
+
+def _disk_mb():
+    """(used_MB, total_MB) of the root filesystem, or (None, None)."""
+    try:
+        st = os.statvfs("/")
+        total = st.f_blocks * st.f_frsize
+        free = st.f_bavail * st.f_frsize
+        return (round(max(0, total - free) / 1048576), round(total / 1048576))
+    except Exception:  # noqa: BLE001
+        return (None, None)
+
+
+def _uptime_s():
+    try:
+        with open("/proc/uptime") as f:
+            return int(float(f.read().split()[0]))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
@@ -463,6 +499,20 @@ def request(method: str, path: str, body=None, timeout: int = 30):
         req.add_header("X-Runner-Temp", str(temp))
     if load:
         req.add_header("X-Runner-Load", load)
+    mem_u, mem_t = _mem_mb()
+    disk_u, disk_t = _disk_mb()
+    if mem_u is not None:
+        req.add_header("X-Runner-Mem-Used", str(mem_u))
+        req.add_header("X-Runner-Mem-Total", str(mem_t))
+    if disk_u is not None:
+        req.add_header("X-Runner-Disk-Used", str(disk_u))
+        req.add_header("X-Runner-Disk-Total", str(disk_t))
+    _cores = os.cpu_count()
+    if _cores:
+        req.add_header("X-Runner-Cores", str(_cores))
+    _up = _uptime_s()
+    if _up is not None:
+        req.add_header("X-Runner-Uptime", str(_up))
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)

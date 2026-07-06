@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { MachineStats } from "@/components/machine-stats";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { canAccess, isOwnerRole, type AccessInfo } from "@/lib/access";
 
@@ -30,7 +31,22 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
     : [];
   const runners = showRunners
     ? await prisma.runner.findMany({
-        select: { id: true, name: true, lastSeenAt: true },
+        select: {
+          id: true,
+          name: true,
+          lastSeenAt: true,
+          cpuPct: true,
+          memPct: true,
+          memUsedMb: true,
+          memTotalMb: true,
+          diskUsedMb: true,
+          diskTotalMb: true,
+          tempC: true,
+          loadAvg: true,
+          cores: true,
+          uptimeSec: true,
+          maxWorkers: true,
+        },
         orderBy: { createdAt: "desc" },
         take: 6,
       })
@@ -105,17 +121,24 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
           {runners.length === 0 ? (
             <RailEmpty>No machines registered.</RailEmpty>
           ) : (
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 space-y-2.5">
               {runners.map((r) => {
                 const isOnline =
                   r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
                 return (
-                  <li key={r.id} className="flex items-center gap-2 text-xs text-gray-300">
-                    <Dot on={!!isOnline} />
-                    <span className="truncate">{r.name || "Runner"}</span>
-                    <span className={`ml-auto text-[10px] ${isOnline ? "text-emerald-400" : "text-gray-600"}`}>
-                      {isOnline ? "online" : "offline"}
-                    </span>
+                  <li key={r.id} className="text-xs text-gray-300">
+                    <Link href={`/dashboard/runners/${r.id}`} className="flex items-center gap-2 hover:text-white">
+                      <Dot on={!!isOnline} />
+                      <span className="truncate">{r.name || "Runner"}</span>
+                      <span className={`ml-auto text-[10px] ${isOnline ? "text-emerald-400" : "text-gray-600"}`}>
+                        {isOnline ? "online" : "offline"}
+                      </span>
+                    </Link>
+                    {isOnline && (
+                      <div className="mt-1.5 rounded-lg border border-surface-border bg-black/20 px-2 py-1.5">
+                        <MachineStats s={r} compact />
+                      </div>
+                    )}
                   </li>
                 );
               })}

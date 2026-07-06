@@ -192,6 +192,12 @@ model Runner {
   installed  String    @default("")    // comma-separated tool ids whose binary is present
   cpuPct     Int?      // last reported CPU utilisation %
   memPct     Int?      // last reported RAM utilisation %
+  memUsedMb  Int?      // RAM in use (MB)
+  memTotalMb Int?      // total RAM (MB)
+  diskUsedMb Int?      // root filesystem used (MB)
+  diskTotalMb Int?     // root filesystem total (MB)
+  cores      Int?      // logical CPU cores
+  uptimeSec  Int?      // seconds since boot
   tempC      Int?      // last reported CPU temperature °C
   loadAvg    String    @default("") // reported "1m 5m 15m" load averages
   createdAt  DateTime  @default(now())

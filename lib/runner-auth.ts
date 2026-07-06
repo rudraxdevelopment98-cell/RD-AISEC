@@ -54,6 +54,19 @@ export async function authenticateRunner(req: Request) {
   const tempRaw = req.headers.get("x-runner-temp");
   const tempC = tempRaw ? Math.round(Number(tempRaw)) : undefined;
   const loadAvg = (req.headers.get("x-runner-load") ?? "").slice(0, 40);
+  // Absolute resource figures (MB / cores / seconds).
+  const intH = (h: string): number | undefined => {
+    const v = req.headers.get(h);
+    if (v == null || v === "") return undefined;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
+  const memUsedMb = intH("x-runner-mem-used");
+  const memTotalMb = intH("x-runner-mem-total");
+  const diskUsedMb = intH("x-runner-disk-used");
+  const diskTotalMb = intH("x-runner-disk-total");
+  const cores = intH("x-runner-cores");
+  const uptimeSec = intH("x-runner-uptime");
 
   await prisma.runner
     .update({
@@ -72,6 +85,12 @@ export async function authenticateRunner(req: Request) {
         ...(memPct !== undefined ? { memPct } : {}),
         ...(tempC !== undefined && Number.isFinite(tempC) ? { tempC } : {}),
         ...(loadAvg ? { loadAvg } : {}),
+        ...(memUsedMb !== undefined ? { memUsedMb } : {}),
+        ...(memTotalMb !== undefined ? { memTotalMb } : {}),
+        ...(diskUsedMb !== undefined ? { diskUsedMb } : {}),
+        ...(diskTotalMb !== undefined ? { diskTotalMb } : {}),
+        ...(cores !== undefined ? { cores } : {}),
+        ...(uptimeSec !== undefined ? { uptimeSec } : {}),
       },
     })
     .catch(() => {});
