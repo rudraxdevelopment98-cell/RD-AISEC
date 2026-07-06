@@ -19,7 +19,7 @@ export function AutoscanFab({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end print:hidden">
+    <div className="fixed bottom-10 right-5 z-40 flex flex-col items-end print:hidden">
       {open && (
         <form
           action={launchAutoscan}

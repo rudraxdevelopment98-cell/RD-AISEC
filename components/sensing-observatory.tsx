@@ -425,7 +425,7 @@ export function SensingObservatory({
       </div>
 
       {/* Vital signs — bottom left */}
-      <div className="pointer-events-none absolute bottom-4 left-4 w-44 rounded-xl border border-surface-border bg-black/50 p-3 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-3 left-3 w-[8.5rem] rounded-xl border border-surface-border bg-black/60 p-2.5 backdrop-blur sm:bottom-4 sm:left-4 sm:w-44 sm:p-3">
         <p className="text-[10px] uppercase tracking-widest text-gray-500">Vital signs</p>
         <Metric label="❤ Heart rate" value={present ? `${f?.heartBpm}` : "—"} unit="BPM" color="text-rose-300" />
         <Metric label="🌬 Respiration" value={present ? `${f?.breathingBpm}` : "—"} unit="RPM" color="text-sky-300" />
@@ -433,7 +433,7 @@ export function SensingObservatory({
       </div>
 
       {/* WiFi signal — bottom right */}
-      <div className="pointer-events-none absolute bottom-4 right-4 w-44 rounded-xl border border-surface-border bg-black/50 p-3 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-3 right-3 w-[8.5rem] rounded-xl border border-surface-border bg-black/60 p-2.5 backdrop-blur sm:bottom-4 sm:right-4 sm:w-44 sm:p-3">
         <p className="text-[10px] uppercase tracking-widest text-gray-500">
           WiFi signal {live && <span className="text-emerald-400">· live</span>}
         </p>
@@ -449,8 +449,9 @@ export function SensingObservatory({
         </div>
       </div>
 
-      {/* Scenario chips — bottom center */}
-      <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-wrap items-center gap-1.5">
+      {/* Scenario chips — top on mobile (keeps the bottom corners for the panels),
+          bottom-center on wider screens. */}
+      <div className="pointer-events-auto absolute left-1/2 top-[4.5rem] flex max-w-[92%] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 sm:top-auto sm:bottom-4">
         <button onClick={() => setRunning((r) => !r)} className="tag ring-brand/40 text-brand-glow">
           {running ? "⏸" : "▶"}
         </button>

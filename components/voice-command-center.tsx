@@ -319,7 +319,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
   }
 
   return (
-    <div className="fixed bottom-5 left-5 z-40 flex flex-col items-start gap-2 print:hidden">
+    <div className="fixed bottom-10 left-5 z-40 flex flex-col items-start gap-2 print:hidden">
       {open && (
         <div className="glass-panel w-72 rounded-xl border border-surface-border p-3 shadow-2xl">
           <div className="flex items-center justify-between">
