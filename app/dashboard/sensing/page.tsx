@@ -7,6 +7,7 @@ import { WifiCamera } from "@/components/wifi-camera";
 import { WifiDevices } from "@/components/wifi-devices";
 import { FloorPlanEditor } from "@/components/floorplan-editor";
 import { WifiAutomap } from "@/components/wifi-automap";
+import { WifiHomemap } from "@/components/wifi-homemap";
 import { CsiCapability } from "@/components/csi-capability";
 import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
@@ -75,6 +76,7 @@ export default async function SensingPage() {
         defaultTab="camera"
         tabs={[
           { id: "camera", label: "📷 WiFi Camera (2D)" },
+          { id: "map", label: "🗺 Auto Map" },
           { id: "observatory", label: "🛰 3D Observatory" },
           { id: "home", label: "🏠 Home Plan" },
         ]}
@@ -88,6 +90,16 @@ export default async function SensingPage() {
           </p>
           <WifiCamera machines={machines} defaultIface={interfaces[0]} />
           <WifiDevices machines={machines.map((m) => ({ id: m.id, name: m.name }))} />
+        </TabPanel>
+
+        <TabPanel id="map">
+          <p className="mb-3 text-sm text-gray-400">
+            Build a <b>real 2D map of your home</b> from a monitor-mode survey. Walk your
+            monitor adapter (TL-WN721N) to a few spots — every access point and client device it
+            hears is captured with real RSSI, vendor and channel, then positioned by trilaterating
+            across the spots. The coverage outline shows how far signal reaches.
+          </p>
+          <WifiHomemap machines={machines} defaultIface={interfaces[0]} plan={homePlan} />
         </TabPanel>
 
         <TabPanel id="observatory">

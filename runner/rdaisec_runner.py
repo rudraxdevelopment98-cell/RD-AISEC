@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "46"
+RUNNER_VERSION = "47"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1198,6 +1198,233 @@ def run_wifisense(job):
     return (json.dumps({"iface": iface, "ssid": ssid, "bssid": bssid, "rate": rate, "samples": samples}), 0)
 
 
+def _default_route_iface() -> str:
+    """The interface carrying the default route — the one we must NOT knock into
+    monitor mode (that would cut the runner's own connectivity)."""
+    try:
+        out = subprocess.run(["ip", "route", "show", "default"], capture_output=True, text=True, timeout=5).stdout
+        m = re.search(r"\bdev\s+(\S+)", out)
+        return m.group(1) if m else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _monitor_ifaces() -> list[str]:
+    """Interfaces currently in monitor mode."""
+    mons = []
+    try:
+        out = subprocess.run(["iw", "dev"], capture_output=True, text=True, timeout=5).stdout
+        cur = ""
+        for line in out.splitlines():
+            m = re.search(r"Interface\s+(\S+)", line)
+            if m:
+                cur = m.group(1)
+            elif "type monitor" in line and cur:
+                mons.append(cur)
+    except Exception:  # noqa: BLE001
+        pass
+    return mons
+
+
+def run_wifisurvey(job):
+    """Monitor-mode RF survey — the real "wherever signal reaches" map source.
+
+    Puts a monitor-capable adapter (e.g. TL-WN721N / AR9271) into monitor mode,
+    lets airodump-ng channel-hop across the band, and captures EVERY access point
+    and client station it hears with real per-device RSSI, channel, encryption,
+    vendor OUI (resolved portal-side) and packet counts. One capture is one
+    "vantage"; the portal fuses several vantages (a short walk) into real 2D
+    positions + a coverage footprint.
+
+    Emits JSON: {iface, mon, vantage, durationSec, aps:[...], stations:[...]}.
+    Authorized spaces only. Never touches the interface carrying the default
+    route, and restores managed mode on any adapter it switched."""
+    iface = (job.get("target") or "").strip()
+    if not re.match(r"^[a-zA-Z0-9_.\-]{1,32}$", iface):
+        return "Refused: bad interface name.", 1
+    args = (job.get("args") or "").split()
+    seconds = 25
+    vantage = ""
+    for a in args:
+        if a.isdigit():
+            seconds = int(a)
+        elif a.startswith("vantage="):
+            vantage = a[len("vantage="):][:40]
+    seconds = max(8, min(90, seconds))
+
+    if iface == _default_route_iface():
+        return (json.dumps({
+            "iface": iface, "error": "default-route",
+            "message": f"{iface} carries this machine's internet route — refusing to put it in monitor mode (it would cut connectivity). Pick your dedicated adapter (the TL-WN721N), not the one the runner reaches the portal through.",
+        }), 0)
+
+    if not shutil.which("airodump-ng"):
+        return (json.dumps({
+            "iface": iface, "error": "no-airodump",
+            "message": "airodump-ng not installed. On Kali: sudo apt-get install -y aircrack-ng.",
+        }), 0)
+
+    sudo, stdin_in = _sudo_prefix()
+
+    def sh(argv, timeout=20):
+        try:
+            return subprocess.run(sudo + argv, input=stdin_in, capture_output=True,
+                                  text=True, timeout=timeout)
+        except Exception:  # noqa: BLE001
+            return None
+
+    # Resolve a monitor interface. Prefer one already in monitor mode; else switch
+    # the requested adapter and remember to restore it.
+    mons = _monitor_ifaces()
+    mon = iface if iface in mons else (mons[0] if mons else "")
+    we_enabled = False
+    if not mon:
+        # Try airmon-ng first (handles NetworkManager); fall back to plain iw.
+        started = sh(["airmon-ng", "start", iface], timeout=25)
+        after = _monitor_ifaces()
+        # airmon-ng may create "<iface>mon" / "wlanXmon" or flip the iface in place.
+        new = [m for m in after if m not in mons]
+        if new:
+            mon = new[0]
+        elif iface in after:
+            mon = iface
+        else:
+            sh(["ip", "link", "set", iface, "down"])
+            sh(["iw", "dev", iface, "set", "type", "monitor"])
+            sh(["ip", "link", "set", iface, "up"])
+            mon = iface if iface in _monitor_ifaces() else ""
+        we_enabled = bool(mon)
+        if not mon:
+            return (json.dumps({
+                "iface": iface, "error": "no-monitor",
+                "message": f"Could not put {iface} into monitor mode. Confirm it's a monitor-capable adapter (TL-WN721N is), that it's passed through to this VM, and that the runner has sudo.",
+                "detail": (started.stderr if started else "")[:400],
+            }), 0)
+
+    csv_prefix = "/tmp/rdsurvey"
+    try:
+        for f in os.listdir("/tmp"):
+            if f.startswith("rdsurvey-"):
+                try:
+                    os.remove(os.path.join("/tmp", f))
+                except Exception:  # noqa: BLE001
+                    pass
+    except Exception:  # noqa: BLE001
+        pass
+
+    # airodump-ng hops channels on its own; --write-interval flushes the CSV so a
+    # timeout kill still leaves a readable file.
+    proc = subprocess.Popen(
+        sudo + ["airodump-ng", "-w", csv_prefix, "--output-format", "csv",
+                "--write-interval", "1", mon],
+        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    try:
+        if stdin_in and proc.stdin:
+            try:
+                proc.stdin.write(stdin_in.encode())
+                proc.stdin.flush()
+            except Exception:  # noqa: BLE001
+                pass
+        time.sleep(seconds)
+    finally:
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except Exception:  # noqa: BLE001
+            try:
+                proc.kill()
+            except Exception:  # noqa: BLE001
+                pass
+
+    csv_text = ""
+    try:
+        for f in sorted(os.listdir("/tmp")):
+            if f.startswith("rdsurvey-") and f.endswith(".csv"):
+                with open(os.path.join("/tmp", f), errors="ignore") as fh:
+                    csv_text = fh.read()
+    except Exception:  # noqa: BLE001
+        pass
+
+    aps, stations = _parse_airodump_csv(csv_text)
+
+    # Restore managed mode if we changed the adapter (best-effort).
+    if we_enabled:
+        stopped = sh(["airmon-ng", "stop", mon], timeout=20)
+        if stopped is None or (iface in _monitor_ifaces() or mon in _monitor_ifaces()):
+            sh(["ip", "link", "set", mon, "down"])
+            sh(["iw", "dev", mon, "set", "type", "managed"])
+            sh(["ip", "link", "set", mon, "up"])
+        if shutil.which("systemctl"):
+            sh(["systemctl", "restart", "NetworkManager"], timeout=20)
+
+    return (json.dumps({
+        "iface": iface, "mon": mon, "vantage": vantage,
+        "durationSec": seconds, "aps": aps, "stations": stations,
+    }), 0)
+
+
+def _parse_airodump_csv(text: str):
+    """Parse an airodump-ng CSV into (aps, stations). Two sections separated by a
+    blank line; power is RSSI in dBm."""
+    aps, stations = [], []
+    if not text.strip():
+        return aps, stations
+    lines = text.splitlines()
+    section = 0  # 0 = none, 1 = APs, 2 = stations
+    for raw in lines:
+        line = raw.strip()
+        low = line.lower()
+        if low.startswith("bssid,") and "essid" in low:
+            section = 1
+            continue
+        if low.startswith("station mac"):
+            section = 2
+            continue
+        if not line:
+            continue
+        cols = [c.strip() for c in line.split(",")]
+        if section == 1 and len(cols) >= 14 and re.match(r"^[0-9A-Fa-f:]{17}$", cols[0]):
+            try:
+                power = int(cols[8])
+            except Exception:  # noqa: BLE001
+                power = 0
+            aps.append({
+                "bssid": cols[0].upper(),
+                "channel": _int_or(cols[3]),
+                "privacy": cols[5],
+                "cipher": cols[6],
+                "auth": cols[7],
+                "power": power,
+                "beacons": _int_or(cols[9]),
+                "essid": cols[13] if len(cols) > 13 else "",
+                "firstSeen": cols[1],
+                "lastSeen": cols[2],
+            })
+        elif section == 2 and len(cols) >= 6 and re.match(r"^[0-9A-Fa-f:]{17}$", cols[0]):
+            try:
+                power = int(cols[3])
+            except Exception:  # noqa: BLE001
+                power = 0
+            stations.append({
+                "mac": cols[0].upper(),
+                "power": power,
+                "packets": _int_or(cols[4]),
+                "bssid": cols[5].upper() if re.match(r"^[0-9A-Fa-f:]{17}$", cols[5]) else "",
+                "probes": ",".join(cols[6:]).strip() if len(cols) > 6 else "",
+                "firstSeen": cols[1],
+                "lastSeen": cols[2],
+            })
+    return aps, stations
+
+
+def _int_or(s, default=0):
+    try:
+        return int(str(s).strip())
+    except Exception:  # noqa: BLE001
+        return default
+
+
 # Track running job processes so cancellations from the portal can kill them and
 # free the worker slot (otherwise a canceled job keeps running and blocks new ones).
 RUNNING_PROCS: dict = {}
@@ -1367,6 +1594,8 @@ def run_job(job):
         return run_savefile(job)
     if job.get("tool") == "wifisense":
         return run_wifisense(job)
+    if job.get("tool") == "wifisurvey":
+        return run_wifisurvey(job)
     argv, err = build_argv(job)
     if err:
         return err, 1

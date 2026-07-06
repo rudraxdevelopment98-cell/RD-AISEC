@@ -111,11 +111,14 @@ export const PROGRESS: ProgressArea[] = [
       "3D sensing observatory (Three.js): room, figure, propagation",
       "Real presence + motion from the connected AP's RSSI variance",
       "Motion algorithm: baseline detrending + presence hysteresis (ignores slow drift)",
+      "Monitor-mode RF survey (TL-WN721N): every AP + client with real RSSI, vendor, channel, encryption",
+      "Auto home map: walk to 3+ spots → trilaterate real device positions + coverage footprint",
     ],
     todo: [
-      "CSI hardware path for true pose / breathing / heart-rate",
-      "Continuous (auto-repeating) live sensing",
-      "Monitor-mode multi-AP sensing for position",
+      "CSI hardware path for true pose / breathing / heart-rate (ESP32-S3 nodes)",
+      "Continuous (auto-repeating) live sensing + device motion trails",
+      "Radio-tomography walls from a dense multi-node mesh",
+      "Pin known AP locations to sharpen positioning + enable wall hints",
     ],
   },
   {
