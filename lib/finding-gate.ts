@@ -19,6 +19,7 @@
 
 import { assessFreshness } from "./vuln-freshness";
 import { classifyConfidence } from "./exploit-confidence";
+import { reconcileSeverity } from "./severity-reconcile";
 
 export type GateFinding = {
   title: string;
@@ -32,15 +33,33 @@ export type GateFinding = {
   category?: string;
 };
 
-export type GateResult<T> = { kept: T[]; dropped: number; softened: number };
+export type GateResult<T> = { kept: T[]; dropped: number; softened: number; reconciled: number };
 
 const SOFTEN: Record<string, string> = { critical: "medium", high: "medium" };
+
+/** Reconcile a kept finding's severity against its vuln class + evidence. */
+function withReconciledSeverity<T extends GateFinding>(f: T, confirmed: boolean): { finding: T; changed: boolean } {
+  const conf = confirmed ? ("validated" as const) : ("reported" as const);
+  const rec = reconcileSeverity({
+    severity: f.severity,
+    title: f.title,
+    description: f.description,
+    confidence: conf,
+    category: f.category,
+  });
+  if (!rec.changed) return { finding: f, changed: false };
+  return {
+    finding: { ...f, severity: rec.severity, description: `${(f.description ?? "").trim()}\n\n⚖ ${rec.reason}`.trim() },
+    changed: true,
+  };
+}
 
 /** Run candidate findings through the freshness + confidence engines. */
 export function gateFindings<T extends GateFinding>(findings: T[]): GateResult<T> {
   const kept: T[] = [];
   let dropped = 0;
   let softened = 0;
+  let reconciled = 0;
 
   for (const f of findings) {
     // Judge on the finding's OWN EVIDENCE, not the parser's `confirmed` flag —
@@ -54,7 +73,10 @@ export function gateFindings<T extends GateFinding>(findings: T[]): GateResult<T
     // secrets, confirmed XSS/SQLi, weak TLS, missing headers…). Trust the parser
     // as-is — these are where the real, high-signal findings live.
     if (!fresh.cve) {
-      kept.push(f);
+      const conf = classifyConfidence({ title: f.title, description: f.description, confirmedFlag: f.confirmed });
+      const r = withReconciledSeverity(f, conf.level !== "reported");
+      if (r.changed) reconciled += 1;
+      kept.push(r.finding);
       continue;
     }
 
@@ -83,8 +105,11 @@ export function gateFindings<T extends GateFinding>(findings: T[]): GateResult<T
     // "current" for a CVE finding means the text shows it was actually validated
     // on the target. Keep confirmed only when the proof engine agrees.
     const conf = classifyConfidence(ev);
-    kept.push({ ...f, confirmed: conf.level !== "reported" });
+    const confirmed = conf.level !== "reported";
+    const r = withReconciledSeverity({ ...f, confirmed }, confirmed);
+    if (r.changed) reconciled += 1;
+    kept.push(r.finding);
   }
 
-  return { kept, dropped, softened };
+  return { kept, dropped, softened, reconciled };
 }
