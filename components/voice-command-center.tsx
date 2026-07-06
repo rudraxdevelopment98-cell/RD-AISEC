@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
 import {
   parseVoiceCommand,
+  resolveFollowup,
   hasWakeWord,
   stripWake,
   WAKE_WORD,
   type NavLink,
   type VoiceIntent,
+  type Pending,
 } from "@/lib/voice-commands";
 
 // Minimal Web Speech API typing (not in the default TS DOM lib).
@@ -55,10 +57,15 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
   const [heard, setHeard] = useState(""); // live/interim transcript
   const [last, setLast] = useState<{ said: string; reply: string } | null>(null);
 
+  const [pending, setPending] = useState<Pending | null>(null); // awaiting an answer
+
   const recRef = useRef<SR | null>(null);
   const wakeRef = useRef(false); // latest wake value for async callbacks
   const oneShotRef = useRef(false); // push-to-talk single command
   const mutedRef = useRef(false);
+  const pendingRef = useRef<Pending | null>(null); // latest pending for async callbacks
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null); // preferred TTS voice
 
   wakeRef.current = wake;
   mutedRef.current = muted;
@@ -74,23 +81,77 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
     }
   }, []);
 
+  // Pick the warmest natural-sounding English voice available (loads async).
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const pickVoice = () => {
+      const vs = window.speechSynthesis.getVoices();
+      if (!vs.length) return;
+      const prefer = [
+        "Samantha",
+        "Google UK English Female",
+        "Google US English",
+        "Microsoft Aria Online (Natural) - English (United States)",
+        "Microsoft Jenny Online (Natural) - English (United States)",
+        "Karen",
+        "Serena",
+        "Moira",
+        "Tessa",
+        "Fiona",
+        "Victoria",
+      ];
+      let v = vs.find((x) => prefer.includes(x.name));
+      if (!v) v = vs.find((x) => /^en/i.test(x.lang) && /female|aria|jenny|samantha|karen|serena|natural/i.test(x.name));
+      if (!v) v = vs.find((x) => /^en/i.test(x.lang));
+      voiceRef.current = v ?? vs[0] ?? null;
+    };
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+    return () => {
+      try {
+        window.speechSynthesis.onvoiceschanged = null;
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
   const speak = useCallback((text: string) => {
     if (mutedRef.current || typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.05;
-      u.pitch = 1;
+      if (voiceRef.current) u.voice = voiceRef.current;
+      // Slightly slower + a touch higher = calmer, friendlier delivery.
+      u.rate = 0.98;
+      u.pitch = 1.08;
+      u.volume = 1;
       window.speechSynthesis.speak(u);
     } catch {
       /* ignore */
     }
   }, []);
 
-  const execute = useCallback(
+  const applyIntent = useCallback(
     (intent: VoiceIntent, said: string) => {
       setLast({ said, reply: intent.speak });
       speak(intent.speak);
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+
+      // The assistant asked a question — remember what we're waiting for so the
+      // next utterance is treated as the answer (no wake word needed).
+      if (intent.type === "ask") {
+        pendingRef.current = intent.pending;
+        setPending(intent.pending);
+        pendingTimer.current = setTimeout(() => {
+          pendingRef.current = null;
+          setPending(null);
+        }, 20000);
+        return;
+      }
+
+      pendingRef.current = null;
+      setPending(null);
       switch (intent.type) {
         case "navigate":
         case "scan":
@@ -120,18 +181,22 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
     (transcript: string) => {
       const said = transcript.trim();
       if (!said) return;
+      // Answering a question we just asked — no wake word required.
+      if (pendingRef.current) {
+        applyIntent(resolveFollowup(pendingRef.current, said, links), said);
+        return;
+      }
       // In always-listening mode, only act when the wake word is present.
       if (wakeRef.current && !oneShotRef.current) {
         if (!hasWakeWord(said)) return;
-        const cmd = stripWake(said);
-        execute(parseVoiceCommand(cmd, links), said);
+        applyIntent(parseVoiceCommand(stripWake(said), links), said);
         return;
       }
       // Push-to-talk: wake word optional.
       const cmd = hasWakeWord(said) ? stripWake(said) : said;
-      execute(parseVoiceCommand(cmd, links), said);
+      applyIntent(parseVoiceCommand(cmd, links), said);
     },
-    [execute, links],
+    [applyIntent, links],
   );
 
   // Build/tear down a recognition session for the current mode.
@@ -212,7 +277,13 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
   }, [wake, supported]);
 
   // Clean up on unmount.
-  useEffect(() => () => stopSession(), [stopSession]);
+  useEffect(
+    () => () => {
+      stopSession();
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    },
+    [stopSession],
+  );
 
   function toggleWake() {
     const next = !wake;
@@ -222,7 +293,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
     } catch {
       /* ignore */
     }
-    speak(next ? "Always listening. Say Shiva, then a command." : "Wake word off.");
+    speak(next ? "I'm listening now. Just say Shiva, then tell me what you need." : "Okay, I've stopped listening.");
   }
 
   function toggleMute() {
@@ -269,11 +340,22 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
           ) : (
             <>
               <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-                Say <span className="text-gray-300">"{WAKE_WORD}, go to findings"</span>,{" "}
-                <span className="text-gray-300">"scan example dot com"</span>, or{" "}
-                <span className="text-gray-300">"search for XSS"</span>. Say{" "}
-                <span className="text-gray-300">"help"</span> anytime.
+                Talk to me naturally — <span className="text-gray-300">"{WAKE_WORD}, take me to findings"</span>,{" "}
+                <span className="text-gray-300">"scan example dot com"</span>, or just{" "}
+                <span className="text-gray-300">"hey Shiva"</span> and I'll ask where you'd like to go.
+                I'll ask if I'm unsure, and you can answer back.
               </p>
+
+              {/* Waiting-for-answer hint */}
+              {pending && (
+                <p className="mt-2 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-[11px] text-brand-glow">
+                  {pending.kind === "confirmScan"
+                    ? "Waiting for yes or no…"
+                    : pending.kind === "scanTarget"
+                    ? "Waiting for a target…"
+                    : "Waiting — tell me where to go…"}
+                </p>
+              )}
 
               {/* Live transcript */}
               <div className="mt-2 min-h-[2.2rem] rounded-lg border border-surface-border bg-black/30 px-2.5 py-1.5 text-xs text-gray-300">

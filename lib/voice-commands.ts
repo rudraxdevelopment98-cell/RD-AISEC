@@ -17,7 +17,16 @@ export type VoiceIntent =
   | { type: "back"; speak: string }
   | { type: "help"; speak: string }
   | { type: "stop"; speak: string }
+  // A conversational turn: the assistant asked something and is waiting for the
+  // user's spoken answer (no wake word needed for the reply).
+  | { type: "ask"; pending: Pending; speak: string }
   | { type: "none"; speak: string };
+
+/** What the assistant is waiting to hear next, after asking a question. */
+export type Pending =
+  | { kind: "destination" } // "Where would you like to go?"
+  | { kind: "scanTarget" } // "What should I scan?"
+  | { kind: "confirmScan"; target: string }; // "Shall I start the scan? yes/no"
 
 /** Default wake word — ties into the project's "Shiva" identity. */
 export const WAKE_WORD = "shiva";
@@ -124,11 +133,16 @@ function resolveDestination(dest: string, links: NavLink[]): NavLink | null {
  */
 export function parseVoiceCommand(raw: string, links: NavLink[] = []): VoiceIntent {
   const text = normalize(raw);
-  if (!text) return { type: "none", speak: "I didn't catch that." };
+  if (!text) return { type: "none", speak: "Sorry, I didn't quite catch that — could you say it again?" };
+
+  // Warm greeting / just calling for attention → open the conversation.
+  if (/^(hi|hello|hey|yo|hiya|good (morning|afternoon|evening)|you there|are you (there|awake|up)|wake up|hey there)\b/.test(text) && wordCount(text) <= 4) {
+    return { type: "ask", pending: { kind: "destination" }, speak: greet() };
+  }
 
   // Stop / cancel listening.
-  if (/^(stop( listening)?|cancel|never mind|nevermind|quiet|shut up|thanks?)\b/.test(text)) {
-    return { type: "stop", speak: "Standing by." };
+  if (/^(stop( listening)?|cancel|never ?mind|quiet|shut up|that's all|thank you|thanks|bye|goodbye)\b/.test(text)) {
+    return { type: "stop", speak: "Okay, I'll rest here. Just call me when you need me." };
   }
 
   // Help.
@@ -136,28 +150,21 @@ export function parseVoiceCommand(raw: string, links: NavLink[] = []): VoiceInte
     return {
       type: "help",
       speak:
-        "Try: go to findings, scan example dot com, search for cross site scripting, go back, or stop listening.",
+        "Happy to help. You can say things like: take me to findings, scan example dot com, search for cross site scripting, or go back. What would you like to do?",
     };
   }
 
   // Go back.
   if (/^(go back|back|previous( page)?|return)\b/.test(text)) {
-    return { type: "back", speak: "Going back." };
+    return { type: "back", speak: "Sure, going back." };
   }
 
   // Scan / recon a target.
   const scanM = text.match(/\b(scan|recon|assess|test|attack|start (a )?scan on|run (a )?scan on|run recon on)\b\s+(.*)$/);
   if (scanM) {
     const target = extractTarget(scanM[4] ?? "");
-    if (target) {
-      return {
-        type: "scan",
-        target,
-        href: `/dashboard/scan?target=${encodeURIComponent(target)}`,
-        speak: `Opening a scan for ${target.replace(/\./g, " dot ")}.`,
-      };
-    }
-    return { type: "none", speak: "Which target should I scan? Say, scan example dot com." };
+    if (target) return confirmScan(target);
+    return { type: "ask", pending: { kind: "scanTarget" }, speak: "Of course — what's the target? For example, example dot com." };
   }
 
   // Search / find something.
@@ -167,28 +174,117 @@ export function parseVoiceCommand(raw: string, links: NavLink[] = []): VoiceInte
     // "show me findings" is navigation, not a search — try to resolve first.
     const asDest = resolveDestination(q, links);
     if (asDest && /^show me\b/.test(text)) {
-      return { type: "navigate", href: asDest.href, label: asDest.label, speak: `Opening ${asDest.label}.` };
+      return { type: "navigate", href: asDest.href, label: asDest.label, speak: `Sure — here's ${asDest.label}.` };
     }
     if (q) {
       return {
         type: "search",
         query: q,
         href: `/dashboard/findings?q=${encodeURIComponent(q)}`,
-        speak: `Searching findings for ${q}.`,
+        speak: `Looking up ${q} in your findings.`,
       };
     }
   }
 
   // Navigate: "go to / open / navigate to / take me to <dest>".
-  const navM = text.match(/^(go to|open|navigate to|take me to|show|jump to|visit)\s+(the\s+)?(.*)$/);
+  const navM = text.match(/^(go to|open|navigate to|take me to|show|jump to|visit|let's go to|i want to see)\s+(the\s+)?(.*)$/);
   const destText = navM ? navM[3] : text; // also allow a bare section name
   const dest = resolveDestination(destText, links);
   if (dest) {
-    return { type: "navigate", href: dest.href, label: dest.label, speak: `Opening ${dest.label}.` };
+    return { type: "navigate", href: dest.href, label: dest.label, speak: `Sure — opening ${dest.label} for you.` };
+  }
+
+  // Looked like a navigation request but we couldn't place it → ask, kindly.
+  if (navM) {
+    return {
+      type: "ask",
+      pending: { kind: "destination" },
+      speak: "I'm not sure which section you mean. You could say findings, engagements, jobs, or bug bounty. Where would you like to go?",
+    };
   }
 
   return {
     type: "none",
-    speak: `I didn't understand "${raw.trim()}". Say help for a list of commands.`,
+    speak: `Hmm, I didn't quite understand "${raw.trim()}". You can say things like "go to findings" or "scan example dot com". What would you like?`,
   };
+}
+
+// ── Conversational helpers ───────────────────────────────────────────────────
+
+function wordCount(s: string): number {
+  return s.split(" ").filter(Boolean).length;
+}
+
+/** A warm, friendly opener. Kept deterministic (no RNG) so it stays testable. */
+function greet(): string {
+  return "Hey, I'm right here. Where would you like to go, or what should I scan?";
+}
+
+/** Speak a host clearly ("example dot com" reads better than "example.com"). */
+function spokenHost(target: string): string {
+  return target.replace(/\./g, " dot ").replace(/-/g, " dash ");
+}
+
+function confirmScan(target: string): VoiceIntent {
+  return {
+    type: "ask",
+    pending: { kind: "confirmScan", target },
+    speak: `Got it — ${spokenHost(target)}. Shall I start the scan? Say yes or no.`,
+  };
+}
+
+const YES = /\b(yes|yeah|yep|yup|sure|okay|ok|do it|go ahead|please|confirm|start|begin|absolutely|of course)\b/;
+const NO = /\b(no|nope|nah|cancel|don't|do not|stop|wait|not now|never mind)\b/;
+
+/**
+ * Interpret the user's spoken answer to a pending question. Falls back to the
+ * full command grammar so a fresh command mid-conversation still works.
+ */
+export function resolveFollowup(pending: Pending, raw: string, links: NavLink[] = []): VoiceIntent {
+  const text = normalize(raw);
+  if (!text) return { type: "ask", pending, speak: "Sorry, I didn't hear you — could you say that again?" };
+
+  // Let the user bail out of any question.
+  if (/^(stop|cancel|never ?mind|forget it|no thanks|leave it)\b/.test(text)) {
+    return { type: "none", speak: "No problem, I'll leave it. Anything else?" };
+  }
+
+  switch (pending.kind) {
+    case "confirmScan": {
+      if (YES.test(text)) {
+        return {
+          type: "scan",
+          target: pending.target,
+          href: `/dashboard/scan?target=${encodeURIComponent(pending.target)}`,
+          speak: `Great — starting the scan on ${spokenHost(pending.target)} now.`,
+        };
+      }
+      if (NO.test(text)) return { type: "none", speak: "Okay, I won't start it. What else can I do?" };
+      return { type: "ask", pending, speak: `Just say yes to scan ${spokenHost(pending.target)}, or no to skip it.` };
+    }
+
+    case "scanTarget": {
+      const target = extractTarget(text);
+      if (target) return confirmScan(target);
+      // Maybe they changed their mind and gave a different command.
+      const alt = parseVoiceCommand(text, links);
+      if (alt.type !== "none") return alt;
+      return { type: "ask", pending, speak: "I didn't catch a target. Try something like example dot com." };
+    }
+
+    case "destination": {
+      // Strip filler like "let's go", "there", "to the".
+      const cleaned = text.replace(/^(go|let's go|take me|i want to see|show me)?\s*(to|there|over there)?\s*(the\s+)?/, "").trim();
+      const dest = resolveDestination(cleaned || text, links);
+      if (dest) return { type: "navigate", href: dest.href, label: dest.label, speak: `Of course — opening ${dest.label}.` };
+      // Fall back to the full grammar (so "scan example dot com" answers too).
+      const alt = parseVoiceCommand(text, links);
+      if (alt.type !== "none") return alt;
+      return {
+        type: "ask",
+        pending,
+        speak: "I didn't catch the section. You can say findings, engagements, jobs, machines, or bug bounty. Where to?",
+      };
+    }
+  }
 }
