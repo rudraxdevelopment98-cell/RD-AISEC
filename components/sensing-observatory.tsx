@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { simulateFrame, POSE_EDGES, type SensingFrame, type Scenario } from "@/lib/sensing-core";
+import { sampleAt, type SenseTimeline } from "@/lib/wifi-sense-core";
+
+export type SenseMachine = { id: string; name: string; wifi: string[] };
 
 const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "auto", label: "Auto" },
@@ -24,18 +27,33 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
 export function SensingObservatory({
   interfaces,
   defaultIface,
+  machines = [],
 }: {
   interfaces: string[];
   defaultIface?: string;
+  machines?: SenseMachine[];
 }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [frame, setFrame] = useState<SensingFrame | null>(null);
   const [running, setRunning] = useState(true);
   const [scenario, setScenario] = useState<Scenario>("auto");
-  const [iface, setIface] = useState(defaultIface ?? interfaces[0] ?? "wlan0");
   const [failed, setFailed] = useState(false);
-  const stateRef = useRef({ running, scenario });
-  stateRef.current = { running, scenario };
+
+  // Real-sensing state.
+  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
+  const [senseIface, setSenseIface] = useState(machines[0]?.wifi[0] ?? defaultIface ?? interfaces[0] ?? "");
+  const [senseStatus, setSenseStatus] = useState<"idle" | "starting" | "sampling" | "live" | "error">("idle");
+  const [senseMsg, setSenseMsg] = useState("");
+  const [timeline, setTimeline] = useState<SenseTimeline | null>(null);
+
+  const stateRef = useRef<{ running: boolean; scenario: Scenario; timeline: SenseTimeline | null }>({
+    running,
+    scenario,
+    timeline: null,
+  });
+  stateRef.current = { running, scenario, timeline };
+
+  const selMachine = machines.find((m) => m.id === machineId);
 
   useEffect(() => {
     let disposed = false;
@@ -172,7 +190,13 @@ export function SensingObservatory({
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
         if (stateRef.current.running) t += dt;
-        const f = simulateFrame(t, { scenario: stateRef.current.scenario, subcarriers: 48 });
+        const tl = stateRef.current.timeline;
+        const ov = tl && tl.points.length ? sampleAt(tl, t) : null;
+        const f = simulateFrame(t, {
+          scenario: stateRef.current.scenario,
+          subcarriers: 48,
+          ...(ov ? { overridePresent: ov.present, overrideMotion: ov.motion } : {}),
+        });
 
         // Floor field lights up around the person's ground position.
         const gx = ((f.pose[11].x + f.pose[12].x) / 2 - 0.5) * PW;
@@ -257,9 +281,70 @@ export function SensingObservatory({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function senseNow() {
+    if (!machineId || !senseIface) {
+      setSenseStatus("error");
+      setSenseMsg("Pick a machine and a WiFi interface.");
+      return;
+    }
+    setSenseStatus("starting");
+    setSenseMsg("");
+    try {
+      const res = await fetch("/api/sensing/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runnerId: machineId, iface: senseIface, seconds: 20 }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSenseStatus("error");
+        setSenseMsg(data?.error ?? "Couldn't start sensing.");
+        return;
+      }
+      setSenseStatus("sampling");
+      const jobId = data.jobId as string;
+      const started = Date.now();
+      const poll = async () => {
+        try {
+          const r = await fetch(`/api/sensing/run?job=${jobId}`, { cache: "no-store" });
+          const d = await r.json();
+          if (d.status === "done") {
+            if (!d.timeline || d.timeline.error) {
+              setSenseStatus("error");
+              setSenseMsg(d.timeline?.message ?? "No wireless link on that interface.");
+              return;
+            }
+            setTimeline(d.timeline);
+            setSenseStatus("live");
+            return;
+          }
+          if (Date.now() - started > 90000) {
+            setSenseStatus("error");
+            setSenseMsg("Timed out waiting for the machine.");
+            return;
+          }
+          setTimeout(poll, 1500);
+        } catch {
+          setTimeout(poll, 2000);
+        }
+      };
+      setTimeout(poll, 2500);
+    } catch {
+      setSenseStatus("error");
+      setSenseMsg("Network error starting sensing.");
+    }
+  }
+  function backToDemo() {
+    setTimeline(null);
+    setSenseStatus("idle");
+    setSenseMsg("");
+  }
+
   const f = frame;
   const present = f?.present ?? false;
-  const rssi = f ? Math.round(-32 - (1 - f.quality) * 46) : -60;
+  const live = senseStatus === "live" && !!timeline;
+  const busy = senseStatus === "starting" || senseStatus === "sampling";
+  const rssi = live ? timeline!.avgRssi ?? -60 : f ? Math.round(-32 - (1 - f.quality) * 46) : -60;
   const variance = f ? (2.2 + f.motion * 3).toFixed(2) : "—";
 
   return (
@@ -286,19 +371,56 @@ export function SensingObservatory({
           <p className="text-lg font-bold text-white">
             <span className="text-brand">π</span> WiFi Sensing Observatory
           </p>
-          <p className="text-[11px] text-gray-500">Interface {iface} · orbit to look around</p>
+          <p className="text-[11px] text-gray-500">
+            {live ? `Live · ${timeline?.ssid || senseIface}` : "Demo signal"} · orbit to look around
+          </p>
         </div>
-        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
-          <span className="tag ring-amber-500/40 text-amber-300">◐ Demo signal</span>
-          <select
-            value={iface}
-            onChange={(e) => setIface(e.target.value)}
-            className="rounded-lg border border-surface-border bg-surface/80 px-2 py-1 text-xs outline-none backdrop-blur focus:border-brand"
-          >
-            {(interfaces.length ? interfaces : ["wlan0"]).map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+        <div className="pointer-events-auto flex flex-col items-end gap-1.5">
+          {live ? (
+            <span className="tag ring-emerald accent-emerald">● LIVE · real WiFi</span>
+          ) : (
+            <span className="tag ring-amber-500/40 text-amber-300">◐ Demo signal</span>
+          )}
+          {machines.length > 0 ? (
+            <div className="flex items-center gap-1 rounded-lg border border-surface-border bg-surface/80 p-1 backdrop-blur">
+              <select
+                value={machineId}
+                onChange={(e) => {
+                  setMachineId(e.target.value);
+                  const m = machines.find((x) => x.id === e.target.value);
+                  setSenseIface(m?.wifi[0] ?? "");
+                }}
+                className="rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
+                title="Machine running the RD-AISEC engine"
+              >
+                {machines.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <select
+                value={senseIface}
+                onChange={(e) => setSenseIface(e.target.value)}
+                className="rounded-md bg-surface px-1.5 py-1 text-xs outline-none"
+                title="The interface's connected access point is sampled"
+              >
+                {(selMachine?.wifi.length ? selMachine.wifi : ["(no wifi)"]).map((w) => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+              {live ? (
+                <button onClick={backToDemo} className="btn-ghost px-2 py-1 text-xs">Stop</button>
+              ) : (
+                <button onClick={senseNow} disabled={busy || !selMachine?.wifi.length} className="btn-primary px-2 py-1 text-xs disabled:opacity-60">
+                  {busy ? "Sensing…" : "📡 Sense real"}
+                </button>
+              )}
+            </div>
+          ) : (
+            <span className="rounded-lg border border-surface-border bg-surface/80 px-2 py-1 text-[10px] text-gray-500 backdrop-blur">
+              Connect a machine (with WiFi) to sense for real
+            </span>
+          )}
+          {senseMsg && <span className="max-w-[16rem] text-right text-[10px] text-amber-300">{senseMsg}</span>}
         </div>
       </div>
 
@@ -312,11 +434,16 @@ export function SensingObservatory({
 
       {/* WiFi signal — bottom right */}
       <div className="pointer-events-none absolute bottom-4 right-4 w-44 rounded-xl border border-surface-border bg-black/50 p-3 backdrop-blur">
-        <p className="text-[10px] uppercase tracking-widest text-gray-500">WiFi signal</p>
-        <Row label="RSSI" value={`${rssi} dBm`} />
+        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          WiFi signal {live && <span className="text-emerald-400">· live</span>}
+        </p>
+        <Row label="RSSI" value={`${rssi} dBm${live ? " avg" : ""}`} />
         <Row label="Variance" value={variance} />
         <Row label="Motion" value={(f?.motion ?? 0).toFixed(3)} />
         <Row label="Persons" value={String(f?.occupancy ?? 0)} />
+        {live && (
+          <p className="mt-1 text-[10px] text-gray-500">movement {timeline!.presentPct}% of {Math.round(timeline!.durationSec)}s</p>
+        )}
         <div className={`mt-2 rounded-lg py-1.5 text-center text-sm font-semibold ${present ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-gray-500"}`}>
           {present ? "PRESENT" : "EMPTY"}
         </div>

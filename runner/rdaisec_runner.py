@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "43"
+RUNNER_VERSION = "44"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1047,6 +1047,68 @@ def run_savefile(job):
         return f"Write failed: {e}", 1
 
 
+def run_wifisense(job):
+    """Real WiFi sensing sample. Reads the connected access point's signal (RSSI)
+    on the given interface over a short window. People moving in the space perturb
+    the multipath, so RSSI variance → motion/presence. Managed mode, no special
+    hardware — works on whatever Wi-Fi the machine is associated on. Emits JSON:
+    {iface, ssid, bssid, rate, samples:[{t, rssi, q}]}."""
+    iface = (job.get("target") or "").strip()
+    if not re.match(r"^[a-zA-Z0-9_.\-]{1,32}$", iface):
+        return "Refused: bad interface name.", 1
+    try:
+        seconds = int(float((job.get("args") or "20").split()[0]))
+    except Exception:  # noqa: BLE001
+        seconds = 20
+    seconds = max(4, min(40, seconds))
+    rate = 10  # samples/sec
+
+    ssid = bssid = ""
+    try:
+        if shutil.which("iw"):
+            link = subprocess.run(
+                ["iw", "dev", iface, "link"], capture_output=True, text=True, timeout=5
+            ).stdout
+            mb = re.search(r"Connected to ([0-9a-fA-F:]{17})", link)
+            bssid = mb.group(1) if mb else ""
+            ms = re.search(r"SSID:\s*(.+)", link)
+            ssid = ms.group(1).strip() if ms else ""
+    except Exception:  # noqa: BLE001
+        pass
+
+    def read_rssi():
+        # /proc/net/wireless row: "wlan0: 0000   70.  -41.  -256  ..."
+        try:
+            with open("/proc/net/wireless") as f:
+                for line in f:
+                    if line.strip().startswith(iface + ":"):
+                        parts = line.replace(":", " ").split()
+                        return float(parts[3].rstrip(".")), float(parts[2].rstrip("."))
+        except Exception:  # noqa: BLE001
+            pass
+        return None, None
+
+    lvl0, _ = read_rssi()
+    if lvl0 is None:
+        return (
+            json.dumps({
+                "iface": iface,
+                "error": "no-wireless",
+                "message": f"{iface} has no active wireless link — not associated, not a Wi-Fi adapter, or a VM without Wi-Fi passthrough.",
+            }),
+            0,
+        )
+
+    samples = []
+    t0 = time.time()
+    for _ in range(seconds * rate):
+        lvl, link = read_rssi()
+        if lvl is not None:
+            samples.append({"t": round(time.time() - t0, 2), "rssi": round(lvl), "q": round(link)})
+        time.sleep(1.0 / rate)
+    return (json.dumps({"iface": iface, "ssid": ssid, "bssid": bssid, "rate": rate, "samples": samples}), 0)
+
+
 # Track running job processes so cancellations from the portal can kill them and
 # free the worker slot (otherwise a canceled job keeps running and blocks new ones).
 RUNNING_PROCS: dict = {}
@@ -1214,6 +1276,8 @@ def resolve_wordlist(argv):
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
+    if job.get("tool") == "wifisense":
+        return run_wifisense(job)
     argv, err = build_argv(job)
     if err:
         return err, 1

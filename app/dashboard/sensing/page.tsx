@@ -9,20 +9,19 @@ export const dynamic = "force-dynamic";
 export default async function SensingPage() {
   const runners = await prisma.runner.findMany({
     orderBy: { lastSeenAt: "desc" },
-    select: { name: true, lastSeenAt: true, wifi: true },
+    select: { id: true, name: true, lastSeenAt: true, wifi: true },
   });
   const now = Date.now();
-  // Wireless interfaces reported by online machines — the "antennas" a real CSI
-  // feed would come from.
-  const interfaces = Array.from(
-    new Set(
-      runners
-        .filter((r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS)
-        .flatMap((r) => (r.wifi ? r.wifi.split(",") : []))
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  );
+  // Online machines + their wireless interfaces — the real adapters we sample
+  // RSSI from (and where a real CSI feed would come from).
+  const machines = runners
+    .filter((r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS)
+    .map((r) => ({
+      id: r.id,
+      name: r.name || "Machine",
+      wifi: (r.wifi ? r.wifi.split(",") : []).map((s) => s.trim()).filter(Boolean),
+    }));
+  const interfaces = Array.from(new Set(machines.flatMap((m) => m.wifi)));
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -53,7 +52,7 @@ export default async function SensingPage() {
         </p>
       </HelpBanner>
 
-      <SensingObservatory interfaces={interfaces} defaultIface={interfaces[0]} />
+      <SensingObservatory interfaces={interfaces} defaultIface={interfaces[0]} machines={machines} />
     </div>
   );
 }

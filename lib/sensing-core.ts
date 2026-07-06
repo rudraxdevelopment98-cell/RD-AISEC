@@ -37,6 +37,10 @@ export type SensingOpts = {
   sensitivity?: number; // 0..1, scales how twitchy detection is
   scenario?: Scenario;
   seed?: number;
+  // Drive presence/motion from a REAL signal (e.g. RSSI variance from a runner).
+  // Pose/vitals stay modeled but scale with the real motion.
+  overridePresent?: boolean;
+  overrideMotion?: number; // 0..1
 };
 
 const KP_NAMES = [
@@ -129,7 +133,8 @@ export function simulateFrame(t: number, opts: SensingOpts = {}): SensingFrame {
   const falling = scenario === "fall";
 
   // Occupancy: 0 when empty, otherwise 1 (occasionally 2).
-  const occupancy = empty ? 0 : 1 + (smooth(t / 40 + seed) > 0.75 ? 1 : 0);
+  let occupancy = empty ? 0 : 1 + (smooth(t / 40 + seed) > 0.75 ? 1 : 0);
+  if (opts.overridePresent !== undefined) occupancy = opts.overridePresent ? Math.max(1, occupancy) : 0;
   const present = occupancy > 0;
 
   // Vitals — breathing + heart, slowly wandering within human ranges.
@@ -148,6 +153,7 @@ export function simulateFrame(t: number, opts: SensingOpts = {}): SensingFrame {
   } else if (active) motion = clamp(0.35 + 0.4 * Math.abs(smooth(t * 0.8 + seed)) + 0.1 * noise(t * 5));
   else motion = clamp(0.05 + 0.06 * Math.abs(smooth(t * 0.5)) + 0.02 * noise(t * 4));
   motion = clamp(motion * (0.7 + sens * 0.6));
+  if (opts.overrideMotion !== undefined) motion = clamp(opts.overrideMotion);
 
   const fall = falling && t % 12 >= 0.4 && t % 12 < 3.2;
 
