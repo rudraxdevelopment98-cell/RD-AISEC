@@ -254,6 +254,23 @@ export function WifiCamera({
 
   return (
     <div className="space-y-4">
+      {/* Live vs Demo clarity — make it obvious when this isn't real signal. */}
+      {machines.length === 0 ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
+          ◐ <b>Demo (simulation)</b> — no runner connected, so this is a synthetic walk-through, not
+          your real room. Connect a machine running the engine (with WiFi) to read real signal.
+        </div>
+      ) : mode === "demo" ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-xs text-amber-200/90">
+          ◐ Demo mode — simulated. Switch to <b>Live · real WiFi</b> and press Start to read the room.
+        </div>
+      ) : !running ? (
+        <div className="rounded-xl border border-surface-border px-4 py-2 text-xs text-gray-400">
+          ▶ Press Start to begin a live capture. Note: this shows <b>motion</b> — people must move to
+          appear; standing-still people barely perturb the signal.
+        </div>
+      ) : null}
+
       {/* Controls */}
       <div className="card flex flex-wrap items-center gap-3">
         <button

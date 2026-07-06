@@ -4,8 +4,10 @@ import { PageHeader } from "@/components/page-header";
 import { HelpBanner } from "@/components/hint";
 import { SensingObservatory } from "@/components/sensing-observatory";
 import { WifiCamera } from "@/components/wifi-camera";
+import { WifiDevices } from "@/components/wifi-devices";
 import { FloorPlanEditor } from "@/components/floorplan-editor";
 import { WifiAutomap } from "@/components/wifi-automap";
+import { CsiCapability } from "@/components/csi-capability";
 import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -85,10 +87,12 @@ export default async function SensingPage() {
             <b>Demo</b> to preview without hardware.
           </p>
           <WifiCamera machines={machines} defaultIface={interfaces[0]} />
+          <WifiDevices machines={machines.map((m) => ({ id: m.id, name: m.name }))} />
         </TabPanel>
 
         <TabPanel id="observatory">
           <SensingObservatory interfaces={interfaces} defaultIface={interfaces[0]} machines={machines} />
+          <CsiCapability />
         </TabPanel>
 
         <TabPanel id="home">
