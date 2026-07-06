@@ -125,7 +125,7 @@ export default async function MachinePage({
         actions={
           <form action={deleteRunner}>
             <input type="hidden" name="id" value={r.id} />
-            <button className="text-xs text-gray-600 hover:text-red-400">Revoke machine</button>
+            <button className="text-xs text-gray-500 hover:text-red-400">Revoke machine</button>
           </form>
         }
       />

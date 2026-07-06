@@ -71,7 +71,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
           />
           Select all
         </label>
-        <span className="text-gray-600">{selected.size} selected</span>
+        <span className="text-gray-400">{selected.size} selected</span>
         {selected.size > 0 && (
           <>
             <span className="text-gray-700">·</span>

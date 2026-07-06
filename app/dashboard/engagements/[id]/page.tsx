@@ -323,7 +323,7 @@ export default async function EngagementDetail({
         )}
 
         {/* Authorization toggle form */}
-        <form action={updateEngagementAuthorization} className="mt-4 flex items-center gap-3">
+        <form action={updateEngagementAuthorization} className="mt-4 flex flex-wrap items-center gap-3">
           <input type="hidden" name="id" value={e.id} />
           <label className="flex items-center gap-2">
             <input
@@ -340,7 +340,7 @@ export default async function EngagementDetail({
               type="text"
               name="authorizedBy"
               placeholder="Authorized by (optional)"
-              className="rounded border border-gray-600 bg-gray-800 px-2 py-1 text-xs text-white placeholder-gray-500"
+              className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs text-gray-100 outline-none placeholder:text-gray-500 focus:border-brand"
             />
           )}
           <button type="submit" className="btn-ghost text-xs">

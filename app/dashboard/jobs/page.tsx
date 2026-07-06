@@ -265,7 +265,7 @@ export default async function JobsPage({
                     </form>
                   </div>
                 </div>
-                <p className="mt-2 font-mono text-sm font-semibold text-white">
+                <p className="mt-2 break-all font-mono text-sm font-semibold text-white">
                   {j.tool} {j.args}
                 </p>
                 <p className="mt-1 truncate text-xs text-gray-300">{j.target}</p>

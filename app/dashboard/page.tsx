@@ -374,7 +374,7 @@ export default async function DashboardOverview({
                 <Counter value={m.value} />
                 {m.suffix && <span className="text-xl text-gray-500">{m.suffix}</span>}
               </p>
-              <Icon name={m.icon} className="h-5 w-5 text-gray-600" />
+              <Icon name={m.icon} className="h-5 w-5 text-gray-500" />
             </div>
             <p className="mt-1 text-sm text-gray-400">{m.label}</p>
           </Link>

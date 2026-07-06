@@ -1,4 +1,5 @@
 import { fmtGB, fmtUptime, loadColor, ratioPct } from "@/lib/stats-format";
+import { RUNNER_VERSION } from "@/lib/runner-constants";
 
 export type MachineStat = {
   cpuPct?: number | null;
@@ -41,7 +42,7 @@ export function MachineStats({ s, compact = false }: { s: MachineStat; compact?:
   const diskPct = ratioPct(s.diskUsedMb, s.diskTotalMb);
   const hasAny = s.cpuPct != null || memPct != null || diskPct != null;
   if (!hasAny) {
-    return <p className="text-[10px] text-gray-600">No live stats yet — update the machine's runner to v43+.</p>;
+    return <p className="text-[10px] text-gray-500">No live stats yet — update the machine&apos;s runner to v{RUNNER_VERSION}.</p>;
   }
   return (
     <div className="space-y-2">

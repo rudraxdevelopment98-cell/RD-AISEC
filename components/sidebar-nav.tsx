@@ -44,7 +44,7 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
               title={item.label}
               className={`nav-link group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-0 ${active ? "nav-link-active" : ""}`}
             >
-              <Icon name={item.icon} className={`h-4 w-4 shrink-0 ${active ? "" : "text-white"}`} />
+              <Icon name={item.icon} className={`h-4 w-4 shrink-0 ${active ? "" : "text-gray-400"}`} />
               <span className="truncate group-data-[collapsed=true]:hidden">{item.label}</span>
             </Link>
           );
@@ -87,7 +87,7 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
                       title={item.label}
                       className={`nav-link py-1.5 text-sm group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-0 ${active ? "nav-link-active" : ""}`}
                     >
-                      <Icon name={item.icon} className={`h-4 w-4 shrink-0 ${active ? "" : "text-white"}`} />
+                      <Icon name={item.icon} className={`h-4 w-4 shrink-0 ${active ? "" : "text-gray-400"}`} />
                       <span className="truncate group-data-[collapsed=true]:hidden">{item.label}</span>
                     </Link>
                   );

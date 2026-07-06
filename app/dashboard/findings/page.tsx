@@ -191,7 +191,7 @@ export default async function FindingsPage({
                   ))}
                 </select>
                 <input type="file" name="file" accept=".csv,text/csv" required className="w-full text-xs text-gray-400 file:mr-2 file:rounded file:border-0 file:bg-brand file:px-2 file:py-1 file:text-black" />
-                <p className="text-[10px] text-gray-600">Columns: Title (required), Severity, Status, Category, Description, Recommendation.</p>
+                <p className="text-[11px] text-gray-400">Columns: Title (required), Severity, Status, Category, Description, Recommendation.</p>
                 <button className="btn-primary w-full text-xs">Import CSV</button>
               </form>
             </details>
@@ -334,7 +334,7 @@ export default async function FindingsPage({
             </Chip>
           ))}
           {attacksInUse.size === 0 && (
-            <span className="text-xs text-gray-600">none mapped yet</span>
+            <span className="text-xs text-gray-500">none mapped yet</span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -349,7 +349,7 @@ export default async function FindingsPage({
             </Chip>
           ))}
           {owaspInUse.size === 0 && (
-            <span className="text-xs text-gray-600">none mapped yet</span>
+            <span className="text-xs text-gray-500">none mapped yet</span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -398,7 +398,7 @@ export default async function FindingsPage({
         <p className="text-sm text-gray-400">
           {findings.length} finding{findings.length === 1 ? "" : "s"}
           {anyFilter && " match your filters"}
-          {findings.length === 300 && " (showing first 300)"}
+          {findings.length === 300 && " (showing the first 300)"}
         </p>
         {anyFilter && (
           <Link href="/dashboard/findings" className="text-xs text-gray-500 hover:text-brand">

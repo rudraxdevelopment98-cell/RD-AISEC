@@ -148,7 +148,7 @@ export function ProgramsManager({
             />
             Select all
           </label>
-          <span className="text-gray-600">{selected.size} selected</span>
+          <span className="text-gray-400">{selected.size} selected</span>
         </div>
 
         {/* Category filter chips */}
@@ -311,7 +311,7 @@ export function ProgramsManager({
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">
                       {exploitable > 0 && (
                         <Link href="/dashboard/exploit" className="text-red-300 hover:underline">
-                          ⚔ {exploitable} to exploit / validate →
+                          ⚔ {exploitable} open to review →
                         </Link>
                       )}
                       <Link
