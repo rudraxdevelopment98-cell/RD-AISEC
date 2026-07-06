@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "45"
+RUNNER_VERSION = "46"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -674,6 +674,22 @@ def self_update() -> bool:
     return _apply_update(content) if content else False
 
 
+def restart_self():
+    """Re-exec this runner (portal-requested restart from the Machines page).
+    Startup runs self_update() first, so a restart also lands the latest version.
+    os.execv replaces the whole process, so this never returns on success."""
+    path = os.path.abspath(__file__)
+    print("↻ restart requested from portal — restarting…")
+    try:
+        sys.stdout.flush()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
+    except Exception as exc:  # noqa: BLE001
+        print(f"  restart failed ({exc}); please restart the runner manually.")
+
+
 def maybe_self_update():
     """Called from the main loop only when the runner is idle (no jobs running).
     Throttled to UPDATE_CHECK_SECONDS. Safe to apply here: we're on the main
@@ -862,8 +878,15 @@ def heartbeat_loop():
                     print(f"  Tor exit IP {ip}")
             # Bounded timeout so a slow ping can't delay the next one past the
             # portal's offline window.
-            request("GET", "/api/runner/ping", timeout=15)
+            resp = request("GET", "/api/runner/ping", timeout=15)
             PING_FAILS = 0
+            # Honor a portal-requested restart (Machines page → Restart). Re-exec
+            # picks up the latest script via self-update on startup.
+            try:
+                if resp is not None and resp.getheader("X-Runner-Command") == "restart":
+                    restart_self()  # does not return
+            except Exception:  # noqa: BLE001
+                pass
             # Kill any jobs canceled from the portal so their worker slots free up.
             check_cancellations()
         except Exception:  # noqa: BLE001 — the heartbeat must NEVER die

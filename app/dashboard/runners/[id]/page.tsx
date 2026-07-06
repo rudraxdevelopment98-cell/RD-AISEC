@@ -12,6 +12,7 @@ import {
   deleteRunner,
   setRunnerAnonymity,
   setRunnerWorkers,
+  restartRunner,
   renameRunner,
   requestInstall,
 } from "@/lib/runners";
@@ -164,6 +165,16 @@ export default async function MachinePage({
           <p className="mt-1 text-[11px] text-amber-200/60">
             Updates jump straight to the latest (v{RUNNER_VERSION}) — intermediate versions are skipped.
           </p>
+          <form action={restartRunner} className="mt-2">
+            <input type="hidden" name="id" value={r.id} />
+            <button
+              className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50"
+              disabled={!online}
+              title={online ? "Restart the machine and update to the latest version" : "Machine is offline"}
+            >
+              ↻ Restart &amp; update now
+            </button>
+          </form>
         </div>
       )}
 
@@ -279,6 +290,20 @@ export default async function MachinePage({
           </form>
           <span className="text-[11px] text-gray-500">
             Runs many more jobs at once — drains a big queue fast when the machine has spare CPU.
+          </span>
+        </div>
+
+        {/* Restart — remote reboot of the runner (also self-updates on startup) */}
+        <div className="card flex flex-wrap items-center gap-2 text-sm text-gray-400">
+          <span className="text-xs font-semibold">↻ Restart</span>
+          <form action={restartRunner}>
+            <input type="hidden" name="id" value={r.id} />
+            <button className="btn-ghost px-3 py-1.5 text-xs disabled:opacity-50" disabled={!online}>
+              Restart machine
+            </button>
+          </form>
+          <span className="text-[11px] text-gray-500">
+            Reboots the runner from here on its next check-in (~seconds){outdated ? " — and updates to the latest version" : ""}. Any in-flight jobs re-queue.
           </span>
         </div>
 

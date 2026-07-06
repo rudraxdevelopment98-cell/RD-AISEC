@@ -194,6 +194,21 @@ export async function setRunnerAnonymity(formData: FormData) {
  * next poll (X-Runner-Max-Workers) and adjusts live — no restart needed.
  * Clamped 1..16 so a typo can't spawn hundreds of concurrent tools.
  */
+export async function restartRunner(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  if (id) {
+    await prisma.runner.update({ where: { id }, data: { restartRequested: true } }).catch(() => {});
+  }
+  revalidatePath(`/dashboard/runners/${id}`);
+  redirect(
+    `/dashboard/runners/${id}?ok=${encodeURIComponent(
+      "Restart requested — the machine restarts on its next check-in (a few seconds) and updates to the latest version.",
+    )}`,
+  );
+}
+
 export async function setRunnerWorkers(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");

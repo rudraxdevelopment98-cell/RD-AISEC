@@ -202,6 +202,7 @@ model Runner {
   batteryPct Int?      // battery charge %
   charging   Boolean?  // on AC / charging
   powerW     Int?      // instantaneous power draw (W)
+  restartRequested Boolean @default(false) // portal asked the runner to restart
   tempC      Int?      // last reported CPU temperature °C
   loadAvg    String    @default("") // reported "1m 5m 15m" load averages
   createdAt  DateTime  @default(now())
