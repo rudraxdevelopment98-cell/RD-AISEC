@@ -41,6 +41,7 @@ model Engagement {
   scans        ScanRun[]
   schedules    ScheduledScan[]
   bugPrograms  BugProgram[]
+  submissions  Submission[]
   pipeline     Pipeline?
   evidence     Evidence[]
   assessments  Assessment[]
@@ -419,6 +420,27 @@ model BugProgram {
   ownerEmail   String      @default("")
   engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
   engagementId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// A vulnerability submission to a program — closes the loop from finding →
+// submitted → triaged → accepted/dup → rewarded, and tracks the bounty earned.
+model Submission {
+  id           String      @id @default(cuid())
+  engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  engagementId String?
+  findingId    String      @default("") // source finding (loose link; no FK)
+  title        String
+  platform     String      @default("hackerone")
+  // draft | submitted | triaged | accepted | duplicate | informative | not_applicable | resolved
+  status       String      @default("submitted")
+  severity     String      @default("medium")
+  rewardCents  Int         @default(0) // bounty earned, in cents
+  reportUrl    String      @default("") // link to the report on the platform
+  notes        String      @default("")
+  submittedAt  DateTime    @default(now())
+  ownerEmail   String      @default("")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }

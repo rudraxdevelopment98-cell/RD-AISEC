@@ -13,6 +13,7 @@ import {
 import { BUG_PLATFORMS, platformLabel } from "@/lib/bugbounty-core";
 import { ProgramsManager } from "@/components/programs-manager";
 import { AddProgramForm } from "@/components/add-program-form";
+import { SubmissionsManager } from "@/components/submissions-manager";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { PageHeader } from "@/components/page-header";
 
@@ -40,7 +41,7 @@ export default async function BugBountyPage({
 }: {
   searchParams: { ok?: string; error?: string };
 }) {
-  const [accounts, programs, runners] = await Promise.all([
+  const [accounts, programs, runners, submissions] = await Promise.all([
     prisma.bugAccount.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.bugProgram.findMany({
       orderBy: { updatedAt: "desc" },
@@ -56,7 +57,23 @@ export default async function BugBountyPage({
       },
     }),
     prisma.runner.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
+    prisma.submission.findMany({
+      orderBy: { submittedAt: "desc" },
+      include: { engagement: { select: { name: true } } },
+    }),
   ]);
+  const submissionRows = submissions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    platform: s.platform,
+    status: s.status,
+    severity: s.severity,
+    rewardCents: s.rewardCents,
+    reportUrl: s.reportUrl,
+    submittedAt: s.submittedAt.toISOString(),
+    engagementName: s.engagement?.name ?? null,
+  }));
+  const earnedCents = submissions.reduce((n, s) => n + (s.rewardCents || 0), 0);
 
   const programRows = programs.map((p) => ({
     id: p.id,
@@ -120,6 +137,7 @@ export default async function BugBountyPage({
         tabs={[
           { id: "programs", label: <span className="inline-flex items-center gap-1.5"><Icon name="target" className="h-4 w-4" />Programs ({programs.length})</span> },
           { id: "engaged", label: <span className="inline-flex items-center gap-1.5"><Icon name="briefcase" className="h-4 w-4" />Engaged ({engagedRows.length})</span> },
+          { id: "submissions", label: <span className="inline-flex items-center gap-1.5"><Icon name="book" className="h-4 w-4" />Submissions ({submissions.length})</span> },
           { id: "accounts", label: <span className="inline-flex items-center gap-1.5"><Icon name="fingerprint" className="h-4 w-4" />Accounts ({accounts.length})</span> },
         ]}
         defaultTab="programs"
@@ -177,6 +195,17 @@ export default async function BugBountyPage({
           ) : (
             <ProgramsManager programs={engagedRows} runners={runners} />
           )}
+        </div>
+      </TabPanel>
+
+      {/* ══════════ SUBMISSIONS ══════════ */}
+      <TabPanel id="submissions">
+        <p className="text-sm text-gray-400">
+          The end of the loop — every bug you submit, from triage to accepted to bounty.
+          {earnedCents > 0 && <span className="ml-1 text-emerald-300">Keep it going.</span>}
+        </p>
+        <div className="mt-3">
+          <SubmissionsManager submissions={submissionRows} />
         </div>
       </TabPanel>
 

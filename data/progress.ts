@@ -23,12 +23,13 @@ export const PROGRESS: ProgressArea[] = [
       "Resync scope — per program and all-at-once (union merge, never loses targets)",
       "Engaged sub-tab so active hunts don't get lost",
       "Opportunity scoring + run-pipeline-now + daily automation",
+      "Submission tracking: triage → accepted → bounty, with earnings roll-up",
+      "Submission draft + deep-link to the platform's submit page",
     ],
     todo: [
       "Native scope import for Intigriti & YesWeHack (like Bugcrowd)",
-      "Submission drafting + export to the platform's format",
+      "One-click 'log submission' prefilled from a finding",
       "Cross-program duplicate detection",
-      "Reward / earnings tracking",
     ],
   },
   {
