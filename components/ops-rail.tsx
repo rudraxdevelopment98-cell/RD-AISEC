@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { MachineStats } from "@/components/machine-stats";
-import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { RUNNER_ONLINE_WINDOW_MS, RUNNER_VERSION } from "@/lib/runner-constants";
 import { canAccess, isOwnerRole, type AccessInfo } from "@/lib/access";
 
 // A member counts as "online" if they signed in within this window (we have no
@@ -35,6 +35,7 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
           id: true,
           name: true,
           lastSeenAt: true,
+          version: true,
           cpuPct: true,
           memPct: true,
           memUsedMb: true,
@@ -134,6 +135,9 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
                     <Link href={`/dashboard/runners/${r.id}`} className="flex items-center gap-2 hover:text-white">
                       <Dot on={!!isOnline} />
                       <span className="truncate">{r.name || "Runner"}</span>
+                      {!!r.version && r.version !== RUNNER_VERSION && (
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="Update available" />
+                      )}
                       <span className={`ml-auto text-[10px] ${isOnline ? "text-emerald-400" : "text-gray-600"}`}>
                         {isOnline ? "online" : "offline"}
                       </span>

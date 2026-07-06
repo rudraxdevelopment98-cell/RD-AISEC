@@ -263,6 +263,12 @@ python3 rdaisec_runner.py`}
                   <div className="flex min-w-0 items-center gap-2">
                     <Icon name="server" className="h-4 w-4 shrink-0 text-brand" />
                     <span className="truncate font-semibold text-white">{r.name}</span>
+                    {outdated && (
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                        title={`Update available (v${r.version} → v${RUNNER_VERSION}) — open to restart/update`}
+                      />
+                    )}
                   </div>
                   <span
                     className={`tag shrink-0 ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
@@ -295,7 +301,7 @@ python3 rdaisec_runner.py`}
                           title={outdated ? "A newer runner is out — it updates itself automatically" : undefined}
                         >
                           v{r.version}
-                          {outdated ? " · self-updating…" : ""}
+                          {outdated ? " · update ready" : ""}
                         </span>
                       )}
                       {r.anonymity && (

@@ -79,6 +79,7 @@ export const NAV: NavGroup[] = [
     icon: "chart",
     items: [
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
+      { href: "/dashboard/progress", label: "Progress", icon: "chart", access: "always" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
       { href: "/dashboard/siem", label: "SIEM · Activity", icon: "clock", access: "owner" },
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
