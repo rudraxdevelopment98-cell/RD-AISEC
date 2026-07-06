@@ -43,6 +43,10 @@ const TABLE: Entry[] = [
     v: { supported: false, tool: "—", antennas: 2, note: "Most other Intel cards (7260/8260/9560…) don't expose CSI. If it's actually an AX200/AX210, PicoScenes works." },
   },
   {
+    re: /\b(apple|m1|m2|m3|m4|macbook|silicon|bcm4387|bcm4378|bcm4364|brcmfmac)\b/i,
+    v: { supported: false, tool: "—", antennas: 2, note: "Apple Silicon (M1/M2/M3) uses Apple's closed Broadcom WiFi — no CSI on macOS and none under Asahi Linux (no nexmon for these chips). Your Mac can't do CSI itself, but it's an excellent HOST: plug in ESP32-S3 CSI nodes over USB and run the collector against /dev/tty.usbserial-… (works on macOS)." },
+  },
+  {
     re: /\b(realtek|rtl8|8188|8812|8821)\b/i,
     v: { supported: false, tool: "—", antennas: 1, note: "Realtek cards have no maintained CSI toolchain. Use an ESP32-CSI node or an Intel AX210." },
   },
@@ -66,6 +70,7 @@ export function csiCapability(chipsetOrDriver: string): CsiVerdict {
 
 /** The pickable chipsets for the in-app checker. */
 export const CSI_CHIPSETS: { id: string; label: string }[] = [
+  { id: "m2", label: "Apple Silicon Mac (M1/M2/M3)" },
   { id: "ax210", label: "Intel AX200 / AX210 (modern laptop)" },
   { id: "5300", label: "Intel 5300 (classic CSI card)" },
   { id: "ar9271", label: "Atheros AR9271 (TL-WN721N USB)" },
