@@ -10,6 +10,7 @@ import { WifiAutomap } from "@/components/wifi-automap";
 import { WifiHomemap } from "@/components/wifi-homemap";
 import { CsiCapability } from "@/components/csi-capability";
 import { AirsightSetup } from "@/components/airsight-setup";
+import { AirsightConsole } from "@/components/airsight-console";
 import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -100,6 +101,15 @@ export default async function SensingPage() {
             bands). Capture stays on the Linux node; this Mac/host runs the dashboard.
           </p>
           <AirsightSetup machines={airsightMachines} hostDevice="Apple M2 Pro (host)" />
+
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold text-white">Live console — unified event stream</h2>
+            <p className="mb-3 mt-1 text-xs text-gray-500">
+              A passive monitor-mode listen, rendered through AirSight&apos;s one event model
+              (networks + clients + presence). The Auto Map and live monitor feed the same stream.
+            </p>
+            <AirsightConsole machines={machines} defaultIface={interfaces[0]} />
+          </div>
         </TabPanel>
 
         <TabPanel id="camera">
