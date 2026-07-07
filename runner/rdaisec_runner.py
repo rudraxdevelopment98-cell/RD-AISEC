@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "47"
+RUNNER_VERSION = "48"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -65,11 +65,39 @@ SUBNETS: list[str] = []
 # Wireless interfaces + whether any adapter supports monitor mode (for WiFi).
 WIFI_IFACES: list[str] = []
 WIFI_MONITOR = False
+# Per-adapter chipset/driver detail, e.g. ["wlan0:ath9k_htc"], so the portal can
+# offer device-aware AirSight options (monitor/injection/CSI per adapter).
+WIFI_DETAIL: list[str] = []
+
+
+def _iface_driver(iface: str) -> str:
+    """Best-effort chipset/driver name for a wireless interface (kernel driver +
+    a USB product hint when available). Read-only, no network."""
+    driver = ""
+    try:
+        # /sys/class/net/<iface>/device/driver → symlink whose basename = driver.
+        link = os.path.realpath(f"/sys/class/net/{iface}/device/driver")
+        if link and link != "/":
+            driver = os.path.basename(link)
+    except Exception:  # noqa: BLE001
+        pass
+    if not driver and shutil.which("ethtool"):
+        try:
+            out = subprocess.run(["ethtool", "-i", iface], capture_output=True, text=True, timeout=5).stdout
+            m = re.search(r"driver:\s*(\S+)", out)
+            if m:
+                driver = m.group(1)
+        except Exception:  # noqa: BLE001
+            pass
+    return driver or "unknown"
 
 
 def detect_wifi() -> tuple[list[str], bool]:
-    """Return (wireless interface names, any-adapter-supports-monitor-mode)."""
+    """Return (wireless interface names, any-adapter-supports-monitor-mode).
+    Also refreshes WIFI_DETAIL with per-iface driver names."""
+    global WIFI_DETAIL
     if not shutil.which("iw"):
+        WIFI_DETAIL = []
         return [], False
     ifaces: list[str] = []
     monitor = False
@@ -88,6 +116,7 @@ def detect_wifi() -> tuple[list[str], bool]:
             monitor = True
     except Exception:  # noqa: BLE001
         pass
+    WIFI_DETAIL = [f"{i}:{_iface_driver(i)}" for i in ifaces]
     return ifaces, monitor
 
 
@@ -545,6 +574,7 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
     req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
     req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
+    req.add_header("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     cpu, mem, temp, load = _cpu_pct(), _mem_pct(), _temp_c(), _loadavg()
     if cpu is not None:

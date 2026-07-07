@@ -190,6 +190,9 @@ model Runner {
   subnets    String    @default("")    // comma-separated local CIDRs the runner detected
   wifi       String    @default("")    // comma-separated wireless interface names
   wifiMonitor Boolean  @default(false) // any adapter supports monitor mode
+  // Per-adapter chipset/driver detail, "iface:driver" comma-joined (e.g.
+  // "wlan0:ath9k_htc,wlan1:iwlwifi"). Drives AirSight's device-aware options.
+  wifiDetail String    @default("")
   installed  String    @default("")    // comma-separated tool ids whose binary is present
   cpuPct     Int?      // last reported CPU utilisation %
   memPct     Int?      // last reported RAM utilisation %

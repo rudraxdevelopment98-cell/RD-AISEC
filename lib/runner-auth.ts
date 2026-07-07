@@ -39,6 +39,8 @@ export async function authenticateRunner(req: Request) {
   // Wireless interfaces + monitor-mode capability (for WiFi).
   const wifi = (req.headers.get("x-runner-wifi") ?? "").slice(0, 256);
   const wifiMonitor = (req.headers.get("x-runner-wifi-monitor") ?? "") === "1";
+  // Per-adapter chipset/driver detail ("iface:driver,…") for device-aware options.
+  const wifiDetail = (req.headers.get("x-runner-wifi-detail") ?? "").slice(0, 512);
   // Which allowlisted tools actually have a binary present on the runner.
   const installed = (req.headers.get("x-runner-installed") ?? "").slice(0, 512);
   // Live machine stats for the footer monitor (0..100; temp in °C). Absent on
@@ -85,6 +87,7 @@ export async function authenticateRunner(req: Request) {
         ...(subnets ? { subnets } : {}),
         wifi,
         wifiMonitor,
+        ...(wifiDetail ? { wifiDetail } : {}),
         installed,
         ...(cpuPct !== undefined ? { cpuPct } : {}),
         ...(memPct !== undefined ? { memPct } : {}),

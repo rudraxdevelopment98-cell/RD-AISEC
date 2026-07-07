@@ -9,6 +9,7 @@ import { FloorPlanEditor } from "@/components/floorplan-editor";
 import { WifiAutomap } from "@/components/wifi-automap";
 import { WifiHomemap } from "@/components/wifi-homemap";
 import { CsiCapability } from "@/components/csi-capability";
+import { AirsightSetup } from "@/components/airsight-setup";
 import { normalizePlan, defaultPlan } from "@/lib/floorplan-core";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -20,7 +21,7 @@ export default async function SensingPage() {
   const email = session?.user?.email ?? "";
   const runners = await prisma.runner.findMany({
     orderBy: { lastSeenAt: "desc" },
-    select: { id: true, name: true, lastSeenAt: true, wifi: true },
+    select: { id: true, name: true, lastSeenAt: true, wifi: true, wifiDetail: true },
   });
   // Load the saved home floor plan (or a starter template).
   const planRow = email ? await prisma.homePlan.findUnique({ where: { ownerEmail: email } }) : null;
@@ -39,6 +40,16 @@ export default async function SensingPage() {
       wifi: String(r.wifi ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     }));
   const interfaces: string[] = Array.from(new Set(machines.flatMap((m) => m.wifi)));
+
+  // Device-aware capture nodes for the AirSight Setup console (online + offline,
+  // with per-adapter chipset/driver detail).
+  const airsightMachines = runners.map((r) => ({
+    id: String(r.id),
+    name: String(r.name || "Machine"),
+    online: !!(r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS),
+    wifiDetail: String(r.wifiDetail ?? ""),
+    wifi: String(r.wifi ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  }));
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -73,14 +84,24 @@ export default async function SensingPage() {
       </HelpBanner>
 
       <Tabs
-        defaultTab="camera"
+        defaultTab="setup"
         tabs={[
+          { id: "setup", label: "⚙ Setup" },
           { id: "camera", label: "📷 WiFi Camera (2D)" },
           { id: "map", label: "🗺 Auto Map" },
           { id: "observatory", label: "🛰 3D Observatory" },
           { id: "home", label: "🏠 Home Plan" },
         ]}
       >
+        <TabPanel id="setup">
+          <p className="mb-3 text-sm text-gray-400">
+            <b>AirSight</b> · passive WiFi sensing + recon. Pick your capture machine and adapter —
+            the options below adapt to exactly what that hardware supports (monitor / injection / CSI /
+            bands). Capture stays on the Linux node; this Mac/host runs the dashboard.
+          </p>
+          <AirsightSetup machines={airsightMachines} hostDevice="Apple M2 Pro (host)" />
+        </TabPanel>
+
         <TabPanel id="camera">
           <p className="mb-3 text-sm text-gray-400">
             A top-down occupancy view built from a <b>real RSSI capture</b> on a connected machine —
