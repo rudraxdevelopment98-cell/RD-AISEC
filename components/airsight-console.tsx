@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseSurvey, rssiBars, type Survey } from "@/lib/survey-core";
-import { surveyToNetworkEvents, surveyToClientEvents, eventSummary } from "@/lib/airsight-events";
+import { rssiBars, type Survey } from "@/lib/survey-core";
+import { surveyToNetworkEvents, surveyToClientEvents, surveyToEvents, eventSummary } from "@/lib/airsight-events";
 import type { NetworkEvent, ClientEvent } from "@/lib/airsight-core";
 
 export type ConsoleMachine = { id: string; name: string; wifi: string[] };
@@ -32,9 +32,38 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("");
   const [survey, setSurvey] = useState<Survey | null>(null);
+  const [hist, setHist] = useState<{ total: number; clients: number; activeClients: number; newLastHour: number } | null>(null);
+  const [samples, setSamples] = useState<{ t: number; networks: number; clients: number }[]>([]);
   const loop = useRef(false);
 
   useEffect(() => { if (!iface && ifaces[0]) setIface(ifaces[0]); }, [ifaces, iface]);
+
+  // Load persisted rolling history on mount.
+  useEffect(() => {
+    fetch("/api/sensing/airsight", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (d?.summary) setHist(d.summary); if (d?.history?.samples) setSamples(d.history.samples); })
+      .catch(() => {});
+  }, []);
+
+  // Persist a survey's events into the rolling history + refresh the timeline.
+  const persist = useCallback(async (s: Survey) => {
+    try {
+      const r = await fetch("/api/sensing/airsight", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ events: surveyToEvents(s), tier: "standard" }),
+      }).then((x) => x.json());
+      if (r?.summary) setHist(r.summary);
+      setSamples((prev) => [...prev.slice(-199), { t: Date.now(), networks: (s.aps ?? []).length, clients: (s.stations ?? []).length }]);
+    } catch { /* ignore */ }
+  }, []);
+
+  async function clearHistory() {
+    if (!confirm("Clear the AirSight device history?")) return;
+    await fetch("/api/sensing/airsight", { method: "DELETE" });
+    setHist({ total: 0, clients: 0, activeClients: 0, newLastHour: 0 });
+    setSamples([]);
+  }
 
   const run = useCallback(async () => {
     if (loop.current) return;
@@ -52,12 +81,12 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
         for (let i = 0; i < 20 && loop.current && !done; i++) {
           await new Promise((r) => setTimeout(r, 1500));
           const p = await fetch(`/api/sensing/survey?job=${j.jobId}`, { cache: "no-store" }).then((r) => r.json());
-          if (p.status === "done") { done = true; if (p.survey) { setSurvey(p.survey); setStatus(p.survey.error ? String(p.survey.message || p.survey.error) : "live"); } }
+          if (p.status === "done") { done = true; if (p.survey) { setSurvey(p.survey); setStatus(p.survey.error ? String(p.survey.message || p.survey.error) : "live"); if (!p.survey.error) persist(p.survey); } }
           else if (p.status === "error" || p.status === "canceled") { setStatus(p.status); done = true; }
         }
       }
     } finally { loop.current = false; }
-  }, [runnerId, iface]);
+  }, [runnerId, iface, persist]);
 
   useEffect(() => {
     if (running) run();
@@ -101,6 +130,43 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
           <Tile label="Clients" value={String(sum.clients)} sub={`${sum.associated} associated`} accent="sky" />
           <Tile label="Strongest" value={sum.strongest ? `${sum.strongest.signalDbm}` : "—"} sub={sum.strongest?.ssid ?? "dBm"} accent="amber" />
           <Tile label="Encryption" value={sum.encryptions[0]?.name ?? "—"} sub={`${sum.encryptions.length} types`} />
+        </div>
+      )}
+
+      {/* Rolling history + presence timeline (persisted) */}
+      {(hist || samples.length > 0) && (
+        <div className="card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-white">Presence timeline <span className="text-xs font-normal text-gray-500">· rolling history</span></p>
+            <div className="flex items-center gap-2">
+              <a href="/api/sensing/airsight?export=json" className="btn-ghost text-xs" download>⬇ Export JSON</a>
+              <button onClick={clearHistory} className="text-[11px] text-gray-500 hover:text-red-400">clear</button>
+            </div>
+          </div>
+          {hist && (
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span className="tag border-brand/40 text-brand">{hist.total} devices seen</span>
+              <span className="tag">{hist.clients} clients</span>
+              <span className="tag border-emerald-500/40 text-emerald-300">{hist.activeClients} active now</span>
+              <span className="tag">{hist.newLastHour} new / hr</span>
+            </div>
+          )}
+          {samples.length > 1 && (
+            <svg viewBox="0 0 240 40" preserveAspectRatio="none" className="mt-3 h-12 w-full">
+              {(() => {
+                const max = Math.max(4, ...samples.map((s) => Math.max(s.clients, s.networks)));
+                const pts = (key: "clients" | "networks") =>
+                  samples.map((s, i) => `${((i / (samples.length - 1)) * 240).toFixed(1)},${(40 - (s[key] / max) * 37 - 1.5).toFixed(1)}`).join(" ");
+                return (
+                  <>
+                    <polyline points={pts("clients")} fill="none" stroke="rgb(56 189 248)" strokeWidth={1.3} vectorEffect="non-scaling-stroke" />
+                    <polyline points={pts("networks")} fill="none" stroke="rgb(52 211 153)" strokeWidth={1.1} vectorEffect="non-scaling-stroke" opacity={0.7} />
+                  </>
+                );
+              })()}
+            </svg>
+          )}
+          <p className="mt-1 text-[10px] text-gray-500"><span className="text-sky-400">clients</span> / <span className="text-emerald-400">networks</span> per listen, over time. History persists across restarts.</p>
         </div>
       )}
 

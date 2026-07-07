@@ -532,6 +532,16 @@ model HomePlan {
   updatedAt  DateTime @updatedAt
 }
 
+// AirSight rolling history — the accumulated device sighting history + presence
+// timeline (JSON History from lib/airsight-history-core). One row per owner.
+model AirsightLog {
+  id         String   @id @default(cuid())
+  ownerEmail String   @unique
+  data       String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 // Accumulated monitor-mode RF survey vantages for the auto home map. One row per
 // owner; `data` holds JSON { vantages: [{id, x, y, label, jobId?, capturedAt,
 // survey?}] } — each vantage a capture at a walked spot. The portal fuses them
