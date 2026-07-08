@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { CreateRunnerForm } from "@/components/runner-create";
+import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
 import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, requestInstall } from "@/lib/runners";
@@ -289,6 +290,15 @@ python3 rdaisec_runner.py`}
                   </p>
                   {r.lastSeenAt && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {r.maintStage && r.maintStage !== "idle" && (
+                        <MaintenanceBadge
+                          stage={r.maintStage}
+                          note={r.maintNote}
+                          pct={r.maintPct}
+                          startedAt={r.maintStartedAt ? new Date(r.maintStartedAt).toISOString() : null}
+                          updatedAt={r.maintUpdatedAt ? new Date(r.maintUpdatedAt).toISOString() : null}
+                        />
+                      )}
                       {r.toolCount > 0 && <span className="tag">🧰 {r.toolCount} tools</span>}
                       {missing.length > 0 && (
                         <span className="tag border-amber-500/40 text-amber-300">

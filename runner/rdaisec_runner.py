@@ -35,11 +35,22 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "48"
+RUNNER_VERSION = "49"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
 PING_SECONDS = int(os.environ.get("PING_SECONDS", "20"))
+
+# Daily self-heal / maintenance cycle. Once a day, inside a quiet window (default
+# 06:00–08:00 local), the machine refreshes packages, upgrades its security
+# tools, frees disk, refreshes tool databases and self-tests — reporting the
+# stage it's on to the portal (X-Runner-Maint header) so the UI shows a live
+# pipeline. All steps are best-effort and never crash the runner.
+MAINT_ENABLED = os.environ.get("MAINT_ENABLED", "1") not in ("0", "false", "no")
+MAINT_START_HOUR = int(os.environ.get("MAINT_START_HOUR", "6"))
+MAINT_END_HOUR = int(os.environ.get("MAINT_END_HOUR", "8"))
+MAINT = "idle"  # current stage encoded as "stage|pct|note" for the header
+MAINT_LOCK = threading.Lock()
 
 # How many jobs to run at once on this machine. Each claimed job runs in its own
 # worker thread; 1 = serial. This env var is just the STARTING value — the portal
@@ -576,6 +587,10 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
     req.add_header("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
     req.add_header("X-Runner-Installed", ",".join(installed_tools()))
+    with MAINT_LOCK:
+        _maint = MAINT
+    if _maint and _maint != "idle":
+        req.add_header("X-Runner-Maint", _maint)
     cpu, mem, temp, load = _cpu_pct(), _mem_pct(), _temp_c(), _loadavg()
     if cpu is not None:
         req.add_header("X-Runner-Cpu", str(cpu))
@@ -993,6 +1008,135 @@ def threat_intel_loop():
     while True:
         sync_threat_intel()
         time.sleep(KEV_SYNC_SECONDS)
+
+
+# ── Daily self-heal / maintenance ───────────────────────────────────────────
+def set_maint(stage: str, pct=None, note: str = ""):
+    """Record the current maintenance stage and push it to the portal promptly
+    (the header goes out on the very next ping regardless, but we fire one now so
+    the live pipeline moves in step with the machine). Best-effort."""
+    global MAINT
+    note = (note or "").replace("|", "/").replace("\n", " ")[:200]
+    parts = [stage, "" if pct is None else str(int(pct)), note]
+    with MAINT_LOCK:
+        MAINT = "|".join(parts)
+    print(f"  ⟳ maintenance: {stage}" + (f" — {note}" if note else ""))
+    try:
+        request("GET", "/api/runner/ping", timeout=15)
+    except Exception:  # noqa: BLE001 — reporting is best-effort
+        pass
+
+
+def _maint_cmd(argv, timeout=900):
+    """Run one maintenance command, guarded. Returns (ok, output_tail)."""
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        tail = ((r.stdout or "") + (r.stderr or "")).strip()[-400:]
+        return r.returncode == 0, tail
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)[:400]
+
+
+def _has_apt():
+    return shutil.which("apt-get") is not None
+
+
+def _apt(*args, timeout=1800):
+    """apt-get wrapper — uses sudo -n when not already root. Non-interactive."""
+    base = [] if os.geteuid() == 0 else (["sudo", "-n"] if shutil.which("sudo") else None)
+    if base is None:
+        return False, "no root/sudo"
+    env_prefix = ["env", "DEBIAN_FRONTEND=noninteractive"]
+    return _maint_cmd(base + env_prefix + ["apt-get", "-y", *args], timeout=timeout)
+
+
+def run_maintenance():
+    """Walk the maintenance pipeline once, reporting each stage. Every step is
+    best-effort — a failure is noted and the pass continues so the machine still
+    gets whatever upkeep it can. Reports 'done' (or 'failed') at the end."""
+    problems = []
+    apt = _has_apt()
+
+    set_maint("starting", 2, "Pre-flight checks")
+
+    # 1) Refresh the package index (what's available to install/upgrade).
+    set_maint("updating", 15, "Refreshing package index" if apt else "No apt — skipping")
+    if apt:
+        ok, tail = _apt("update", timeout=600)
+        if not ok:
+            problems.append("apt update failed")
+
+    # 2) Upgrade installed packages (security tools ride along).
+    set_maint("upgrading", 35, "Upgrading tools" if apt else "No apt — skipping")
+    if apt:
+        ok, tail = _apt("upgrade", timeout=2400)
+        if not ok:
+            problems.append("apt upgrade incomplete")
+
+    # 3) Free disk: drop orphaned packages + cached archives + old journal logs.
+    set_maint("cleaning", 55, "Freeing disk space")
+    if apt:
+        _apt("autoremove", timeout=600)
+        _apt("autoclean", timeout=300)
+    if shutil.which("journalctl"):
+        _maint_cmd(["bash", "-lc", "journalctl --vacuum-time=7d"], timeout=180)
+
+    # 4) Refresh tool databases so scans actually match today's issues.
+    set_maint("refreshing", 72, "Updating scanner templates & exploit DB")
+    try:
+        update_nuclei_templates()
+    except Exception:  # noqa: BLE001
+        problems.append("nuclei templates")
+    if shutil.which("searchsploit"):
+        _maint_cmd(["searchsploit", "-u"], timeout=600)
+    try:
+        sync_threat_intel()
+    except Exception:  # noqa: BLE001
+        problems.append("threat intel")
+
+    # 5) Self-test: confirm the allowlisted tools are actually present.
+    set_maint("verifying", 90, "Verifying tools")
+    present = installed_tools()
+    missing = [t for t in TOOLS if t not in present]
+    if missing:
+        problems.append(f"{len(missing)} tool(s) missing")
+
+    # 6) Report the outcome.
+    set_maint("reporting", 98, "Posting summary")
+    if problems:
+        summary = "Completed with notes: " + "; ".join(problems[:4])
+        set_maint("failed", 100, summary)
+    else:
+        summary = f"Up to date · {len(present)} tools healthy"
+        set_maint("done", 100, summary)
+
+
+def maintenance_loop():
+    """Background: once a day inside the quiet window, run the maintenance pass.
+    Tracks the last run date so it fires exactly once per day even though it wakes
+    frequently. Never crashes — the whole body is guarded."""
+    last_run_day = None
+    # Report idle at rest so the portal knows maintenance is armed, not stale.
+    set_maint("idle", 0, f"Scheduled daily {MAINT_START_HOUR:02d}:00–{MAINT_END_HOUR:02d}:00")
+    while True:
+        try:
+            if MAINT_ENABLED:
+                now = time.localtime()
+                today = (now.tm_year, now.tm_yday)
+                in_window = MAINT_START_HOUR <= now.tm_hour < MAINT_END_HOUR
+                if in_window and today != last_run_day:
+                    last_run_day = today
+                    try:
+                        run_maintenance()
+                    except Exception as exc:  # noqa: BLE001
+                        set_maint("failed", 100, f"Maintenance error: {exc}")
+                    # Return to idle a little after finishing so the pipeline shows
+                    # 'done', then the badge relaxes on the next cycle.
+                    time.sleep(300)
+                    set_maint("idle", 0, f"Next pass {MAINT_START_HOUR:02d}:00–{MAINT_END_HOUR:02d}:00")
+        except Exception:  # noqa: BLE001 — maintenance must never take the runner down
+            pass
+        time.sleep(120)
 
 
 def _apply_workers(headers):
@@ -1997,6 +2141,8 @@ def main():
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
     threading.Thread(target=threat_intel_loop, daemon=True).start()
+    # Daily self-heal / maintenance cycle (reports a live stage to the portal).
+    threading.Thread(target=maintenance_loop, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once (portal-controlled).\n")
 

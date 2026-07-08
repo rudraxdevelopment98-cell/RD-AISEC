@@ -20,7 +20,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){}})();",
+              "(function(){try{var t=localStorage.getItem('theme');var v=(t==='light'||t==='advance')?t:'dark';document.documentElement.setAttribute('data-theme',v);}catch(e){}})();",
           }}
         />
       </head>

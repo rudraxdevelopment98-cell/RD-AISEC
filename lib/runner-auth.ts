@@ -2,6 +2,7 @@
 // Not a "use server" module — imported by API route handlers.
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
+import { parseMaintHeader, isActiveStage } from "@/lib/maintenance-core";
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -75,11 +76,26 @@ export async function authenticateRunner(req: Request) {
   const chargingH = req.headers.get("x-runner-charging");
   const charging = chargingH == null || chargingH === "" ? undefined : chargingH === "1";
 
+  // Daily maintenance / self-heal stage the runner reports ("stage|pct|note").
+  // Starting a fresh cycle (any active stage while previously idle/terminal)
+  // stamps maintStartedAt so the UI can time the run.
+  const maint = parseMaintHeader(req.headers.get("x-runner-maint"));
+  const maintData: Record<string, unknown> = {};
+  if (maint) {
+    maintData.maintStage = maint.stage;
+    maintData.maintNote = maint.note;
+    maintData.maintPct = maint.pct;
+    maintData.maintUpdatedAt = new Date();
+    const wasActive = isActiveStage((runner.maintStage as never) ?? "idle");
+    if (isActiveStage(maint.stage) && !wasActive) maintData.maintStartedAt = new Date();
+  }
+
   await prisma.runner
     .update({
       where: { id: runner.id },
       data: {
         lastSeenAt: new Date(),
+        ...maintData,
         ...(version ? { version } : {}),
         toolCount,
         ...(runner.anonymity ? { exitIp } : {}),

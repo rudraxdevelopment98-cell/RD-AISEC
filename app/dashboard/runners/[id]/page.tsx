@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { MachineConsole } from "@/components/machine-console";
 import { MachineStats } from "@/components/machine-stats";
+import { MaintenanceIndicator } from "@/components/maintenance-indicator";
 import { turboWorkers } from "@/lib/stats-format";
 import {
   deleteRunner,
@@ -208,6 +209,17 @@ export default async function MachinePage({
         <div className="mt-3">
           <MachineStats s={r} />
         </div>
+      </div>
+
+      {/* ── Daily self-heal / maintenance ─────────────────── */}
+      <div className="mt-3">
+        <MaintenanceIndicator
+          stage={r.maintStage}
+          note={r.maintNote}
+          pct={r.maintPct}
+          startedAt={r.maintStartedAt ? new Date(r.maintStartedAt).toISOString() : null}
+          updatedAt={r.maintUpdatedAt ? new Date(r.maintUpdatedAt).toISOString() : null}
+        />
       </div>
 
       {(subnets.length > 0 || wifi.length > 0) && (
