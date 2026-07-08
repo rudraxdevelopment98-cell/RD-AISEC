@@ -13,6 +13,7 @@ import {
   deleteRunner,
   setRunnerAnonymity,
   setRunnerWorkers,
+  setRunnerMaintenance,
   restartRunner,
   renameRunner,
   requestInstall,
@@ -26,6 +27,9 @@ import {
 } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
+
+// Hour choices for the maintenance-window selects (00:00–23:00).
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const STATUS_COLOR: Record<string, string> = {
   done: "text-emerald-300",
@@ -217,10 +221,54 @@ export default async function MachinePage({
           stage={r.maintStage}
           note={r.maintNote}
           pct={r.maintPct}
+          enabled={r.maintEnabled}
+          startHour={r.maintStartHour}
+          endHour={r.maintEndHour}
           startedAt={r.maintStartedAt ? new Date(r.maintStartedAt).toISOString() : null}
           updatedAt={r.maintUpdatedAt ? new Date(r.maintUpdatedAt).toISOString() : null}
         />
       </div>
+
+      {/* Customize the maintenance schedule (pushed to the machine live). */}
+      <form action={setRunnerMaintenance} className="card mt-3">
+        <input type="hidden" name="id" value={r.id} />
+        <input type="hidden" name="back" value={`/dashboard/runners/${r.id}`} />
+        <p className="text-sm font-semibold text-white">
+          <Icon name="clock" className="mr-1 inline h-4 w-4 text-brand" /> Maintenance schedule
+        </p>
+        <p className="mt-1 text-[11px] text-gray-500">
+          When the machine runs its unattended daily self-heal (its own local time). Changes apply on the
+          next check-in — no restart needed.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={r.maintEnabled}
+              className="h-4 w-4 rounded border-surface-border bg-transparent accent-brand"
+            />
+            Enabled
+          </label>
+          <label className="text-xs text-gray-400">
+            <span className="mb-1 block">Start</span>
+            <select name="startHour" defaultValue={String(r.maintStartHour ?? 6)} className="glass-input">
+              {HOURS.map((h) => (
+                <option key={h} value={h}>{`${String(h).padStart(2, "0")}:00`}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-gray-400">
+            <span className="mb-1 block">End</span>
+            <select name="endHour" defaultValue={String(r.maintEndHour ?? 8)} className="glass-input">
+              {HOURS.map((h) => (
+                <option key={h} value={h}>{`${String(h).padStart(2, "0")}:00`}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="btn-primary px-4 py-2 text-sm">Save schedule</button>
+        </div>
+      </form>
 
       {(subnets.length > 0 || wifi.length > 0) && (
         <div className="mt-3 grid gap-3 sm:grid-cols-2">

@@ -209,6 +209,10 @@ model Runner {
   restartRequested Boolean @default(false) // portal asked the runner to restart
   // Daily self-heal / maintenance cycle (see lib/maintenance-core.ts). The runner
   // reports the stage it's on via ping headers; the portal renders a live pipeline.
+  // The schedule is portal-controlled (pushed to the runner via poll headers).
+  maintEnabled   Boolean   @default(true) // run the daily maintenance pass at all
+  maintStartHour Int       @default(6)    // window start hour, local to the runner (0–23)
+  maintEndHour   Int       @default(8)    // window end hour (0–23; may wrap past midnight)
   maintStage     String    @default("idle") // idle|starting|updating|…|done|failed
   maintNote      String    @default("")     // last human-readable step note
   maintPct       Int?      // optional 0..100 progress override for a long step

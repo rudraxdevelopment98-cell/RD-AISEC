@@ -220,6 +220,38 @@ export async function setRunnerWorkers(formData: FormData) {
   revalidatePath("/dashboard/runners");
 }
 
+/**
+ * Set a machine's daily self-heal / maintenance schedule. The runner reads the
+ * new window on its next poll (X-Runner-Maint-*) and applies it live — no restart
+ * needed. Hours are 0–23 local to the machine; the window may wrap past midnight.
+ */
+export async function setRunnerMaintenance(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  const enabled = formData.get("enabled") != null;
+  const hour = (key: string, dflt: number) => {
+    const n = parseInt(String(formData.get(key) ?? ""), 10);
+    return Number.isFinite(n) ? Math.max(0, Math.min(23, n)) : dflt;
+  };
+  const back = String(formData.get("back") ?? "/dashboard/runners");
+  if (id) {
+    await prisma.runner
+      .update({
+        where: { id },
+        data: {
+          maintEnabled: enabled,
+          maintStartHour: hour("startHour", 6),
+          maintEndHour: hour("endHour", 8),
+        },
+      })
+      .catch(() => {});
+  }
+  revalidatePath("/dashboard/runners");
+  revalidatePath(back);
+  redirect(back);
+}
+
 /** Rename a machine (owner-managed label; the token/identity is unchanged). */
 export async function renameRunner(formData: FormData) {
   const session = await auth();

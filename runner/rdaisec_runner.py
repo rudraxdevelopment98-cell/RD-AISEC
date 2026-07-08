@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "49"
+RUNNER_VERSION = "50"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1153,11 +1153,33 @@ def _apply_workers(headers):
         MAX_WORKERS = n
 
 
+def _apply_maint_schedule(headers):
+    """Update the daily maintenance schedule live from the portal's
+    X-Runner-Maint-Enabled / X-Runner-Maint-Window headers, so editing it on the
+    Machines page takes effect without restarting the runner."""
+    global MAINT_ENABLED, MAINT_START_HOUR, MAINT_END_HOUR
+    en = headers.get("X-Runner-Maint-Enabled")
+    if en is not None and en != "":
+        MAINT_ENABLED = en not in ("0", "false", "no")
+    win = headers.get("X-Runner-Maint-Window", "")
+    if win and "-" in win:
+        try:
+            a, b = win.split("-", 1)
+            sh, eh = int(a), int(b)
+            if 0 <= sh <= 23 and 0 <= eh <= 23:
+                if (sh, eh) != (MAINT_START_HOUR, MAINT_END_HOUR):
+                    print(f"⚙ maintenance window changed: {sh:02d}:00–{eh:02d}:00 (enabled={MAINT_ENABLED})")
+                MAINT_START_HOUR, MAINT_END_HOUR = sh, eh
+        except (TypeError, ValueError):
+            pass
+
+
 def poll():
     """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
     try:
         resp = request("GET", "/api/runner/job")
         _apply_workers(resp.headers)
+        _apply_maint_schedule(resp.headers)
         anon = resp.headers.get("X-Runner-Anonymity") == "on"
         if resp.status == 204:
             return None, anon
@@ -1168,6 +1190,7 @@ def poll():
         print(f"  poll error: HTTP {e.code}")
         try:
             _apply_workers(e.headers)
+            _apply_maint_schedule(e.headers)
             return None, (e.headers.get("X-Runner-Anonymity") == "on")
         except Exception:  # noqa: BLE001
             return None, None

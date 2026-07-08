@@ -6,6 +6,12 @@ import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
 
 export const dynamic = "force-dynamic";
 
+/** Clamp an hour to 0–23, falling back to a default when unset/invalid. */
+function clampHour(v: number | undefined | null, fallback: number): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.round(v) : fallback;
+  return Math.max(0, Math.min(23, n));
+}
+
 /**
  * The runner polls this endpoint for its next job. Authenticated by the runner
  * bearer token (NOT a user session). Atomically claims the oldest queued job
@@ -21,9 +27,16 @@ export async function GET(req: Request) {
   // not), so changing them in the portal takes effect without restarting it.
   const anon = runner.anonymity ? "on" : "off";
   const workers = String(Math.min(16, Math.max(1, runner.maxWorkers || 3)));
+  // Portal-controlled maintenance schedule — pushed every poll so edits in the UI
+  // take effect without restarting the runner.
+  const maintEnabled = (runner as { maintEnabled?: boolean }).maintEnabled === false ? "0" : "1";
+  const startH = clampHour((runner as { maintStartHour?: number }).maintStartHour, 6);
+  const endH = clampHour((runner as { maintEndHour?: number }).maintEndHour, 8);
   const setHeaders = (r: NextResponse) => {
     r.headers.set("X-Runner-Anonymity", anon);
     r.headers.set("X-Runner-Max-Workers", workers);
+    r.headers.set("X-Runner-Maint-Enabled", maintEnabled);
+    r.headers.set("X-Runner-Maint-Window", `${startH}-${endH}`);
     return r;
   };
   const idle = () => setHeaders(new NextResponse(null, { status: 204 }));

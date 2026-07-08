@@ -19,6 +19,8 @@ export type MaintProps = {
   /** window bounds shown as the schedule label */
   startHour?: number;
   endHour?: number;
+  /** whether the daily pass is scheduled at all */
+  enabled?: boolean;
 };
 
 function relTime(ms: number | null): string {
@@ -108,17 +110,27 @@ export function MaintenanceIndicator(props: MaintProps) {
           <div>
             <h3 className="text-sm font-semibold text-gray-100">Self-heal &amp; maintenance</h3>
             <p className="text-[11px] text-gray-500">
-              {scheduleLabel(props.startHour ?? 6, props.endHour ?? 8)} · unattended
+              {props.enabled === false
+                ? "Disabled — no scheduled pass"
+                : `${scheduleLabel(props.startHour ?? 6, props.endHour ?? 8)} · unattended`}
             </p>
           </div>
         </div>
         <div className="text-right">
           <div
             className={`text-sm font-semibold ${
-              s.stale ? "text-amber-300" : s.stage === "failed" ? "text-red-300" : s.active ? "text-sky-300" : "text-gray-200"
+              props.enabled === false
+                ? "text-gray-500"
+                : s.stale
+                ? "text-amber-300"
+                : s.stage === "failed"
+                ? "text-red-300"
+                : s.active
+                ? "text-sky-300"
+                : "text-gray-200"
             }`}
           >
-            {s.stale ? "Stalled" : s.info.label}
+            {props.enabled === false ? "Off" : s.stale ? "Stalled" : s.info.label}
           </div>
           {s.updatedAt && <div className="text-[11px] text-gray-500">updated {relTime(s.updatedAt)}</div>}
         </div>
