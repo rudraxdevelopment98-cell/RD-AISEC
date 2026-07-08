@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "51"
+RUNNER_VERSION = "52"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -690,7 +690,24 @@ AUTO_UPDATE = os.environ.get("RUNNER_AUTO_UPDATE", "1") not in ("0", "false", "n
 # opportunistically whenever the runner goes idle). Kept short so updates land
 # quickly; it's just a cheap HTTPS GET.
 UPDATE_CHECK_SECONDS = int(os.environ.get("UPDATE_CHECK_SECONDS", str(300)))
-_VERSION_RE = re.compile(r'^RUNNER_VERSION\s*=\s*["\'](\d+)["\']', re.MULTILINE)
+# Version scheme (from v52): a dotted string. A whole-number bump (52 → 53) is a
+# major change; a dotted bump (52.1, 52.1.1) is a minor one. Compared as an
+# integer tuple so "52.1" > "52" and "53" > "52.9".
+_VERSION_RE = re.compile(r'^RUNNER_VERSION\s*=\s*["\'](\d+(?:\.\d+)*)["\']', re.MULTILINE)
+
+
+def _ver_tuple(v: str) -> tuple:
+    """Parse a dotted version ('52.1.1') into a comparable int tuple. Non-numeric
+    or empty parts degrade to 0; trailing zeros are stripped so '52.0' == '52'."""
+    out = []
+    for part in str(v).split("."):
+        try:
+            out.append(int(part))
+        except (TypeError, ValueError):
+            out.append(0)
+    while len(out) > 1 and out[-1] == 0:
+        out.pop()
+    return tuple(out) or (0,)
 
 
 def _fetch_update():
@@ -713,10 +730,7 @@ def _fetch_update():
     m = _VERSION_RE.search(content)
     if not m:
         return None
-    try:
-        if int(m.group(1)) <= int(RUNNER_VERSION):
-            return None
-    except ValueError:
+    if _ver_tuple(m.group(1)) <= _ver_tuple(RUNNER_VERSION):
         return None
     return content
 

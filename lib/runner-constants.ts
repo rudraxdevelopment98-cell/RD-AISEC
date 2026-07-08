@@ -666,7 +666,10 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "51";
+// Version scheme (from v52): a whole-number bump (52 → 53) is a MAJOR change;
+// a dotted bump (52.1, 52.1.1) is a MINOR one. The runner compares these as an
+// integer tuple when deciding whether to self-update.
+export const RUNNER_VERSION = "52";
 
 // A runner is considered offline if it hasn't polled within this window. Kept
 // generous (several missed heartbeats) so a busy machine under heavy job load —
