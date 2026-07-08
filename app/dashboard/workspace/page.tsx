@@ -16,7 +16,7 @@ const ms = (d: Date | null | undefined): number | null => (d ? new Date(d).getTi
  * task timeline · context panel · evidence drawer) from the design spec, wired to
  * real data: Engagements → projects, Jobs → tasks, Findings → findings. It lives
  * alongside the classic dashboard (nothing changes there); switch in from the nav
- * or the top of the dashboard. Best in the Advance theme, but works in all three.
+ * or the top of the dashboard.
  */
 export default async function WorkspacePage() {
   const [engagements, jobs, findings, unreviewedGroups] = await Promise.all([
