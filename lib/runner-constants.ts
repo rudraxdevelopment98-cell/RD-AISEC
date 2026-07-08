@@ -666,10 +666,13 @@ export const JOB_PRIORITY = {
 // that benefits from a re-pull; the Runners page flags runners reporting an
 // older version. (The tool list itself is now server-driven, so most additions
 // no longer need a bump.)
-export const RUNNER_VERSION = "50";
+export const RUNNER_VERSION = "51";
 
-// A runner is considered offline if it hasn't polled within this window.
-export const RUNNER_ONLINE_WINDOW_MS = 90_000;
+// A runner is considered offline if it hasn't polled within this window. Kept
+// generous (several missed heartbeats) so a busy machine under heavy job load —
+// where a ping can be delayed by a slow request or a cold portal DB — doesn't
+// flap "offline" between beats. The runner pings every ~20s.
+export const RUNNER_ONLINE_WINDOW_MS = 150_000;
 
 // A job stuck in "running" longer than this is treated as dead (runner crashed,
 // lost connection, or the tool hung) and auto-failed. Must exceed the runner's

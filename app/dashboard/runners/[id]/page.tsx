@@ -17,6 +17,7 @@ import {
   restartRunner,
   renameRunner,
   requestInstall,
+  installAllTools,
 } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
@@ -419,10 +420,30 @@ export default async function MachinePage({
       </h2>
 
       {missing.length > 0 && (
+        <div className="card mt-3 flex flex-wrap items-center justify-between gap-2 border-brand/30">
+          <div>
+            <p className="text-sm font-semibold text-gray-100">
+              {missing.length} tool{missing.length === 1 ? "" : "s"} missing
+            </p>
+            <p className="text-[11px] text-gray-500">
+              Install them all in one go instead of one at a time — only online machines can install.
+            </p>
+          </div>
+          <form action={installAllTools}>
+            <input type="hidden" name="runnerId" value={r.id} />
+            <input type="hidden" name="back" value={`/dashboard/runners/${r.id}`} />
+            <button className="btn-primary px-4 py-2 text-sm" disabled={!online} title={online ? "" : "Machine is offline"}>
+              ⚡ Install all missing ({missing.length})
+            </button>
+          </form>
+        </div>
+      )}
+
+      {missing.length > 0 && (
         <form action={requestInstall} className="card mt-3 flex flex-wrap items-end gap-2">
           <input type="hidden" name="runnerId" value={r.id} />
           <div className="flex-1">
-            <label className="text-xs font-semibold text-gray-400">Install a missing tool</label>
+            <label className="text-xs font-semibold text-gray-400">…or install a single tool</label>
             <select
               name="tool"
               className="mt-1 w-full rounded-md border border-surface-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand"

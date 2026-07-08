@@ -6,7 +6,7 @@ import { CreateRunnerForm } from "@/components/runner-create";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
-import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall } from "@/lib/runners";
+import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall, installAllTools } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
@@ -514,6 +514,20 @@ python3 rdaisec_runner.py`}
                       </select>
                       <button className="btn-ghost px-2 py-1 text-xs">Apply</button>
                     </form>
+
+                    {/* One-click: install every missing tool on this machine */}
+                    {missing.length > 0 && (
+                      <form action={installAllTools}>
+                        <input type="hidden" name="runnerId" value={r.id} />
+                        <button
+                          className="text-xs text-amber-300 hover:text-amber-200 disabled:opacity-40"
+                          disabled={!online}
+                          title={online ? "" : "Machine is offline"}
+                        >
+                          ⚡ Install all {missing.length} missing tool{missing.length === 1 ? "" : "s"}
+                        </button>
+                      </form>
+                    )}
 
                     {/* Anonymity (Tor) */}
                     <div>

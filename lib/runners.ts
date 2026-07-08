@@ -11,6 +11,7 @@ import {
   normalizeTarget,
   validateTarget,
   isInstallable,
+  installableTools,
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
@@ -101,6 +102,44 @@ export async function requestInstall(formData: FormData) {
     });
   }
   revalidatePath("/dashboard/runners");
+}
+
+/**
+ * One-click: queue installs for EVERY installable tool this machine is missing,
+ * so the operator doesn't have to add them one at a time. Recomputes the missing
+ * set server-side from what the runner reports present; skips anything already
+ * queued/installing. Only allowlisted packages are ever requested.
+ */
+export async function installAllTools(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const runnerId = String(formData.get("runnerId") ?? "");
+  const back = String(formData.get("back") ?? "/dashboard/runners");
+  if (!runnerId) redirect(`${back}?error=${encodeURIComponent("No machine specified.")}`);
+
+  const runner = await prisma.runner.findUnique({
+    where: { id: runnerId },
+    select: { installed: true, installs: { where: { status: { in: ["pending", "installing"] } }, select: { tool: true } } },
+  });
+  if (!runner) redirect(`${back}?error=${encodeURIComponent("Machine not found.")}`);
+
+  const have = new Set((runner.installed || "").split(",").map((s) => s.trim()).filter(Boolean));
+  const pending = new Set(runner.installs.map((i) => i.tool));
+  const toQueue = installableTools().filter((t) => !have.has(t) && !pending.has(t));
+
+  for (const tool of toQueue) {
+    await prisma.install.create({ data: { runnerId, tool, requestedBy: session.user.email ?? "" } });
+  }
+
+  revalidatePath("/dashboard/runners");
+  revalidatePath(back);
+  redirect(
+    `${back}?ok=${encodeURIComponent(
+      toQueue.length > 0
+        ? `Queued ${toQueue.length} tool install(s) — watch progress here`
+        : "Nothing to install — all tools present or already queued",
+    )}`,
+  );
 }
 
 /**

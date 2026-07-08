@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "50"
+RUNNER_VERSION = "51"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -355,11 +355,41 @@ EXTRA_INSTALL_BINS = {
 }
 
 
-def installed_tools() -> list[str]:
-    """Install ids whose binary is present on PATH (allowlisted tools + extras)."""
+# ── Lightweight TTL cache ────────────────────────────────────────────────────
+# Every request() to the portal (heartbeat ping, job poll, result post) attaches
+# machine stats. Some are expensive — nvidia-smi, `iw`, probing ~50 tool binaries
+# — and under heavy job load those subprocesses can stall the heartbeat long
+# enough to miss the online window, so the machine flaps "offline". Cache the
+# costly ones for a few seconds so frequent requests stay cheap and the heartbeat
+# never blocks on them.
+_TTL_CACHE: dict = {}
+
+
+def _cached(key: str, ttl: float, producer):
+    """Return producer()'s value, recomputing at most once per `ttl` seconds.
+    Never raises — a producer error falls back to the last value (or None)."""
+    now = time.monotonic()
+    hit = _TTL_CACHE.get(key)
+    if hit is not None and now - hit[0] < ttl:
+        return hit[1]
+    try:
+        val = producer()
+    except Exception:  # noqa: BLE001
+        return hit[1] if hit is not None else None
+    _TTL_CACHE[key] = (now, val)
+    return val
+
+
+def _installed_tools_uncached() -> list[str]:
     present = [t for t, spec in TOOLS.items() if shutil.which(spec["bin"])]
     present += [tid for tid, b in EXTRA_INSTALL_BINS.items() if shutil.which(b)]
     return sorted(set(present))
+
+
+def installed_tools() -> list[str]:
+    """Install ids whose binary is present on PATH (allowlisted tools + extras).
+    Cached ~60s — it's probed on every request and rarely changes between them."""
+    return _cached("installed_tools", 60.0, _installed_tools_uncached) or []
 
 # Whitelists mirrored from the portal — no shell metacharacters in either case.
 SAFE_VALUE = re.compile(r"^[A-Za-z0-9 ._:/@,+=\-]+$")          # host targets + flags
@@ -518,6 +548,12 @@ def _uptime_s():
 
 
 def _gpu_pct():
+    """GPU utilisation %, cached ~15s (nvidia-smi is a subprocess we don't want to
+    spawn on every request under load)."""
+    return _cached("gpu_pct", 15.0, _gpu_pct_uncached)
+
+
+def _gpu_pct_uncached():
     """GPU utilisation %, best-effort (NVIDIA smi, then AMD/Intel sysfs)."""
     try:
         if shutil.which("nvidia-smi"):
@@ -911,19 +947,33 @@ def heartbeat_loop():
     the Tor exit IP once bootstrapping completes, and restores managed networking
     if a WiFi job ever knocks this box off the network."""
     global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR, PING_FAILS
+    last_wifi_scan = 0.0
     while True:
         try:
-            # Re-detect WiFi so plugging in a monitor-mode dongle is noticed.
-            WIFI_IFACES, WIFI_MONITOR = detect_wifi()
+            # Re-detect WiFi so plugging in a monitor-mode dongle is noticed — but
+            # only every ~60s, not every beat: `iw` is a subprocess that under
+            # heavy job load can stall the heartbeat and drop us "offline".
+            if time.monotonic() - last_wifi_scan > 60:
+                WIFI_IFACES, WIFI_MONITOR = detect_wifi()
+                last_wifi_scan = time.monotonic()
             if ANON_ON and not EXIT_IP:
                 ip = tor_exit_ip(retries=1)
                 if ip:
                     EXIT_IP = ip
                     ANON_STATUS = "on"
                     print(f"  Tor exit IP {ip}")
-            # Bounded timeout so a slow ping can't delay the next one past the
-            # portal's offline window.
-            resp = request("GET", "/api/runner/ping", timeout=15)
+            # Ping, with a couple of quick retries so a single slow request (busy
+            # box, cold portal DB) doesn't miss the online window and flap offline.
+            resp = None
+            for attempt in range(3):
+                try:
+                    resp = request("GET", "/api/runner/ping", timeout=12)
+                    break
+                except Exception:  # noqa: BLE001
+                    if attempt < 2:
+                        time.sleep(2)
+                    else:
+                        raise
             PING_FAILS = 0
             # Honor a portal-requested restart (Machines page → Restart). Re-exec
             # picks up the latest script via self-update on startup.
