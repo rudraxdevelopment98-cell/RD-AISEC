@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+// Operator typefaces for the Advance skin (self-hosted by next/font — no runtime
+// external request). Exposed as CSS variables; globals.css opts the advance theme
+// into them. Basic keeps the system stack.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const jbmono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "RD-AISEC — AI Cybersecurity Dashboard",
@@ -13,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${jbmono.variable}`}>
       <head>
         {/* Set the theme before first paint so there's no flash of the wrong
             theme. Defaults to dark (the app's signature). */}
