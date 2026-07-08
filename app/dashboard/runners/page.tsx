@@ -6,7 +6,7 @@ import { CreateRunnerForm } from "@/components/runner-create";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
-import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, requestInstall } from "@/lib/runners";
+import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
@@ -16,6 +16,9 @@ import {
 } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
+
+// Hour choices for the maintenance-window selects (00:00–23:00).
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default async function RunnersPage({
   searchParams,
@@ -475,6 +478,40 @@ python3 rdaisec_runner.py`}
                         ))}
                       </select>
                       <span>job(s) at once</span>
+                      <button className="btn-ghost px-2 py-1 text-xs">Apply</button>
+                    </form>
+
+                    {/* Daily self-heal / maintenance window (machine local time) */}
+                    <form action={setRunnerMaintenance} className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                      <input type="hidden" name="id" value={r.id} />
+                      <label className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          name="enabled"
+                          defaultChecked={r.maintEnabled}
+                          className="h-3.5 w-3.5 rounded border-surface-border bg-transparent accent-brand"
+                        />
+                        🔧 Self-heal
+                      </label>
+                      <select
+                        name="startHour"
+                        defaultValue={String(r.maintStartHour ?? 6)}
+                        className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
+                      >
+                        {HOURS.map((h) => (
+                          <option key={h} value={h}>{`${String(h).padStart(2, "0")}:00`}</option>
+                        ))}
+                      </select>
+                      <span>–</span>
+                      <select
+                        name="endHour"
+                        defaultValue={String(r.maintEndHour ?? 8)}
+                        className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
+                      >
+                        {HOURS.map((h) => (
+                          <option key={h} value={h}>{`${String(h).padStart(2, "0")}:00`}</option>
+                        ))}
+                      </select>
                       <button className="btn-ghost px-2 py-1 text-xs">Apply</button>
                     </form>
 
