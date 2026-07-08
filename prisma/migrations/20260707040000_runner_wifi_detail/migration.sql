@@ -1,2 +1,3 @@
 -- Per-adapter chipset/driver detail on a runner (drives AirSight device options).
-ALTER TABLE "Runner" ADD COLUMN "wifiDetail" TEXT NOT NULL DEFAULT '';
+-- Idempotent: safe even if a preview build already added the column.
+ALTER TABLE "Runner" ADD COLUMN IF NOT EXISTS "wifiDetail" TEXT NOT NULL DEFAULT '';

@@ -1,5 +1,6 @@
 -- AirSight rolling history (device sightings + presence timeline) per owner.
-CREATE TABLE "AirsightLog" (
+-- Idempotent so a re-run can't fail on an existing table/index.
+CREATE TABLE IF NOT EXISTS "AirsightLog" (
     "id" TEXT NOT NULL,
     "ownerEmail" TEXT NOT NULL,
     "data" TEXT NOT NULL DEFAULT '',
@@ -8,4 +9,4 @@ CREATE TABLE "AirsightLog" (
     CONSTRAINT "AirsightLog_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "AirsightLog_ownerEmail_key" ON "AirsightLog"("ownerEmail");
+CREATE UNIQUE INDEX IF NOT EXISTS "AirsightLog_ownerEmail_key" ON "AirsightLog"("ownerEmail");
