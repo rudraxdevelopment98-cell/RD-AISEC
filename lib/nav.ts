@@ -33,6 +33,7 @@ export const NAV: NavGroup[] = [
     icon: "grid",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid", access: "always" },
+      { href: "/dashboard/workspace", label: "Operator Workspace", icon: "bolt", access: "always" },
     ],
   },
   // The four service lines — what kind of work you're doing. Each is a real
