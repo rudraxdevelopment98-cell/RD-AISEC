@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getKevSet } from "@/lib/threat-intel";
+import { getKevSet, getEpssMap } from "@/lib/threat-intel";
 import { buildEngineIntel, type EngineFinding } from "@/lib/engine/engine-core";
 import { EngineConsole, type WirePayload } from "@/components/engine/engine-console";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -14,13 +14,14 @@ export const dynamic = "force-dynamic";
  * attack-surface rollups. Wired to real findings + the CISA KEV catalog.
  */
 export default async function EnginePage() {
-  const [findings, kev] = await Promise.all([
+  const [findings, kev, epss] = await Promise.all([
     prisma.finding.findMany({
       orderBy: { createdAt: "desc" },
       take: 400,
       include: { engagement: { select: { id: true, name: true } } },
     }),
     getKevSet().catch(() => new Set<string>()),
+    getEpssMap().catch(() => new Map<string, number>()),
   ]);
 
   const input: EngineFinding[] = findings.map((f) => ({
@@ -40,7 +41,7 @@ export default async function EnginePage() {
     createdAt: f.createdAt,
   }));
 
-  const intel = buildEngineIntel(input, kev);
+  const intel = buildEngineIntel(input, kev, epss);
 
   // Serialize to a plain payload (no functions/Dates) for the client console.
   const payload: WirePayload = {

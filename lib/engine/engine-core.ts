@@ -8,6 +8,7 @@ import { classifyFindingVuln, type Surface } from "@/lib/vuln-taxonomy";
 import { extractAsset, type FindingLike } from "@/lib/assessment";
 import { prioritize, riskSummary, firstCve, type RiskInput, type Scored, type Tier } from "@/lib/engine/risk-core";
 import { remediationPlan, type RemediationPlan } from "@/lib/engine/remediation-core";
+import { supplementalDetect } from "@/lib/engine/detect-core";
 
 export type EngineFinding = RiskInput &
   FindingLike & {
@@ -51,19 +52,36 @@ export type EngineIntel = {
   planFor: (id: string) => RemediationPlan | null;
 };
 
-/** Detection enrichment: classify the finding and surface its framework refs. */
+/** Detection enrichment: classify the finding and surface its framework refs.
+ * Falls back to the supplemental signature layer so common scanner findings still
+ * get an OWASP/CWE/surface instead of "unclassified". */
 export function enrich(f: EngineFinding, kev?: Set<string>): Enrichment {
+  const text = `${f.title}\n${f.description ?? ""}`;
   const cls = classifyFindingVuln({ title: f.title, description: f.description });
   const cve = firstCve(`${f.title} ${f.description ?? ""}`);
+  if (cls) {
+    return {
+      classId: cls.id,
+      classLabel: cls.label,
+      owasp: cls.owasp,
+      cwe: cls.cwe,
+      attack: cls.attack,
+      surface: cls.surface,
+      cvssBand: cls.cvss,
+      indicators: cls.indicators,
+      cve,
+    };
+  }
+  const supp = supplementalDetect(text);
   return {
-    classId: cls?.id ?? null,
-    classLabel: cls?.label ?? "Unclassified",
-    owasp: cls?.owasp ?? (f.owasp || null),
-    cwe: cls?.cwe ?? null,
-    attack: cls?.attack ?? (f.attack || null),
-    surface: cls?.surface ?? "info",
-    cvssBand: cls?.cvss ?? null,
-    indicators: cls?.indicators ?? [],
+    classId: supp?.classId ?? null,
+    classLabel: supp?.label ?? "Unclassified",
+    owasp: supp?.owasp ?? (f.owasp || null),
+    cwe: supp?.cwe ?? null,
+    attack: f.attack || null,
+    surface: supp?.surface ?? "info",
+    cvssBand: null,
+    indicators: [],
     cve,
   };
 }

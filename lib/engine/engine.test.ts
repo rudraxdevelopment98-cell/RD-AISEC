@@ -2,6 +2,8 @@
 import { cvssFor, exposureOf, prioritize, riskSummary, scoreFinding, tierFor } from "./risk-core";
 import { remediationPlan } from "./remediation-core";
 import { attackChains, buildEngineIntel, enrich, type EngineFinding } from "./engine-core";
+import { SUPPLEMENTAL_COUNT, supplementalDetect } from "./detect-core";
+import { engineReportMarkdown } from "./report-core";
 
 let pass = 0, fail = 0;
 function ok(c: boolean, msg: string) { if (c) pass++; else { fail++; console.error(`✗ ${msg}`); } }
@@ -92,6 +94,37 @@ ok(intel.assets.length >= 1 && intel.surfaces.length >= 1, "rollups produced");
 // KEV set wiring
 const kevIntel = buildEngineIntel([{ id: "k", title: "Bug CVE-2020-0001", description: "https://x.com", severity: "high" }], new Set(["CVE-2020-0001"]));
 ok(kevIntel.items[0].risk.knownExploited, "KEV set flags the finding");
+
+// EPSS map wiring through buildEngineIntel
+const epssIntel = buildEngineIntel(
+  [{ id: "e", title: "Thing CVE-2019-1111", description: "", severity: "medium" }],
+  new Set(),
+  new Map([["CVE-2019-1111", 0.85]]),
+);
+ok(epssIntel.items[0].risk.epss === 0.85, "EPSS map wired into engine");
+
+// ── detect-core (supplemental) ───────────────────────────────────────────────
+ok(SUPPLEMENTAL_COUNT >= 12, "supplemental signature set is substantial");
+eq(supplementalDetect("Missing security headers: Content-Security-Policy not set")?.classId, "missing_headers", "detect missing headers");
+eq(supplementalDetect("Cookie without Secure flag")?.classId, "cookie_flags", "detect cookie flags");
+eq(supplementalDetect("Weak cipher RC4 supported, TLS 1.0 enabled")?.classId, "weak_tls", "detect weak tls");
+eq(supplementalDetect("nothing security-relevant here"), null, "no false positive");
+// enrich falls back to supplemental so scanner-style findings still classify
+// (taxonomy first; supplemental when it misses) — either way a CWE is attached.
+const suppEnrich = enrich({ id: "s", title: "SPF and DMARC records missing — email spoofing possible", description: "", severity: "low" });
+ok(suppEnrich.classId !== null, "scanner finding gets classified");
+ok(!!suppEnrich.cwe, "classified finding has a CWE");
+
+// ── report-core ──────────────────────────────────────────────────────────────
+const rpt = engineReportMarkdown(
+  intel.items.map((i) => ({ title: i.title, description: i.description ?? "", severity: i.severity, asset: i.asset, engagementName: i.engagementName ?? "", risk: i.risk, enrich: i.enrich })),
+  intel.summary,
+  { limit: 10 },
+);
+ok(rpt.includes("# Engine — Prioritized Remediation Report"), "report has title");
+ok(rpt.includes("Portfolio risk index"), "report has exec summary");
+ok(/\[P[1-4]\]/.test(rpt), "report tiers findings");
+ok(rpt.includes("Root cause"), "report includes remediation");
 
 console.log(`\nengine: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

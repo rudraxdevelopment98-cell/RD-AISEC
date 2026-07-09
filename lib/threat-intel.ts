@@ -25,6 +25,30 @@ export async function getKevSet(): Promise<Set<string>> {
   }
 }
 
+/**
+ * Read the synced EPSS scores (CVE → 0..1 predicted-exploitation probability).
+ * Stored as comma-joined "CVE:score" pairs. Cached per instance. Empty until a
+ * runner (v52.1+) has synced the feed.
+ */
+let epssCache: { map: Map<string, number>; at: number } | null = null;
+
+export async function getEpssMap(): Promise<Map<string, number>> {
+  if (epssCache && Date.now() - epssCache.at < TTL_MS) return epssCache.map;
+  try {
+    const row = await prisma.threatFeed.findUnique({ where: { kind: "epss" } });
+    const map = new Map<string, number>();
+    for (const pair of String(row?.data ?? "").split(",")) {
+      const [cve, score] = pair.split(":");
+      const n = Number(score);
+      if (cve && Number.isFinite(n)) map.set(cve.trim().toUpperCase(), n);
+    }
+    epssCache = { map, at: Date.now() };
+    return map;
+  } catch {
+    return epssCache?.map ?? new Map();
+  }
+}
+
 /** First CVE id in a text blob, upper-cased (or null). */
 export function firstCve(text: string): string | null {
   return text.match(/\bCVE-\d{4}-\d{3,7}\b/i)?.[0]?.toUpperCase() ?? null;

@@ -15,13 +15,40 @@ export async function POST(req: Request) {
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
-  let body: { kind?: unknown; cves?: unknown };
+  let body: { kind?: unknown; cves?: unknown; scores?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const kind = String(body.kind ?? "");
+
+  // EPSS: exploit-prediction scores. Body: { kind:"epss", scores: {CVE: 0..1} }.
+  // Stored in the same `data` string as comma-joined "CVE:score" pairs (no schema
+  // change) so risk scoring can weight predicted exploitation.
+  if (kind === "epss") {
+    const raw = body.scores;
+    const pairs: string[] = [];
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        const cve = String(k).trim().toUpperCase();
+        const n = Number(v);
+        if (/^CVE-\d{4}-\d{3,7}$/.test(cve) && Number.isFinite(n) && n >= 0 && n <= 1) {
+          pairs.push(`${cve}:${n.toFixed(4)}`);
+          if (pairs.length >= 100000) break;
+        }
+      }
+    }
+    if (pairs.length === 0) return NextResponse.json({ error: "No valid EPSS scores" }, { status: 400 });
+    const data = pairs.join(",");
+    await prisma.threatFeed.upsert({
+      where: { kind },
+      create: { kind, data, count: pairs.length },
+      update: { data, count: pairs.length },
+    });
+    return NextResponse.json({ ok: true, kind, count: pairs.length });
+  }
+
   if (kind !== "kev") {
     return NextResponse.json({ error: "Unknown feed kind" }, { status: 400 });
   }

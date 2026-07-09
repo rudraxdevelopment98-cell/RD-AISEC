@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { remediationPlan } from "@/lib/engine/remediation-core";
+import { engineReportMarkdown } from "@/lib/engine/report-core";
+import { setRetest } from "@/lib/finding-actions";
 import type { RiskScore, Tier } from "@/lib/engine/risk-core";
 import type { Enrichment } from "@/lib/engine/engine-core";
 
@@ -65,6 +67,19 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
   const plan = useMemo(() => (sel ? remediationPlan(sel) : null), [sel]);
   const s = payload.summary;
 
+  function exportReport() {
+    const md = engineReportMarkdown(payload.items, payload.summary, { limit: 60 });
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `engine-remediation-report-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   if (!payload.items.length) {
     return (
       <div className="py-10">
@@ -96,14 +111,19 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={t} count={s.tiers[t]} tone={TIER_TONE[t]} />
         ))}
         <FilterChip active={filter === "kev"} onClick={() => setFilter("kev")} label="🔥 KEV" count={s.kev} tone="text-red-300 border-red-500/50 bg-red-500/15" />
-        <div className="ml-auto flex items-center gap-2 rounded-xl border border-surface-border bg-black/20 px-3 py-1">
-          <span className="text-gray-500">🔎</span>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter findings…"
-            className="w-40 bg-transparent text-sm text-gray-100 outline-none placeholder:text-gray-600 sm:w-56"
-          />
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-surface-border bg-black/20 px-3 py-1">
+            <span className="text-gray-500">🔎</span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter findings…"
+              className="w-32 bg-transparent text-sm text-gray-100 outline-none placeholder:text-gray-600 sm:w-48"
+            />
+          </div>
+          <button onClick={exportReport} className="btn-ghost shrink-0 px-3 py-1.5 text-xs" title="Download a prioritized remediation report">
+            ⬇ Report
+          </button>
         </div>
       </div>
 
@@ -161,9 +181,14 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
                 {tab === "intel" && <IntelTab it={sel} />}
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-surface-border pt-3">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-surface-border pt-3">
                 <Link href={`/dashboard/findings/${sel.id}`} className="btn-ghost px-3 py-1.5 text-xs">Open finding</Link>
                 <Link href={`/dashboard/findings/${sel.id}/exploit`} className="btn-ghost px-3 py-1.5 text-xs">⚔ Exploit / validate</Link>
+                <form action={setRetest}>
+                  <input type="hidden" name="id" value={sel.id} />
+                  <input type="hidden" name="retest" value="requested" />
+                  <button className="btn-ghost px-3 py-1.5 text-xs" title="Flag this finding for re-testing after a fix">🔁 Request re-test</button>
+                </form>
                 {sel.engagementId && <Link href={`/dashboard/engagements/${sel.engagementId}`} className="btn-ghost px-3 py-1.5 text-xs">Engagement</Link>}
               </div>
             </div>
