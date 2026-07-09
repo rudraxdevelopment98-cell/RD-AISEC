@@ -11,6 +11,9 @@ import { SEVERITY_ORDER } from "@/lib/report";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { getMemberAccess } from "@/lib/members";
 import { canAccess } from "@/lib/access";
+import { getKevSet, getEpssMap } from "@/lib/threat-intel";
+import { buildEngineIntel, type EngineFinding } from "@/lib/engine/engine-core";
+import { EngineWidget, type EngineWidgetData } from "@/components/engine/engine-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -244,6 +247,9 @@ export default async function DashboardOverview({
     scanCount,
     jobsRecent,
     scansRecent,
+    engineFindings,
+    kev,
+    epss,
   ] = await Promise.all([
     prisma.engagement.count(),
     prisma.finding.findMany({ select: { severity: true, status: true } }),
@@ -262,7 +268,28 @@ export default async function DashboardOverview({
     prisma.scanRun.count(),
     prisma.job.findMany({ where: { createdAt: { gte: since14 } }, select: { createdAt: true } }),
     prisma.scanRun.findMany({ where: { createdAt: { gte: since14 } }, select: { createdAt: true } }),
+    prisma.finding.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 400,
+      select: { id: true, title: true, description: true, severity: true, confirmed: true, status: true, category: true, attack: true, owasp: true },
+    }),
+    getKevSet().catch(() => new Set<string>()),
+    getEpssMap().catch(() => new Map<string, number>()),
   ]);
+
+  // Engine risk posture for the dashboard widget.
+  const intel = buildEngineIntel(
+    engineFindings.map((f) => ({ ...f, engagementName: "" }) as EngineFinding),
+    kev,
+    epss,
+  );
+  const engineWidget: EngineWidgetData = {
+    summary: intel.summary,
+    top: intel.items
+      .filter((i) => (i.status ?? "open") === "open")
+      .slice(0, 4)
+      .map((i) => ({ id: i.id, title: i.title, tier: i.risk.tier, score: i.risk.score, asset: i.asset, knownExploited: i.risk.knownExploited })),
+  };
 
   const openFindings = findings.filter((f) => f.status === "open").length;
   const critHigh = findings.filter(
@@ -383,6 +410,9 @@ export default async function DashboardOverview({
           </Link>
         ))}
       </section>
+
+      {/* Engine risk posture */}
+      <EngineWidget data={engineWidget} />
 
       {/* Pipeline */}
       <section className="card fade-up">
