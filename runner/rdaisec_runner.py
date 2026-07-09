@@ -35,18 +35,25 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "52"
+RUNNER_VERSION = "52.1"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
 PING_SECONDS = int(os.environ.get("PING_SECONDS", "20"))
 
 # Daily self-heal / maintenance cycle. Once a day, inside a quiet window (default
-# 06:00–08:00 local), the machine refreshes packages, upgrades its security
-# tools, frees disk, refreshes tool databases and self-tests — reporting the
-# stage it's on to the portal (X-Runner-Maint header) so the UI shows a live
-# pipeline. All steps are best-effort and never crash the runner.
+# 06:00–08:00 local), the machine refreshes the package index, frees disk,
+# refreshes tool databases and self-tests — reporting the stage it's on to the
+# portal (X-Runner-Maint header) so the UI shows a live pipeline. All steps are
+# best-effort and never crash the runner.
+#
+# SAFETY: a full unattended `apt-get upgrade` is DISABLED by default — it can
+# restart networking/systemd services and knock the machine offline mid-pass.
+# The safe steps (index refresh, cache clean, tool-DB refresh, self-test) always
+# run. Set MAINT_APT_UPGRADE=1 only if you accept the risk of unattended system
+# upgrades on this machine.
 MAINT_ENABLED = os.environ.get("MAINT_ENABLED", "1") not in ("0", "false", "no")
+MAINT_APT_UPGRADE = os.environ.get("MAINT_APT_UPGRADE", "0") in ("1", "true", "yes")
 MAINT_START_HOUR = int(os.environ.get("MAINT_START_HOUR", "6"))
 MAINT_END_HOUR = int(os.environ.get("MAINT_END_HOUR", "8"))
 MAINT = "idle"  # current stage encoded as "stage|pct|note" for the header
@@ -1067,10 +1074,51 @@ def sync_threat_intel():
         print(f"  KEV sync skipped: {exc}")
 
 
+# EPSS: exploit-prediction scores (probability a CVE is exploited in the next 30
+# days). The runner fetches the daily bulk feed and syncs the actionable subset
+# (score ≥ 0.1) to the portal, which factors it into risk scoring. Best-effort.
+EPSS_URL = os.environ.get("EPSS_URL", "https://epss.cyentia.com/epss_scores-current.csv.gz")
+EPSS_MIN = float(os.environ.get("EPSS_MIN", "0.1"))
+
+
+def sync_epss():
+    """Fetch the EPSS bulk CSV, keep CVEs at/above the threshold, POST to portal."""
+    try:
+        import gzip
+
+        req = urllib.request.Request(EPSS_URL, headers={"User-Agent": "rdaisec-runner"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            raw = resp.read()
+        text = gzip.decompress(raw).decode("utf-8", "replace") if raw[:2] == b"\x1f\x8b" else raw.decode("utf-8", "replace")
+        scores = {}
+        for line in text.splitlines():
+            if not line or line[0] == "#" or line[:3].lower() == "cve":
+                continue
+            parts = line.split(",")
+            if len(parts) < 2:
+                continue
+            cve = parts[0].strip().upper()
+            if not cve.startswith("CVE-"):
+                continue
+            try:
+                e = float(parts[1])
+            except ValueError:
+                continue
+            if e >= EPSS_MIN:
+                scores[cve] = round(e, 4)
+        if not scores:
+            return
+        request("POST", "/api/runner/intel", {"kind": "epss", "scores": scores}, timeout=120)
+        print(f"  synced EPSS ({len(scores)} CVEs ≥{EPSS_MIN}) to the portal")
+    except Exception as exc:  # noqa: BLE001 — best-effort, never crash the runner
+        print(f"  EPSS sync skipped: {exc}")
+
+
 def threat_intel_loop():
-    """Background: sync the CISA KEV catalog on startup and daily."""
+    """Background: sync the CISA KEV catalog + EPSS scores on startup and daily."""
     while True:
         sync_threat_intel()
+        sync_epss()
         time.sleep(KEV_SYNC_SECONDS)
 
 
@@ -1130,17 +1178,23 @@ def run_maintenance():
         if not ok:
             problems.append("apt update failed")
 
-    # 2) Upgrade installed packages (security tools ride along).
-    set_maint("upgrading", 35, "Upgrading tools" if apt else "No apt — skipping")
-    if apt:
-        ok, tail = _apt("upgrade", timeout=2400)
+    # 2) Upgrade installed packages — OFF by default. A full unattended upgrade can
+    #    restart networking/systemd and take the machine offline, so it only runs
+    #    when explicitly opted in via MAINT_APT_UPGRADE=1.
+    if apt and MAINT_APT_UPGRADE:
+        set_maint("upgrading", 35, "Upgrading packages (opt-in)")
+        # --with-new-pkgs avoids held-back kernels; still user-authorized via env.
+        ok, tail = _apt("upgrade", "--with-new-pkgs", timeout=2400)
         if not ok:
             problems.append("apt upgrade incomplete")
+    else:
+        set_maint("upgrading", 35, "Package upgrade skipped (safe mode)")
 
-    # 3) Free disk: drop orphaned packages + cached archives + old journal logs.
+    # 3) Free disk: clear the downloaded-archive cache + old journal logs. NOTE:
+    #    we deliberately DON'T `apt autoremove` (it can remove packages and restart
+    #    services); autoclean only deletes stale .deb files and is safe.
     set_maint("cleaning", 55, "Freeing disk space")
     if apt:
-        _apt("autoremove", timeout=600)
         _apt("autoclean", timeout=300)
     if shutil.which("journalctl"):
         _maint_cmd(["bash", "-lc", "journalctl --vacuum-time=7d"], timeout=180)
@@ -1155,6 +1209,7 @@ def run_maintenance():
         _maint_cmd(["searchsploit", "-u"], timeout=600)
     try:
         sync_threat_intel()
+        sync_epss()
     except Exception:  # noqa: BLE001
         problems.append("threat intel")
 
