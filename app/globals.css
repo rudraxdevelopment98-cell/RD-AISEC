@@ -25,6 +25,26 @@ html:has(.app-dashboard) {
   z-index: 20;
 }
 
+/* Slim, unobtrusive scrollbar for internal scroll panes (no chunky default). */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--gray-500) / 0.35) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: rgb(var(--gray-500) / 0.28);
+  border-radius: 9999px;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--gray-500) / 0.5);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    THEME TOKENS — one source of truth for both themes.
    Colours are stored as bare "R G B" triplets so Tailwind can apply them with

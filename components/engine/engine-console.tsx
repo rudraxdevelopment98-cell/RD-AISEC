@@ -101,11 +101,15 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
   }
 
   return (
-    <div className="pb-10">
-      <Header index={s.index} s={s} kevCount={kevCount} />
+    <div className="flex flex-col gap-3 lg:h-[calc(100dvh-5.25rem)]">
+      {/* Header — on desktop it sits outside the scroll area, so it stays pinned
+          via the fixed-height flex column (no sticky needed). */}
+      <div className="shrink-0">
+        <Header index={s.index} s={s} kevCount={kevCount} />
+      </div>
 
-      {/* Tier filter ribbon */}
-      <div className="sticky-under-header mt-4 flex flex-wrap items-center gap-1.5 rounded-2xl border border-surface-border bg-surface/80 p-1.5 backdrop-blur">
+      {/* Tier filter ribbon — pinned above the scrolling panes on desktop. */}
+      <div className="shrink-0 flex flex-wrap items-center gap-1.5 rounded-2xl border border-surface-border bg-surface/90 p-1.5 backdrop-blur">
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" count={s.total} />
         {(["P1", "P2", "P3", "P4"] as Tier[]).map((t) => (
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={t} count={s.tiers[t]} tone={TIER_TONE[t]} />
@@ -127,11 +131,14 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        {/* Prioritized queue */}
-        <div className="min-w-0">
-          <SectionLabel>Prioritized queue · {items.length}</SectionLabel>
-          <div className="mt-2 space-y-1.5">
+      {/* Body — two independently scrolling panes on desktop. */}
+      <div className="grid gap-4 pb-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:overflow-hidden lg:pb-0">
+        {/* Prioritized queue — scrolls internally */}
+        <div className="flex min-w-0 flex-col lg:min-h-0">
+          <div className="shrink-0">
+            <SectionLabel>Prioritized queue · {items.length}</SectionLabel>
+          </div>
+          <div className="scroll-slim mt-2 space-y-1.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {items.length === 0 && <div className="card text-center text-sm text-gray-500">No findings match this filter.</div>}
             {items.slice(0, 200).map((it, i) => (
               <QueueRow key={it.id} it={it} rank={i + 1} active={sel?.id === it.id} onClick={() => setSelId(it.id)} />
@@ -139,10 +146,10 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
           </div>
         </div>
 
-        {/* Detail */}
-        <div className="min-w-0">
+        {/* Detail + chains + rollups — scrolls internally */}
+        <div className="scroll-slim flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
           {sel && (
-            <div className="card sticky top-16">
+            <div className="card">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -193,13 +200,10 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Attack chains + rollups */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div>
-          <SectionLabel>⛓ Attack chains · {payload.chains.length}</SectionLabel>
+          {/* Attack chains */}
+          <div>
+            <SectionLabel>⛓ Attack chains · {payload.chains.length}</SectionLabel>
           <div className="mt-2 space-y-2">
             {payload.chains.length === 0 && <div className="card text-sm text-gray-500">No multi-step chains detected — findings don&apos;t currently stack on a shared asset.</div>}
             {payload.chains.map((c) => (
@@ -256,6 +260,7 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
               })}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -410,7 +415,7 @@ function FixTab({ plan }: { plan: ReturnType<typeof remediationPlan> }) {
       {plan.snippet && (
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{plan.snippet.label}</p>
-          <pre className="mt-1 overflow-auto rounded-lg border border-surface-border bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-gray-300">{plan.snippet.code}</pre>
+          <pre className="scroll-slim mt-1 overflow-auto rounded-lg border border-surface-border bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-gray-300">{plan.snippet.code}</pre>
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
