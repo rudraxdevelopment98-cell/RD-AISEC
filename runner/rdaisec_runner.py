@@ -35,11 +35,11 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "52.1"
+RUNNER_VERSION = "52.2"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
-PING_SECONDS = int(os.environ.get("PING_SECONDS", "20"))
+PING_SECONDS = int(os.environ.get("PING_SECONDS", "15"))
 
 # Daily self-heal / maintenance cycle. Once a day, inside a quiet window (default
 # 06:00–08:00 local), the machine refreshes the package index, frees disk,
@@ -969,6 +969,7 @@ def heartbeat_loop():
     if a WiFi job ever knocks this box off the network."""
     global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR, PING_FAILS
     last_wifi_scan = 0.0
+    beat = 0
     while True:
         try:
             # Re-detect WiFi so plugging in a monitor-mode dongle is noticed — but
@@ -983,16 +984,21 @@ def heartbeat_loop():
                     EXIT_IP = ip
                     ANON_STATUS = "on"
                     print(f"  Tor exit IP {ip}")
-            # Ping, with a couple of quick retries so a single slow request (busy
-            # box, cold portal DB) doesn't miss the online window and flap offline.
+            # Ping to stay "online". The portal does a cheap lastSeenAt-only write
+            # for these, so a busy box can't time them out; every ~5th beat we ask
+            # for a full stats write (?full=1) to refresh the resource monitor.
+            # Short timeout + one quick retry + frequent beats = never miss the
+            # online window even if the portal is briefly slow.
+            beat += 1
+            path = "/api/runner/ping" + ("?full=1" if beat % 5 == 0 else "")
             resp = None
-            for attempt in range(3):
+            for attempt in range(2):
                 try:
-                    resp = request("GET", "/api/runner/ping", timeout=12)
+                    resp = request("GET", path, timeout=8)
                     break
                 except Exception:  # noqa: BLE001
-                    if attempt < 2:
-                        time.sleep(2)
+                    if attempt == 0:
+                        time.sleep(1)
                     else:
                         raise
             PING_FAILS = 0

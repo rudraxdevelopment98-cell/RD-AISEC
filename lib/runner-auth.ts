@@ -12,7 +12,7 @@ export function hashToken(token: string): string {
  * Read "Authorization: Bearer <token>" from the request, resolve the runner,
  * and stamp lastSeenAt. Returns the runner or null if the token is missing/bad.
  */
-export async function authenticateRunner(req: Request) {
+export async function authenticateRunner(req: Request, opts?: { light?: boolean }) {
   const header = req.headers.get("authorization") ?? "";
   const m = /^Bearer\s+(.+)$/i.exec(header.trim());
   if (!m) return null;
@@ -24,8 +24,35 @@ export async function authenticateRunner(req: Request) {
   });
   if (!runner) return null;
 
-  // The runner reports its version + loaded-tool count via headers on each poll.
+  // Version + maintenance stage are cheap and worth keeping fresh on every request
+  // (including light heartbeat pings).
   const version = (req.headers.get("x-runner-version") ?? "").slice(0, 20);
+  const maint = parseMaintHeader(req.headers.get("x-runner-maint"));
+  const maintData: Record<string, unknown> = {};
+  if (maint) {
+    maintData.maintStage = maint.stage;
+    maintData.maintNote = maint.note;
+    maintData.maintPct = maint.pct;
+    maintData.maintUpdatedAt = new Date();
+    const wasActive = isActiveStage((runner.maintStage as never) ?? "idle");
+    if (isActiveStage(maint.stage) && !wasActive) maintData.maintStartedAt = new Date();
+  }
+
+  // LIGHT heartbeat path: a minimal write (lastSeenAt only, plus the cheap
+  // version/maintenance) so a busy machine — where the full ~20-field stats write
+  // contends with job-result writes and can time out — never flaps "offline". The
+  // full machine stats ride on the job-poll and result requests instead.
+  if (opts?.light) {
+    await prisma.runner
+      .update({
+        where: { id: runner.id },
+        data: { lastSeenAt: new Date(), ...(version ? { version } : {}), ...maintData },
+      })
+      .catch(() => {});
+    return runner;
+  }
+
+  // The runner reports its loaded-tool count via headers on each poll.
   const toolsHeader = req.headers.get("x-runner-tools") ?? "";
   const toolCount = toolsHeader
     ? toolsHeader.split(",").map((t) => t.trim()).filter(Boolean).length
@@ -75,20 +102,6 @@ export async function authenticateRunner(req: Request) {
   const powerW = intH("x-runner-power");
   const chargingH = req.headers.get("x-runner-charging");
   const charging = chargingH == null || chargingH === "" ? undefined : chargingH === "1";
-
-  // Daily maintenance / self-heal stage the runner reports ("stage|pct|note").
-  // Starting a fresh cycle (any active stage while previously idle/terminal)
-  // stamps maintStartedAt so the UI can time the run.
-  const maint = parseMaintHeader(req.headers.get("x-runner-maint"));
-  const maintData: Record<string, unknown> = {};
-  if (maint) {
-    maintData.maintStage = maint.stage;
-    maintData.maintNote = maint.note;
-    maintData.maintPct = maint.pct;
-    maintData.maintUpdatedAt = new Date();
-    const wasActive = isActiveStage((runner.maintStage as never) ?? "idle");
-    if (isActiveStage(maint.stage) && !wasActive) maintData.maintStartedAt = new Date();
-  }
 
   await prisma.runner
     .update({

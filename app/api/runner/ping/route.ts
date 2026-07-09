@@ -10,7 +10,12 @@ export const dynamic = "force-dynamic";
  * for new work). authenticateRunner stamps lastSeenAt.
  */
 export async function GET(req: Request) {
-  const runner = await authenticateRunner(req);
+  // Light auth by default: a cheap lastSeenAt-only write so the heartbeat keeps
+  // the machine "online" even under heavy load, when the full stats write would
+  // contend and time out. The heartbeat asks for a full stats write occasionally
+  // (?full=1) so the resource monitor stays fresh without a heavy write every beat.
+  const full = new URL(req.url).searchParams.get("full") === "1";
+  const runner = await authenticateRunner(req, { light: !full });
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
