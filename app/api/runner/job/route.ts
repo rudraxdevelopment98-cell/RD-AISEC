@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { authenticateRunner } from "@/lib/runner-auth";
 import { decryptSecret } from "@/lib/crypto";
 import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
+import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -41,19 +42,40 @@ export async function GET(req: Request) {
   };
   const idle = () => setHeaders(new NextResponse(null, { status: 204 }));
 
-  // Claim the highest-priority queued job for this runner (ties broken by age),
-  // with a guarded update so two concurrent polls can't grab the same job.
-  // "Run next" / "Run first" raise a job's priority above the rest of the queue.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const next = await prisma.job.findFirst({
+  // Adoption scope: besides this runner's own jobs, a live runner also picks up
+  // jobs that would otherwise be stuck forever — orphaned ones (runnerId null,
+  // e.g. their runner was deleted) and ones stranded on a runner that's gone
+  // offline (e.g. it was replaced with a new token). Jobs on OTHER online runners
+  // are left alone, so live runners never steal each other's work.
+  const cutoff = new Date(Date.now() - RUNNER_ONLINE_WINDOW_MS);
+  const staleRunners = await prisma.runner.findMany({
+    where: { id: { not: runner.id }, OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: cutoff } }] },
+    select: { id: true },
+  });
+  const adoptableIds = staleRunners.map((r: { id: string }) => r.id);
+
+  // Claim the highest-priority queued job (ties broken by age), with a guarded
+  // update so two concurrent polls can't grab the same job. "Run next" / "Run
+  // first" raise a job's priority above the rest of the queue.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let next = await prisma.job.findFirst({
       where: { runnerId: runner.id, status: "queued" },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
     });
+    if (!next) {
+      // Nothing of ours — adopt an orphaned / stranded job.
+      next = await prisma.job.findFirst({
+        where: { status: "queued", OR: [{ runnerId: null }, { runnerId: { in: adoptableIds } }] },
+        orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+      });
+    }
     if (!next) return idle();
 
     const claimed = await prisma.job.updateMany({
       where: { id: next.id, status: "queued" },
-      data: { status: "running", startedAt: new Date() },
+      // Reassign to this runner as we claim it (a no-op for our own jobs; adopts
+      // orphaned/stranded ones so results post back correctly).
+      data: { status: "running", startedAt: new Date(), runnerId: runner.id },
     });
     if (claimed.count === 1) {
       // Authenticated / session-aware scanning: if this engagement carries a

@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "52.3"
+RUNNER_VERSION = "52.4"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -126,30 +126,61 @@ def _iface_driver(iface: str) -> str:
     return driver or "unknown"
 
 
+def _wireless_ifaces_sysfs() -> list[str]:
+    """Wireless interfaces straight from the kernel — needs NO tools. Any net
+    device with a phy80211/wireless node under /sys is a Wi-Fi adapter. This is the
+    reliable path when `iw`/`iwconfig` aren't installed (the old code reported no
+    Wi-Fi at all in that case, even with an adapter plugged in)."""
+    found: list[str] = []
+    try:
+        for name in sorted(os.listdir("/sys/class/net")):
+            base = os.path.join("/sys/class/net", name)
+            if os.path.exists(os.path.join(base, "phy80211")) or os.path.exists(os.path.join(base, "wireless")):
+                found.append(name)
+    except Exception:  # noqa: BLE001
+        pass
+    return found
+
+
 def detect_wifi() -> tuple[list[str], bool]:
     """Return (wireless interface names, any-adapter-supports-monitor-mode).
-    Also refreshes WIFI_DETAIL with per-iface driver names."""
+    Also refreshes WIFI_DETAIL with per-iface driver names. Detection is layered so
+    a connected adapter is found even without `iw` installed:
+      1. kernel sysfs (phy80211) — driver-level, no tools needed
+      2. `iw dev`      — merges in monitor vifs / confirms
+      3. `iwconfig`    — legacy fallback
+    Monitor-mode capability needs `iw list`; if `iw` is absent we still LIST the
+    adapter (so it shows up) but can't confirm monitor support."""
     global WIFI_DETAIL
-    if not shutil.which("iw"):
-        WIFI_DETAIL = []
-        return [], False
-    ifaces: list[str] = []
+    ifaces: list[str] = list(_wireless_ifaces_sysfs())
     monitor = False
-    try:
-        out = subprocess.run(["iw", "dev"], capture_output=True, text=True, timeout=5).stdout
-        for line in out.splitlines():
-            m = re.search(r"Interface\s+(\S+)", line)
-            if m:
-                ifaces.append(m.group(1))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        lst = subprocess.run(["iw", "list"], capture_output=True, text=True, timeout=8).stdout
-        # "* monitor" appears under "Supported interface modes" when capable.
-        if re.search(r"\*\s*monitor", lst):
-            monitor = True
-    except Exception:  # noqa: BLE001
-        pass
+
+    if shutil.which("iw"):
+        try:
+            out = subprocess.run(["iw", "dev"], capture_output=True, text=True, timeout=5).stdout
+            for line in out.splitlines():
+                m = re.search(r"Interface\s+(\S+)", line)
+                if m and m.group(1) not in ifaces:
+                    ifaces.append(m.group(1))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            lst = subprocess.run(["iw", "list"], capture_output=True, text=True, timeout=8).stdout
+            # "* monitor" appears under "Supported interface modes" when capable.
+            if re.search(r"\*\s*monitor", lst):
+                monitor = True
+        except Exception:  # noqa: BLE001
+            pass
+    elif shutil.which("iwconfig"):
+        try:
+            out = subprocess.run(["iwconfig"], capture_output=True, text=True, timeout=5).stdout
+            for line in out.splitlines():
+                m = re.match(r"^(\S+)\s+IEEE 802\.11", line)
+                if m and m.group(1) not in ifaces:
+                    ifaces.append(m.group(1))
+        except Exception:  # noqa: BLE001
+            pass
+
     WIFI_DETAIL = [f"{i}:{_iface_driver(i)}" for i in ifaces]
     return ifaces, monitor
 
