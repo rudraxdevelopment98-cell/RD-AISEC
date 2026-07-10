@@ -10,6 +10,11 @@ export type SenseMachine = { id: string; name: string; wifi: string[] };
 type AnalysisLite = { presentPct?: number; rangeMeters?: number | null; speedMps?: number; direction?: string };
 type CsiLite = { present: boolean; rangeMeters?: number | null; azimuthDeg?: number | null; breathingBpm?: number | null; heartBpm?: number | null; velocityMps?: number };
 type Placement = { present: boolean; range: number; azimuth: number; stature: number; source: "csi" | "rssi" };
+// A real surveyed device with a solved 2D position (plan metres), for 3D markers.
+type HomeDeviceLite = {
+  id: string; isAp: boolean; kind: string; essid: string; vendor: string;
+  bestRssi: number; pinned: boolean; pos: { x: number; y: number };
+};
 
 const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "auto", label: "Auto" },
@@ -55,6 +60,10 @@ export function SensingObservatory({
   const [csi, setCsi] = useState<CsiLite | null>(null);
   // The home floor plan — transparent walls + real in-plan placement.
   const [plan, setPlan] = useState<FloorPlan | null>(null);
+  // Real surveyed devices (routers / phones / IoT) positioned by the walk —
+  // rendered as labelled 3D markers in the room. Not simulated.
+  const [devices, setDevices] = useState<HomeDeviceLite[]>([]);
+  const [showDevices, setShowDevices] = useState(true);
 
   // Prefer CSI (has a real bearing) when it's fresh; else the RSSI analysis.
   const placement: Placement | null = csi
@@ -73,6 +82,11 @@ export function SensingObservatory({
 
   // Rebuild the 3D scene (walls + node positions) whenever the plan changes.
   const planKey = plan ? JSON.stringify({ m: plan.meters, h: plan.height, r: plan.rooms, a: plan.anchors }) : "";
+  // Rebuild device markers when the surveyed set changes (rounded so tiny RSSI
+  // jitter in positions doesn't thrash the scene).
+  const devKey = showDevices
+    ? devices.map((d) => `${d.id}:${d.pos.x.toFixed(1)},${d.pos.y.toFixed(1)}:${d.kind}:${d.pinned ? 1 : 0}`).join("|")
+    : "off";
 
   const selMachine = machines.find((m) => m.id === machineId);
 
@@ -155,6 +169,28 @@ export function SensingObservatory({
       cells.instanceMatrix.needsUpdate = true;
       scene.add(cells);
 
+      // Floating text label (canvas sprite) for a device marker.
+      const makeLabel = (text: string, hex: number) => {
+        const cvs = document.createElement("canvas");
+        const c2 = cvs.getContext("2d");
+        if (!c2) return null;
+        const fs = 44;
+        c2.font = `600 ${fs}px system-ui, sans-serif`;
+        const tw = Math.ceil(c2.measureText(text).width) + 28;
+        cvs.width = tw; cvs.height = 60;
+        c2.font = `600 ${fs}px system-ui, sans-serif`;
+        c2.fillStyle = "rgba(4,6,11,0.62)";
+        (c2 as any).roundRect ? (c2.beginPath(), (c2 as any).roundRect(0, 0, tw, 60, 12), c2.fill()) : c2.fillRect(0, 0, tw, 60);
+        c2.fillStyle = "#" + hex.toString(16).padStart(6, "0");
+        c2.textBaseline = "middle";
+        c2.fillText(text, 14, 32);
+        const tex = new THREE.CanvasTexture(cvs);
+        tex.minFilter = THREE.LinearFilter;
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+        spr.scale.set(0.42 * (tw / 60), 0.42, 1);
+        return spr;
+      };
+
       // ── Home floor plan → transparent glass walls, centred on the origin ──
       // The plan (metres) maps to world units so its larger side ≈ 6 units. When
       // a plan is present the sensing node + person live in PLAN coordinates.
@@ -195,6 +231,46 @@ export function SensingObservatory({
           );
           node.position.set(w.x, 0.16, w.z);
           scene.add(node);
+        }
+
+        // ── REAL surveyed devices → labelled 3D markers at their solved (x,y) ──
+        // Routers sit high, phones low; each has a stem to the floor + a name tag.
+        if (showDevices && devices.length) {
+          const KIND_HEX: Record<string, number> = {
+            router: 0x60a5fa, phone: 0x34d399, laptop: 0xa78bfa, computer: 0xa78bfa, iot: 0xfbbf24, unknown: 0x94a3b8,
+          };
+          for (const d of devices) {
+            const w = planToWorld(d.pos.x, d.pos.y);
+            const hex = KIND_HEX[d.kind] ?? 0x94a3b8;
+            const hgt = d.isAp ? Math.min(wallH * 0.9, 1.6) : d.kind === "phone" ? 0.85 : 1.0;
+            // stem to floor
+            const stemGeo = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(w.x, 0.02, w.z), new THREE.Vector3(w.x, hgt, w.z),
+            ]);
+            scene.add(new THREE.Line(stemGeo, new THREE.LineBasicMaterial({ color: hex, transparent: true, opacity: 0.35 })));
+            // floor dot
+            const dotGeo = new THREE.RingGeometry(0.05, 0.11, 24);
+            const dot = new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+            dot.rotation.x = -Math.PI / 2; dot.position.set(w.x, 0.03, w.z);
+            scene.add(dot);
+            // marker: octahedron for APs, sphere for clients
+            const marker = new THREE.Mesh(
+              d.isAp ? new THREE.OctahedronGeometry(0.13) : new THREE.SphereGeometry(0.09, 14, 14),
+              new THREE.MeshBasicMaterial({ color: hex }),
+            );
+            marker.position.set(w.x, hgt, w.z);
+            scene.add(marker);
+            if (d.pinned) {
+              const halo = new THREE.Mesh(
+                new THREE.TorusGeometry(0.2, 0.012, 8, 32),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 }),
+              );
+              halo.position.copy(marker.position); halo.rotation.x = Math.PI / 2;
+              scene.add(halo);
+            }
+            const lbl = makeLabel((d.essid || d.vendor || d.id.slice(-5)).slice(0, 16), hex);
+            if (lbl) { lbl.position.set(w.x, hgt + 0.3, w.z); scene.add(lbl); }
+          }
         }
       }
 
@@ -400,9 +476,10 @@ export function SensingObservatory({
       disposed = true;
       cleanup();
     };
-    // rebuild the scene when the floor plan changes; live params flow via stateRef
+    // rebuild the scene when the floor plan or surveyed devices change; live
+    // params flow via stateRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planKey]);
+  }, [planKey, devKey]);
 
   async function senseNow() {
     if (!machineId || !senseIface) {
@@ -490,6 +567,27 @@ export function SensingObservatory({
       .then((d) => { if (!stop && d?.plan) setPlan(d.plan as FloorPlan); })
       .catch(() => {});
     return () => { stop = true; };
+  }, []);
+
+  // Load the real surveyed devices (the auto home map) and refresh periodically
+  // so a live walk / monitor shows up as 3D markers. Only positioned ones.
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/sensing/survey", { cache: "no-store" }).then((x) => x.json());
+        const list: HomeDeviceLite[] = (r?.map?.devices ?? [])
+          .filter((d: { pos: unknown }) => d.pos)
+          .map((d: HomeDeviceLite) => ({
+            id: d.id, isAp: d.isAp, kind: d.kind, essid: d.essid, vendor: d.vendor,
+            bestRssi: d.bestRssi, pinned: d.pinned, pos: d.pos,
+          }));
+        if (!stop) setDevices(list);
+      } catch { /* ignore */ }
+    };
+    tick();
+    const id = setInterval(tick, 8000);
+    return () => { stop = true; clearInterval(id); };
   }, []);
 
   const f = frame;
@@ -618,6 +716,15 @@ export function SensingObservatory({
         <button onClick={() => setRunning((r) => !r)} className="tag ring-brand/40 text-brand-glow">
           {running ? "⏸" : "▶"}
         </button>
+        {devices.length > 0 && (
+          <button
+            onClick={() => setShowDevices((v) => !v)}
+            className={`tag ${showDevices ? "border-brand bg-brand/15 text-brand-glow" : "text-gray-400 hover:text-gray-200"}`}
+            title="Show the real surveyed devices as 3D markers"
+          >
+            📡 Devices {devices.length}
+          </button>
+        )}
         {SCENARIOS.map((s) => (
           <button
             key={s.id}
