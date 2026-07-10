@@ -5,7 +5,7 @@
  * Note: This is a standalone test file, not part of the build.
  */
 
-import { dnsEnumeration, portDiscovery, webTechDetection, osintGathering } from "./reconnaissance.ts";
+import { dnsEnumeration, portDiscovery, webTechDetection, osintGathering } from "./reconnaissance";
 
 async function runTests() {
   console.log("🔍 Starting reconnaissance scanning tests...\n");

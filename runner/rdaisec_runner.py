@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "52.2"
+RUNNER_VERSION = "52.3"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -57,6 +57,22 @@ MAINT_APT_UPGRADE = os.environ.get("MAINT_APT_UPGRADE", "0") in ("1", "true", "y
 MAINT_START_HOUR = int(os.environ.get("MAINT_START_HOUR", "6"))
 MAINT_END_HOUR = int(os.environ.get("MAINT_END_HOUR", "8"))
 MAINT = "idle"  # current stage encoded as "stage|pct|note" for the header
+
+# Housekeeping: clear the runner's own stale temp files + tool caches on a short
+# cycle (between the daily maintenance passes) so a busy box doesn't fill its disk.
+CLEANUP_SECONDS = int(os.environ.get("CLEANUP_SECONDS", str(3 * 3600)))  # every 3h
+TEMP_MAX_AGE = int(os.environ.get("TEMP_MAX_AGE", "3600"))  # only remove temp >1h old
+
+# Connection guardian: a dedicated, always-on algorithm that keeps the runner
+# reachable in the hardest situations (WiFi/monitor mode knocking it off, DHCP
+# lease loss, NetworkManager killed, driver wedge). It probes connectivity and
+# escalates local-network recovery until the box is back online.
+GUARDIAN_SECONDS = int(os.environ.get("GUARDIAN_SECONDS", "20"))
+# Absolute last resort: reboot after this many seconds of continuous TOTAL outage
+# (local network down, not just the portal). OFF by default — opt in, since a
+# reboot re-queues in-flight jobs.
+GUARDIAN_REBOOT = os.environ.get("GUARDIAN_REBOOT", "0") in ("1", "true", "yes")
+GUARDIAN_REBOOT_AFTER = int(os.environ.get("GUARDIAN_REBOOT_AFTER", str(45 * 60)))
 MAINT_LOCK = threading.Lock()
 
 # How many jobs to run at once on this machine. Each claimed job runs in its own
@@ -1012,14 +1028,10 @@ def heartbeat_loop():
             # Kill any jobs canceled from the portal so their worker slots free up.
             check_cancellations()
         except Exception:  # noqa: BLE001 — the heartbeat must NEVER die
-            # Sustained outage? If the internet is also gone it's a LOCAL network
-            # problem (likely monitor mode / a killed NetworkManager) — self-heal.
-            try:
-                PING_FAILS += 1
-                if PING_FAILS >= RECOVERY_AFTER_FAILS and not _internet_reachable():
-                    recover_network()
-            except Exception:  # noqa: BLE001
-                pass
+            # A failed ping just counts; the connection_guardian thread owns all
+            # local-network recovery (it probes + escalates continuously), so the
+            # heartbeat stays a pure, lightweight pinger and the two never fight.
+            PING_FAILS += 1
         time.sleep(PING_SECONDS)
 
 
@@ -1196,14 +1208,10 @@ def run_maintenance():
     else:
         set_maint("upgrading", 35, "Package upgrade skipped (safe mode)")
 
-    # 3) Free disk: clear the downloaded-archive cache + old journal logs. NOTE:
-    #    we deliberately DON'T `apt autoremove` (it can remove packages and restart
-    #    services); autoclean only deletes stale .deb files and is safe.
-    set_maint("cleaning", 55, "Freeing disk space")
-    if apt:
-        _apt("autoclean", timeout=300)
-    if shutil.which("journalctl"):
-        _maint_cmd(["bash", "-lc", "journalctl --vacuum-time=7d"], timeout=180)
+    # 3) Free disk: stale temp + tool caches + journal (all safe — no package
+    #    removal, no service restarts). Shared with the periodic cleanup loop.
+    set_maint("cleaning", 55, "Freeing disk space & temp")
+    run_cleanup()
 
     # 4) Refresh tool databases so scans actually match today's issues.
     set_maint("refreshing", 72, "Updating scanner templates & exploit DB")
@@ -1262,6 +1270,183 @@ def maintenance_loop():
         except Exception:  # noqa: BLE001 — maintenance must never take the runner down
             pass
         time.sleep(120)
+
+
+# ── Housekeeping: keep the runner's disk healthy ─────────────────────────────
+def _rm_old_temp() -> int:
+    """Remove the runner's OWN stale temp files (and common capture leftovers)
+    older than TEMP_MAX_AGE, so a fresh/active job is never disturbed. Only touches
+    files we recognise — never a blanket /tmp wipe. Returns the count removed."""
+    removed = 0
+    now = time.time()
+    tor_running = _tor_proc is not None and _tor_proc.poll() is None
+    try:
+        for name in os.listdir("/tmp"):
+            path = os.path.join("/tmp", name)
+            ours = name.startswith(("rdsurvey", "rdaisec", "rdmon", "rdcap"))
+            # airodump / capture leftovers this runner's WiFi flows produce.
+            capture = name.endswith((".cap", ".pcap", ".netxml", ".kismet.csv", ".kismet.netxml", ".22000", ".hccapx")) or bool(re.search(r"-\d\d\.(csv|cap|kismet\.csv)$", name))
+            if not (ours or capture):
+                continue
+            if name == "rdaisec-tor" and tor_running:
+                continue  # active Tor data dir
+            try:
+                if now - os.path.getmtime(path) < TEMP_MAX_AGE:
+                    continue  # too fresh — may belong to a running job
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    os.remove(path)
+                removed += 1
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        pass
+    return removed
+
+
+def run_cleanup() -> str:
+    """Clear stale temp + tool caches. All steps are safe (nothing that removes
+    packages or restarts services). Returns a short summary. Never raises."""
+    freed = _rm_old_temp()
+    notes = [f"{freed} temp file(s)"]
+    try:
+        # Package-manager download cache (safe: just re-downloadable .debs).
+        if shutil.which("apt-get"):
+            _apt("autoclean", timeout=300)
+            notes.append("apt cache")
+        # pip wheel cache.
+        for pip in ("pip3", "pip"):
+            if shutil.which(pip):
+                _maint_cmd([pip, "cache", "purge"], timeout=60)
+                notes.append("pip cache")
+                break
+        # Trim the systemd journal so logs can't fill the disk.
+        if shutil.which("journalctl"):
+            _maint_cmd(["bash", "-lc", "journalctl --vacuum-size=200M"], timeout=120)
+            notes.append("journal")
+    except Exception:  # noqa: BLE001
+        pass
+    summary = "cleared " + ", ".join(notes)
+    print(f"🧹 cleanup: {summary}")
+    return summary
+
+
+def cleanup_loop():
+    """Background: periodic housekeeping between the daily maintenance passes."""
+    while True:
+        time.sleep(CLEANUP_SECONDS)
+        try:
+            run_cleanup()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+# ── Connection guardian: stay reachable in the hardest situations ────────────
+def _portal_reachable() -> bool:
+    """Cheap TCP connect to the portal host (no auth/DB) — is the portal itself
+    reachable right now?"""
+    import socket
+    from urllib.parse import urlparse
+
+    try:
+        u = urlparse(PORTAL_URL)
+        host = u.hostname
+        port = u.port or (443 if u.scheme == "https" else 80)
+        if not host:
+            return False
+        s = socket.create_connection((host, port), timeout=6)
+        s.close()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def connectivity_state() -> str:
+    """'portal' = fully reachable · 'internet' = local net OK but portal down (don't
+    touch the network) · 'down' = local network gone (needs recovery)."""
+    if _portal_reachable():
+        return "portal"
+    if _internet_reachable():
+        return "internet"
+    return "down"
+
+
+def restore_connectivity(level: int) -> None:
+    """Escalating local-network recovery — each level is more aggressive than the
+    last. Best-effort; never raises. Level 1 mirrors recover_network(); higher
+    levels re-trigger DHCP/NM autoconnect and restart the network stack."""
+    tiers = {
+        1: [
+            'for d in /sys/class/net/*; do n=$(basename "$d"); '
+            'iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done',
+            "rfkill unblock all",
+            "systemctl restart NetworkManager || service NetworkManager restart || service network-manager restart",
+            'for d in /sys/class/net/*; do n=$(basename "$d"); '
+            'iw dev "$n" info 2>/dev/null | grep -q "type" && nmcli dev set "$n" managed yes; done',
+        ],
+        2: [
+            # Re-trigger NetworkManager autoconnect to known networks (Wi-Fi/eth).
+            "nmcli networking off; sleep 2; nmcli networking on",
+            "nmcli radio wifi on",
+            "nmcli dev connect $(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep -E ':wifi|:ethernet' | head -1 | cut -d: -f1) || true",
+        ],
+        3: [
+            # Renew leases + bounce the interfaces.
+            'for n in $(ls /sys/class/net | grep -vE "^lo$"); do ip link set "$n" up; done',
+            "dhclient -v || nmcli con up id \"$(nmcli -t -f NAME con show 2>/dev/null | head -1)\" || true",
+            "systemctl restart systemd-networkd 2>/dev/null || true",
+            "systemctl restart wpa_supplicant 2>/dev/null || true",
+        ],
+        4: [
+            # Full stack reset — last-ditch before an (opt-in) reboot.
+            "nmcli con reload 2>/dev/null || true",
+            'for c in $(nmcli -t -f NAME con show 2>/dev/null); do nmcli con up id "$c" && break; done',
+            "systemctl restart NetworkManager 2>/dev/null || true",
+        ],
+    }
+    steps = []
+    for lv in range(1, min(level, 4) + 1):
+        steps += tiers[lv]
+    print(f"⚠ connection guardian: local network down — recovery level {min(level, 4)}")
+    for cmd in steps:
+        try:
+            subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True, timeout=45)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def connection_guardian():
+    """Background: continuously ensure the runner can reach the portal, escalating
+    local-network recovery for as long as it's down. This is the resilience of last
+    resort — it NEVER gives up and never dies."""
+    fails = 0
+    down_since = None
+    while True:
+        try:
+            state = connectivity_state()
+            if state in ("portal", "internet"):
+                # 'internet' = the portal is down but OUR network is fine, so there's
+                # nothing to fix locally — just wait for the portal to return.
+                if fails:
+                    print("✓ connection guardian: local network restored")
+                fails = 0
+                down_since = None
+            else:  # 'down' — local network is gone; recover, escalating over time.
+                fails += 1
+                if down_since is None:
+                    down_since = time.monotonic()
+                restore_connectivity(1 + fails // 3)  # level rises every ~3 checks
+                if GUARDIAN_REBOOT and time.monotonic() - down_since > GUARDIAN_REBOOT_AFTER:
+                    print("⚠ connection guardian: prolonged total outage — rebooting (GUARDIAN_REBOOT=1)")
+                    try:
+                        subprocess.run(["bash", "-lc", "sync; systemctl reboot || reboot"], timeout=30)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    down_since = time.monotonic()  # avoid a reboot loop
+        except Exception:  # noqa: BLE001 — the guardian must NEVER die
+            pass
+        time.sleep(GUARDIAN_SECONDS)
 
 
 def _apply_workers(headers):
@@ -1548,6 +1733,31 @@ def _monitor_ifaces() -> list[str]:
     return mons
 
 
+def _restore_managed(mon: str, iface: str, sh) -> None:
+    """Bring a monitor-mode adapter back to managed mode and re-trigger
+    NetworkManager autoconnect. Idempotent + best-effort, and ALWAYS called from a
+    finally, so a monitor-mode job can never leave the runner stuck offline. `sh`
+    is the caller's sudo-aware subprocess runner."""
+    try:
+        sh(["airmon-ng", "stop", mon], timeout=20)
+    except Exception:  # noqa: BLE001
+        pass
+    # If airmon-ng didn't take it out of monitor, force it via iw (both the mon
+    # iface and the original name, which may differ, e.g. wlan0 → wlan0mon).
+    if mon in _monitor_ifaces() or iface in _monitor_ifaces():
+        for tgt in {mon, iface}:
+            sh(["ip", "link", "set", tgt, "down"])
+            sh(["iw", "dev", tgt, "set", "type", "managed"])
+            sh(["ip", "link", "set", tgt, "up"])
+    # Hand the interface back to NetworkManager and reconnect known networks so the
+    # runner's own uplink comes straight back.
+    sh(["nmcli", "dev", "set", iface, "managed", "yes"])
+    if shutil.which("systemctl"):
+        sh(["systemctl", "restart", "NetworkManager"], timeout=20)
+    sh(["nmcli", "networking", "on"])
+    print(f"  ↺ restored {iface} to managed mode")
+
+
 def run_wifisurvey(job):
     """Monitor-mode RF survey — the real "wherever signal reaches" map source.
 
@@ -1623,67 +1833,64 @@ def run_wifisurvey(job):
                 "detail": (started.stderr if started else "")[:400],
             }), 0)
 
-    csv_prefix = "/tmp/rdsurvey"
+    # From here the adapter is in monitor mode. GUARANTEE we put it back (finally),
+    # so a crash/timeout anywhere in the capture or parse can never leave the
+    # runner stuck in monitor mode and offline.
     try:
-        for f in os.listdir("/tmp"):
-            if f.startswith("rdsurvey-"):
+        csv_prefix = "/tmp/rdsurvey"
+        try:
+            for f in os.listdir("/tmp"):
+                if f.startswith("rdsurvey-"):
+                    try:
+                        os.remove(os.path.join("/tmp", f))
+                    except Exception:  # noqa: BLE001
+                        pass
+        except Exception:  # noqa: BLE001
+            pass
+
+        # airodump-ng hops channels on its own; --write-interval flushes the CSV so
+        # a timeout kill still leaves a readable file.
+        proc = subprocess.Popen(
+            sudo + ["airodump-ng", "-w", csv_prefix, "--output-format", "csv",
+                    "--write-interval", "1", mon],
+            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        try:
+            if stdin_in and proc.stdin:
                 try:
-                    os.remove(os.path.join("/tmp", f))
+                    proc.stdin.write(stdin_in.encode())
+                    proc.stdin.flush()
                 except Exception:  # noqa: BLE001
                     pass
-    except Exception:  # noqa: BLE001
-        pass
-
-    # airodump-ng hops channels on its own; --write-interval flushes the CSV so a
-    # timeout kill still leaves a readable file.
-    proc = subprocess.Popen(
-        sudo + ["airodump-ng", "-w", csv_prefix, "--output-format", "csv",
-                "--write-interval", "1", mon],
-        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    try:
-        if stdin_in and proc.stdin:
+            time.sleep(seconds)
+        finally:
             try:
-                proc.stdin.write(stdin_in.encode())
-                proc.stdin.flush()
+                proc.terminate()
+                proc.wait(timeout=5)
             except Exception:  # noqa: BLE001
-                pass
-        time.sleep(seconds)
-    finally:
+                try:
+                    proc.kill()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        csv_text = ""
         try:
-            proc.terminate()
-            proc.wait(timeout=5)
+            for f in sorted(os.listdir("/tmp")):
+                if f.startswith("rdsurvey-") and f.endswith(".csv"):
+                    with open(os.path.join("/tmp", f), errors="ignore") as fh:
+                        csv_text = fh.read()
         except Exception:  # noqa: BLE001
-            try:
-                proc.kill()
-            except Exception:  # noqa: BLE001
-                pass
+            pass
 
-    csv_text = ""
-    try:
-        for f in sorted(os.listdir("/tmp")):
-            if f.startswith("rdsurvey-") and f.endswith(".csv"):
-                with open(os.path.join("/tmp", f), errors="ignore") as fh:
-                    csv_text = fh.read()
-    except Exception:  # noqa: BLE001
-        pass
-
-    aps, stations = _parse_airodump_csv(csv_text)
-
-    # Restore managed mode if we changed the adapter (best-effort).
-    if we_enabled:
-        stopped = sh(["airmon-ng", "stop", mon], timeout=20)
-        if stopped is None or (iface in _monitor_ifaces() or mon in _monitor_ifaces()):
-            sh(["ip", "link", "set", mon, "down"])
-            sh(["iw", "dev", mon, "set", "type", "managed"])
-            sh(["ip", "link", "set", mon, "up"])
-        if shutil.which("systemctl"):
-            sh(["systemctl", "restart", "NetworkManager"], timeout=20)
-
-    return (json.dumps({
-        "iface": iface, "mon": mon, "vantage": vantage,
-        "durationSec": seconds, "aps": aps, "stations": stations,
-    }), 0)
+        aps, stations = _parse_airodump_csv(csv_text)
+        return (json.dumps({
+            "iface": iface, "mon": mon, "vantage": vantage,
+            "durationSec": seconds, "aps": aps, "stations": stations,
+        }), 0)
+    finally:
+        # ALWAYS restore managed mode + reconnect if we switched the adapter.
+        if we_enabled and mon:
+            _restore_managed(mon, iface, sh)
 
 
 def _parse_airodump_csv(text: str):
@@ -2291,6 +2498,10 @@ def main():
     threading.Thread(target=threat_intel_loop, daemon=True).start()
     # Daily self-heal / maintenance cycle (reports a live stage to the portal).
     threading.Thread(target=maintenance_loop, daemon=True).start()
+    # Periodic housekeeping — clear stale temp + tool caches between passes.
+    threading.Thread(target=cleanup_loop, daemon=True).start()
+    # Connection guardian — keep the runner reachable in the hardest situations.
+    threading.Thread(target=connection_guardian, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once (portal-controlled).\n")
 
