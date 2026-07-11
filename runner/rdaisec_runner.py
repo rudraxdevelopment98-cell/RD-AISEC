@@ -35,7 +35,23 @@ import urllib.error
 import urllib.request
 
 # Bump when this script changes meaningfully; the portal flags older runners.
-RUNNER_VERSION = "52.4"
+#
+# v53 — reliability rebuild. The runner kept going "offline" and getting stuck;
+# the root causes were architectural, so they're fixed at the source here:
+#   1. Telemetry (CPU/GPU/temp/power/installed-tools) is sampled on a background
+#      thread into a cached snapshot. request() reads the snapshot instantly and
+#      never blocks gathering stats — a slow nvidia-smi / disk read can no longer
+#      stall the heartbeat and flip the box "offline". The heartbeat is now a
+#      pure, lightweight pinger.
+#   2. Network self-heal is now STRICTLY NON-DESTRUCTIVE. It never touches the
+#      uplink (the default-route interface), never restarts NetworkManager, never
+#      bounces interfaces or renews DHCP. The one safe thing it does is drop a
+#      *non-uplink* adapter out of monitor mode (undoing a WiFi capture that
+#      knocked the box off) — so recovery can never deepen an outage. A brief NAT
+#      blip in a VM no longer triggers a network-restart storm.
+#   3. Every subsystem stays fully isolated: nothing a background loop does can
+#      take the runner offline or kill the core poll→run→post loop.
+RUNNER_VERSION = "53"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -663,6 +679,53 @@ def _power():
         return None, None, None
 
 
+# ── Telemetry cache (off the request hot path) ──────────────────────────────
+# Gathering stats can touch subprocesses (nvidia-smi) and many filesystem reads.
+# Doing that inline in request() meant a single slow read stalled the heartbeat
+# and flipped the box "offline" under load — the #1 chronic failure. So a
+# background thread samples everything a few times a minute into a snapshot, and
+# request() just reads the snapshot (a dict copy — instant, never blocks). WiFi
+# re-detection lives here too, so the heartbeat is a pure pinger.
+STATS_SECONDS = int(os.environ.get("STATS_SECONDS", "8"))
+_STATS: dict = {}
+_STATS_LOCK = threading.Lock()
+
+
+def _sample_stats() -> None:
+    """Compute the full telemetry snapshot. Runs on the stats thread; never on the
+    request path. Best-effort — any collector returning None is simply omitted."""
+    global WIFI_IFACES, WIFI_MONITOR
+    mem_u, mem_t = _mem_mb()
+    disk_u, disk_t = _disk_mb()
+    bat, chg, watts = _power()
+    snap = {
+        "cpu": _cpu_pct(), "mem": _mem_pct(), "temp": _temp_c(), "load": _loadavg(),
+        "mem_used": mem_u, "mem_total": mem_t, "disk_used": disk_u, "disk_total": disk_t,
+        "cores": os.cpu_count(), "uptime": _uptime_s(), "gpu": _gpu_pct_uncached(),
+        "battery": bat, "charging": chg, "power": watts,
+        "installed": installed_tools(),
+    }
+    with _STATS_LOCK:
+        _STATS.clear()
+        _STATS.update(snap)
+    # Re-detect WiFi here (a subprocess) so plugging in a monitor dongle is noticed
+    # without ever stalling the heartbeat.
+    try:
+        WIFI_IFACES, WIFI_MONITOR = detect_wifi()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def stats_loop() -> None:
+    """Background: keep the telemetry snapshot fresh. Never raises."""
+    while True:
+        try:
+            _sample_stats()
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(STATS_SECONDS)
+
+
 def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
@@ -676,44 +739,29 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
     req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
     req.add_header("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
-    req.add_header("X-Runner-Installed", ",".join(installed_tools()))
     with MAINT_LOCK:
         _maint = MAINT
     if _maint and _maint != "idle":
         req.add_header("X-Runner-Maint", _maint)
-    cpu, mem, temp, load = _cpu_pct(), _mem_pct(), _temp_c(), _loadavg()
-    if cpu is not None:
-        req.add_header("X-Runner-Cpu", str(cpu))
-    if mem is not None:
-        req.add_header("X-Runner-Mem", str(mem))
-    if temp is not None:
-        req.add_header("X-Runner-Temp", str(temp))
-    if load:
-        req.add_header("X-Runner-Load", load)
-    mem_u, mem_t = _mem_mb()
-    disk_u, disk_t = _disk_mb()
-    if mem_u is not None:
-        req.add_header("X-Runner-Mem-Used", str(mem_u))
-        req.add_header("X-Runner-Mem-Total", str(mem_t))
-    if disk_u is not None:
-        req.add_header("X-Runner-Disk-Used", str(disk_u))
-        req.add_header("X-Runner-Disk-Total", str(disk_t))
-    _cores = os.cpu_count()
-    if _cores:
-        req.add_header("X-Runner-Cores", str(_cores))
-    _up = _uptime_s()
-    if _up is not None:
-        req.add_header("X-Runner-Uptime", str(_up))
-    _gpu = _gpu_pct()
-    if _gpu is not None:
-        req.add_header("X-Runner-Gpu", str(_gpu))
-    _bat, _chg, _w = _power()
-    if _bat is not None:
-        req.add_header("X-Runner-Battery", str(_bat))
-    if _chg is not None:
-        req.add_header("X-Runner-Charging", str(_chg))
-    if _w is not None:
-        req.add_header("X-Runner-Power", str(_w))
+    # Read the cached telemetry snapshot (populated by the stats thread). This is a
+    # plain dict copy — it never spawns a subprocess or blocks, so a slow stat read
+    # can never stall this request (and thus the heartbeat).
+    with _STATS_LOCK:
+        st = dict(_STATS)
+    req.add_header("X-Runner-Installed", ",".join(st.get("installed") or []))
+    _num = {
+        "X-Runner-Cpu": "cpu", "X-Runner-Mem": "mem", "X-Runner-Temp": "temp",
+        "X-Runner-Mem-Used": "mem_used", "X-Runner-Mem-Total": "mem_total",
+        "X-Runner-Disk-Used": "disk_used", "X-Runner-Disk-Total": "disk_total",
+        "X-Runner-Cores": "cores", "X-Runner-Uptime": "uptime", "X-Runner-Gpu": "gpu",
+        "X-Runner-Battery": "battery", "X-Runner-Charging": "charging", "X-Runner-Power": "power",
+    }
+    for header, key in _num.items():
+        val = st.get(key)
+        if val is not None:
+            req.add_header(header, str(val))
+    if st.get("load"):
+        req.add_header("X-Runner-Load", st["load"])
     if data is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)
@@ -960,15 +1008,12 @@ def fetch_tools():
 # outage (not just the portal being down) and restores managed networking on its
 # own: stop monitor mode, re-manage interfaces, unblock rfkill, restart NM.
 PING_FAILS = 0
-_LAST_RECOVERY = 0.0
-RECOVERY_AFTER_FAILS = int(os.environ.get("RECOVERY_AFTER_FAILS", "6"))  # ~2 min @ 20s
-RECOVERY_COOLDOWN = int(os.environ.get("RECOVERY_COOLDOWN", "180"))      # don't thrash
 
 
 def _internet_reachable() -> bool:
     """True if we can open a TCP socket to a public resolver. Distinguishes a
-    LOCAL network outage (recover) from the portal itself being unreachable
-    (don't touch the network — that would needlessly disrupt a real capture)."""
+    LOCAL network outage from the portal itself being unreachable (don't touch the
+    network — that would needlessly disrupt a real capture)."""
     import socket
 
     for host in (("1.1.1.1", 53), ("8.8.8.8", 53)):
@@ -981,50 +1026,18 @@ def _internet_reachable() -> bool:
     return False
 
 
-def recover_network() -> None:
-    """Best-effort: bring managed networking back after a sustained LOCAL outage.
-    Rate-limited and never raises."""
-    global _LAST_RECOVERY
-    now = time.time()
-    if now - _LAST_RECOVERY < RECOVERY_COOLDOWN:
-        return
-    _LAST_RECOVERY = now
-    print("⚠ portal + internet unreachable — attempting network self-recovery")
-    steps = [
-        # Drop any monitor-mode interface back to managed.
-        'for d in /sys/class/net/*; do n=$(basename "$d"); '
-        'iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done',
-        "rfkill unblock all",
-        "systemctl restart NetworkManager || service NetworkManager restart || service network-manager restart",
-        # Re-hand every wireless interface to NetworkManager.
-        'for d in /sys/class/net/*; do n=$(basename "$d"); '
-        'iw dev "$n" info 2>/dev/null | grep -q "type" && nmcli dev set "$n" managed yes; done',
-    ]
-    for cmd in steps:
-        try:
-            subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True, timeout=30)
-        except Exception:  # noqa: BLE001
-            pass
-
-
 def heartbeat_loop():
     """Background: keep the machine 'online' regardless of what the loop is doing.
     While every worker is busy with a long job, the main loop stops polling, so
-    this is the ONLY thing pinging the portal — it must NEVER die. Every pass is
-    fully guarded; check_cancellations runs inside the guard too. Also self-heals
-    the Tor exit IP once bootstrapping completes, and restores managed networking
-    if a WiFi job ever knocks this box off the network."""
-    global EXIT_IP, ANON_STATUS, WIFI_IFACES, WIFI_MONITOR, PING_FAILS
-    last_wifi_scan = 0.0
+    this is the ONLY thing pinging the portal — it must NEVER die. It is now a PURE
+    pinger: telemetry + WiFi re-detection happen on the stats thread, so nothing a
+    heartbeat does can spawn a subprocess or block. Every pass is fully guarded;
+    check_cancellations runs inside the guard too, and it self-heals the Tor exit
+    IP once bootstrapping completes."""
+    global EXIT_IP, ANON_STATUS, PING_FAILS
     beat = 0
     while True:
         try:
-            # Re-detect WiFi so plugging in a monitor-mode dongle is noticed — but
-            # only every ~60s, not every beat: `iw` is a subprocess that under
-            # heavy job load can stall the heartbeat and drop us "offline".
-            if time.monotonic() - last_wifi_scan > 60:
-                WIFI_IFACES, WIFI_MONITOR = detect_wifi()
-                last_wifi_scan = time.monotonic()
             if ANON_ON and not EXIT_IP:
                 ip = tor_exit_ip(retries=1)
                 if ip:
@@ -1404,70 +1417,65 @@ def connectivity_state() -> str:
 
 
 def restore_connectivity(level: int) -> None:
-    """Escalating local-network recovery — each level is more aggressive than the
-    last. Best-effort; never raises. Level 1 mirrors recover_network(); higher
-    levels re-trigger DHCP/NM autoconnect and restart the network stack."""
-    tiers = {
-        1: [
-            'for d in /sys/class/net/*; do n=$(basename "$d"); '
-            'iw dev "$n" info 2>/dev/null | grep -q "type monitor" && airmon-ng stop "$n"; done',
-            "rfkill unblock all",
-            "systemctl restart NetworkManager || service NetworkManager restart || service network-manager restart",
-            'for d in /sys/class/net/*; do n=$(basename "$d"); '
-            'iw dev "$n" info 2>/dev/null | grep -q "type" && nmcli dev set "$n" managed yes; done',
-        ],
-        2: [
-            # Re-trigger NetworkManager autoconnect to known networks (Wi-Fi/eth).
-            "nmcli networking off; sleep 2; nmcli networking on",
-            "nmcli radio wifi on",
-            "nmcli dev connect $(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep -E ':wifi|:ethernet' | head -1 | cut -d: -f1) || true",
-        ],
-        3: [
-            # Renew leases + bounce the interfaces.
-            'for n in $(ls /sys/class/net | grep -vE "^lo$"); do ip link set "$n" up; done',
-            "dhclient -v || nmcli con up id \"$(nmcli -t -f NAME con show 2>/dev/null | head -1)\" || true",
-            "systemctl restart systemd-networkd 2>/dev/null || true",
-            "systemctl restart wpa_supplicant 2>/dev/null || true",
-        ],
-        4: [
-            # Full stack reset — last-ditch before an (opt-in) reboot.
-            "nmcli con reload 2>/dev/null || true",
-            'for c in $(nmcli -t -f NAME con show 2>/dev/null); do nmcli con up id "$c" && break; done',
-            "systemctl restart NetworkManager 2>/dev/null || true",
-        ],
-    }
-    steps = []
-    for lv in range(1, min(level, 4) + 1):
-        steps += tiers[lv]
-    print(f"⚠ connection guardian: local network down — recovery level {min(level, 4)}")
-    for cmd in steps:
+    """NON-DESTRUCTIVE recovery. The old escalating tiers (restart NetworkManager,
+    `nmcli networking off/on`, bounce every interface, renew DHCP) were the very
+    thing that took the box offline: in a VM a brief NAT blip reads as 'network
+    down', and restarting the stack drops the uplink → deeper outage → escalation.
+
+    The ONLY safe automatic fix for a runner that knocked ITSELF offline is undoing
+    monitor mode on a NON-UPLINK adapter (a WiFi capture left a dongle in monitor
+    mode). We never touch the uplink (the default-route interface), never restart
+    NetworkManager, never bounce interfaces or renew DHCP. If the real uplink is
+    down, the OS/NM own bringing it back; the runner just waits and keeps trying.
+    `level` is kept for signature compatibility but no longer escalates. Never
+    raises."""
+    uplink = _default_route_iface()
+    mons = [m for m in _monitor_ifaces() if m and m != uplink]
+    if not mons:
+        return  # nothing safe to undo — wait for the OS to restore the uplink
+    print(f"⚠ connection guardian: dropping monitor mode on {', '.join(mons)} (non-uplink) to free networking")
+    sudo, stdin_in = _sudo_prefix()
+
+    def sh(argv, timeout=20):
         try:
-            subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True, timeout=45)
+            return subprocess.run(sudo + argv, input=stdin_in, capture_output=True, text=True, timeout=timeout)
+        except Exception:  # noqa: BLE001
+            return None
+
+    for mon in mons:
+        try:
+            sh(["airmon-ng", "stop", mon], timeout=20)
+            if mon in _monitor_ifaces():
+                sh(["ip", "link", "set", mon, "down"])
+                sh(["iw", "dev", mon, "set", "type", "managed"])
+                sh(["ip", "link", "set", mon, "up"])
+            sh(["nmcli", "dev", "set", mon, "managed", "yes"])
         except Exception:  # noqa: BLE001
             pass
 
 
 def connection_guardian():
-    """Background: continuously ensure the runner can reach the portal, escalating
-    local-network recovery for as long as it's down. This is the resilience of last
-    resort — it NEVER gives up and never dies."""
+    """Background: watch reachability and, ONLY when the box has genuinely knocked
+    itself off via monitor mode, undo that (non-destructively). It never restarts
+    the network stack and never reboots the uplink, so it can't deepen an outage;
+    it never gives up and never dies."""
     fails = 0
     down_since = None
     while True:
         try:
             state = connectivity_state()
             if state in ("portal", "internet"):
-                # 'internet' = the portal is down but OUR network is fine, so there's
-                # nothing to fix locally — just wait for the portal to return.
-                if fails:
-                    print("✓ connection guardian: local network restored")
+                # 'internet' = portal down but OUR network is fine → nothing to fix.
+                if fails >= 3:
+                    print("✓ connection guardian: connectivity restored")
                 fails = 0
                 down_since = None
-            else:  # 'down' — local network is gone; recover, escalating over time.
+            else:  # 'down' — require it to persist so a transient blip can't trigger us.
                 fails += 1
                 if down_since is None:
                     down_since = time.monotonic()
-                restore_connectivity(1 + fails // 3)  # level rises every ~3 checks
+                if fails >= 3:
+                    restore_connectivity(1)  # safe, idempotent, uplink-preserving
                 if GUARDIAN_REBOOT and time.monotonic() - down_since > GUARDIAN_REBOOT_AFTER:
                     print("⚠ connection guardian: prolonged total outage — rebooting (GUARDIAN_REBOOT=1)")
                     try:
@@ -2518,6 +2526,16 @@ def main():
     print("Polling for jobs… (Ctrl-C to stop)\n")
 
     print("Anonymity (Tor) is controlled from the portal → Machines.\n")
+
+    # Prime the telemetry snapshot once (so the first heartbeat already carries
+    # stats), then keep it fresh on a background thread — request() reads the
+    # snapshot instead of gathering stats inline, so nothing on the request path
+    # can block the heartbeat.
+    try:
+        _sample_stats()
+    except Exception:  # noqa: BLE001
+        pass
+    threading.Thread(target=stats_loop, daemon=True).start()
 
     # Start the heartbeat so we stay online during long jobs/installs. Keep the
     # handle so the watchdog in the main loop can revive it if it ever dies.
