@@ -138,7 +138,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
               </div>
               <div className="h-2 rounded bg-gray-700 overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 transition-all duration-300"
+                  className="h-full bg-brand transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -170,7 +170,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
               />
 
               <div className="space-y-2 rounded bg-emerald-900/10 border border-emerald-700 p-4">
-                <div className="flex items-center gap-2 text-emerald-400">
+                <div className="flex items-center gap-2 text-brand">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
@@ -180,7 +180,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
                   </svg>
                   <span className="font-semibold">{results.message}</span>
                 </div>
-                <p className="text-sm text-emerald-300">
+                <p className="text-sm text-brand">
                   <strong>Findings Created:</strong> {results.findingsCreated}
                 </p>
               </div>
@@ -201,7 +201,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
             </>
           ) : (
             <div className="space-y-4 rounded bg-emerald-900/10 border border-emerald-700 p-4">
-              <div className="flex items-center gap-2 text-emerald-400">
+              <div className="flex items-center gap-2 text-brand">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
@@ -219,7 +219,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
                 <p>
                   <strong>Scans Run:</strong> {(results?.scansRun as string[])?.join(", ")}
                 </p>
-                <p className="text-emerald-400">
+                <p className="text-brand">
                   <strong>Findings Created:</strong> {results?.findingsCreated}
                 </p>
               </div>

@@ -179,7 +179,7 @@ export function FloorPlanEditor({
           <button onClick={() => addAnchor("rx")} className="btn-ghost text-xs">+ CSI node</button>
           <button onClick={() => { setPlan(defaultPlan()); setSel(null); }} className="btn-ghost text-xs">Reset template</button>
           <button onClick={save} className="btn-primary ml-auto text-xs">Save plan</button>
-          {status && <span className="self-center text-xs text-emerald-300">{status}</span>}
+          {status && <span className="self-center text-xs text-brand">{status}</span>}
         </div>
       </div>
 

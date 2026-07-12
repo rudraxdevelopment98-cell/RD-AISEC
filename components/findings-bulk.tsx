@@ -174,7 +174,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               <input type="hidden" name="id" value={f.id} />
               <span className="text-[10px] uppercase tracking-wide text-gray-500">Retest</span>
               <button name="retest" value="requested" className="btn-ghost px-2 py-0.5">Requested</button>
-              <button name="retest" value="passed" className="rounded-md border border-emerald-500/40 px-2 py-0.5 text-emerald-300 hover:bg-emerald-500/10">✓ Fixed</button>
+              <button name="retest" value="passed" className="rounded-md border border-brand/40 px-2 py-0.5 text-brand hover:bg-brand/10">✓ Fixed</button>
               <button name="retest" value="failed" className="rounded-md border border-sev-crit/40 px-2 py-0.5 text-sev-crit hover:bg-sev-crit/10">✗ Still open</button>
               {f.retest ? (
                 <button name="retest" value="" className="text-gray-600 hover:text-gray-400">clear</button>

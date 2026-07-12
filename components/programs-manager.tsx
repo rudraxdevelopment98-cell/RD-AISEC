@@ -345,7 +345,7 @@ export function ProgramsManager({
                   ) : (
                     <form action={createEngagementFromProgram}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="text-emerald-400 hover:text-brand">Create engagement</button>
+                      <button className="text-brand hover:text-brand">Create engagement</button>
                     </form>
                   )}
 
@@ -423,7 +423,7 @@ export function ProgramsManager({
                             </option>
                           ))}
                         </select>
-                        <button className="text-emerald-400 hover:text-brand">Enable automation</button>
+                        <button className="text-brand hover:text-brand">Enable automation</button>
                       </form>
                     )}
                   </div>

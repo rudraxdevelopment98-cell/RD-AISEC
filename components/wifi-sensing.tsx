@@ -203,7 +203,7 @@ export function WifiSensing({
           </svg>
           <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
             <span>Signal quality {Math.round((f?.quality ?? 0) * 100)}%</span>
-            <span className={present ? "text-emerald-400" : "text-gray-500"}>
+            <span className={present ? "text-brand" : "text-gray-500"}>
               ● {present ? "person present" : "no presence"}
             </span>
           </div>

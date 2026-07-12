@@ -14,7 +14,7 @@ import {
 import { FIXTURES, FIXTURE_JSON } from "./fixtures";
 
 const VERDICT_STYLE: Record<Verdict, string> = {
-  allow: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  allow: "border-brand/40 bg-brand/10 text-brand",
   flag: "border-sev-med/50 bg-sev-med/15 text-sev-med",
   block: "border-sev-crit/60 bg-sev-crit/20 text-sev-crit",
 };

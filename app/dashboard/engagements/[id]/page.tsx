@@ -305,7 +305,7 @@ export default async function EngagementDetail({
       <section
         className={`rounded-xl border px-4 py-3 text-sm ${
           e.authorized
-            ? "border-brand/40 bg-brand/10 text-emerald-200"
+            ? "border-brand/40 bg-brand/10 text-brand"
             : "border-sev-med/40 bg-sev-med/10 text-sev-med"
         }`}
       >

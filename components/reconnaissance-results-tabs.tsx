@@ -63,7 +63,7 @@ export function ReconnaissanceResultsTabs({
         <div>
           <h3 className="text-xl font-bold">Scan Results</h3>
           <p className="text-sm text-gray-400">
-            Target: <span className="font-mono text-emerald-400">{results.target}</span>
+            Target: <span className="font-mono text-brand">{results.target}</span>
           </p>
         </div>
         <button
@@ -84,7 +84,7 @@ export function ReconnaissanceResultsTabs({
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
               activeTab === tab.id
-                ? "border-brand text-emerald-400"
+                ? "border-brand text-brand"
                 : "border-transparent text-gray-400 hover:text-white"
             }`}
           >
@@ -107,7 +107,7 @@ export function ReconnaissanceResultsTabs({
                       key={idx}
                       className="flex items-center justify-between p-3 bg-gray-800/50 rounded border border-gray-700 hover:border-emerald-700 transition-colors"
                     >
-                      <div className="flex-1 font-mono text-sm text-emerald-400">{sub.subdomain}</div>
+                      <div className="flex-1 font-mono text-sm text-brand">{sub.subdomain}</div>
                       {sub.ip && (
                         <div className="text-sm text-gray-400">
                           <span className="bg-gray-700 px-2 py-1 rounded">{sub.ip}</span>

@@ -33,10 +33,10 @@ export function CsiCapability() {
           </select>
         </label>
 
-        <div className={`rounded-xl border px-4 py-3 ${v.supported ? "border-emerald-500/40 bg-emerald-500/10" : "border-sev-med/40 bg-sev-med/10"}`}>
-          <p className={`flex flex-wrap items-center gap-2 font-medium ${v.supported ? "text-emerald-200" : "text-sev-med"}`}>
+        <div className={`rounded-xl border px-4 py-3 ${v.supported ? "border-brand/40 bg-brand/10" : "border-sev-med/40 bg-sev-med/10"}`}>
+          <p className={`flex flex-wrap items-center gap-2 font-medium ${v.supported ? "text-brand" : "text-sev-med"}`}>
             {v.supported ? "✓ CSI supported" : "✗ No CSI on this chip"}
-            {v.supported && <span className="tag border-emerald-500/40 text-emerald-300">{v.tool}</span>}
+            {v.supported && <span className="tag border-brand/40 text-brand">{v.tool}</span>}
             <span className="tag">{v.antennas} antenna{v.antennas > 1 ? "s" : ""}{v.antennas >= 2 ? " · AoA possible" : " · no bearing"}</span>
           </p>
           <p className="mt-2 text-xs text-gray-300">{v.note}</p>

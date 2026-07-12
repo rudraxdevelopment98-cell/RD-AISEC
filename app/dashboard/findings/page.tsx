@@ -207,7 +207,7 @@ export default async function FindingsPage({
       />
 
       {sp.ok && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">✓ {sp.ok}</div>
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">✓ {sp.ok}</div>
       )}
       {sp.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
@@ -238,7 +238,7 @@ export default async function FindingsPage({
             it remembers the pattern and drops matches on future scans
             (<span className="text-gray-400">suppressed</span>). Confirm a finding
             as real and that class is protected — never auto-suppressed
-            (<span className="text-emerald-300/80">protected</span>, allow beats
+            (<span className="text-brand/80">protected</span>, allow beats
             suppress). Remove any rule to reverse it.
           </p>
           <ul className="mt-3 space-y-1.5">
@@ -255,9 +255,9 @@ export default async function FindingsPage({
                   <span className="font-mono text-gray-300">{s.titleKey || "(unclassified)"}</span>
                   {s.vulnClass && <span className="ml-2 text-gray-500">· {s.vulnClass}</span>}
                   {isAllow ? (
-                    <span className="ml-2 text-emerald-300/80">· confirmed real — never auto-suppressed</span>
+                    <span className="ml-2 text-brand/80">· confirmed real — never auto-suppressed</span>
                   ) : (
-                    s.hits > 0 && <span className="ml-2 text-emerald-300/80">· suppressed {s.hits}×</span>
+                    s.hits > 0 && <span className="ml-2 text-brand/80">· suppressed {s.hits}×</span>
                   )}
                 </span>
                 <form action={deleteSuppression}>

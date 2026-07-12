@@ -33,7 +33,7 @@ export function SubmissionsManager({ submissions }: { submissions: SubmissionRow
       {/* Earnings + status roll-up */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Submitted" value={String(stats.total)} />
-        <Stat label="Accepted / paid" value={String(stats.won)} accent="text-emerald-300" />
+        <Stat label="Accepted / paid" value={String(stats.won)} accent="text-brand" />
         <Stat label="Pending" value={String(stats.pending)} accent="text-sev-low" />
         <Stat label="Bounty earned" value={formatReward(stats.earnedCents)} accent="text-brand" />
       </div>

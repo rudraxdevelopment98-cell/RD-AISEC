@@ -86,7 +86,7 @@ export function Assistant({ topics }: { topics: string[] }) {
               <span
                 className={`tag shrink-0 ${
                   answer.source === "knowledge"
-                    ? "border-emerald-500/40 text-emerald-300"
+                    ? "border-brand/40 text-brand"
                     : "border-sev-low/40 text-sev-low"
                 }`}
               >

@@ -63,7 +63,7 @@ export function ReportBuilder(
         </div>
         <ul className="space-y-0.5">
           {validity.notes.map((n, i) => (
-            <li key={i} className={`text-[11px] ${n.kind === "good" ? "text-emerald-300" : "text-sev-med"}`}>
+            <li key={i} className={`text-[11px] ${n.kind === "good" ? "text-brand" : "text-sev-med"}`}>
               {n.kind === "good" ? "✓" : "!"} {n.text}
             </li>
           ))}

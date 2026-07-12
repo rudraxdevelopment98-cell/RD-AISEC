@@ -87,7 +87,7 @@ export function ValidationGuide({
                 key={i}
                 className={`rounded-lg border p-3 ${
                   r.proves
-                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    ? "border-brand/40 bg-brand/5"
                     : r.confirmed
                       ? "border-sev-med/40 bg-sev-med/5"
                       : "border-surface-border bg-surface/30"
@@ -96,7 +96,7 @@ export function ValidationGuide({
                 <div className="flex flex-wrap items-center gap-2">
                   <Icon
                     name={r.confirmed ? "check" : "x"}
-                    className={`h-4 w-4 ${r.proves ? "text-emerald-400" : r.confirmed ? "text-sev-med" : "text-gray-600"}`}
+                    className={`h-4 w-4 ${r.proves ? "text-brand" : r.confirmed ? "text-sev-med" : "text-gray-600"}`}
                   />
                   <span className="font-mono text-xs font-semibold text-white">{r.tool}</span>
                   <span className="text-[11px] text-gray-500">on {r.target}</span>

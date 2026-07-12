@@ -26,7 +26,7 @@ const SEV_HEX: Record<string, string> = {
 };
 
 const JOB_DOT: Record<string, string> = {
-  done: "bg-emerald-500",
+  done: "bg-brand",
   running: "bg-sev-low",
   queued: "bg-sev-med",
   failed: "bg-sev-crit",
@@ -324,7 +324,7 @@ export default async function DashboardOverview({
     { label: "Engagements", value: engagementCount, suffix: "", icon: "briefcase", href: "/dashboard/engagements", accent: "text-brand" },
     { label: "Open findings", value: openFindings, suffix: "", icon: "alert", href: "/dashboard/analytics", accent: "text-sev-med" },
     { label: "Critical / High", value: critHigh, suffix: "", icon: "skull", href: "/dashboard/analytics", accent: "text-sev-crit" },
-    { label: "Runners online", value: runnersOnline, suffix: `/${runners.length}`, icon: "server", href: "/dashboard/runners", accent: "text-emerald-300" },
+    { label: "Runners online", value: runnersOnline, suffix: `/${runners.length}`, icon: "server", href: "/dashboard/runners", accent: "text-brand" },
   ];
 
   return (
@@ -445,7 +445,7 @@ export default async function DashboardOverview({
             return (
               <div key={a.area} className="flex items-center justify-between gap-2 text-xs">
                 <span className="truncate text-gray-400">{a.area}</span>
-                <span className={pct >= 70 ? "text-emerald-400" : pct >= 40 ? "text-sev-med" : "text-gray-500"}>{pct}%</span>
+                <span className={pct >= 70 ? "text-brand" : pct >= 40 ? "text-sev-med" : "text-gray-500"}>{pct}%</span>
               </div>
             );
           })}

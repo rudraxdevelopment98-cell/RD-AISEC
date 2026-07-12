@@ -147,7 +147,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
               <span className="tag border-brand/40 text-brand">{hist.total} devices seen</span>
               <span className="tag">{hist.clients} clients</span>
-              <span className="tag border-emerald-500/40 text-emerald-300">{hist.activeClients} active now</span>
+              <span className="tag border-brand/40 text-brand">{hist.activeClients} active now</span>
               <span className="tag">{hist.newLastHour} new / hr</span>
             </div>
           )}
@@ -166,7 +166,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
               })()}
             </svg>
           )}
-          <p className="mt-1 text-[10px] text-gray-500"><span className="text-sev-low">clients</span> / <span className="text-emerald-400">networks</span> per listen, over time. History persists across restarts.</p>
+          <p className="mt-1 text-[10px] text-gray-500"><span className="text-sev-low">clients</span> / <span className="text-brand">networks</span> per listen, over time. History persists across restarts.</p>
         </div>
       )}
 

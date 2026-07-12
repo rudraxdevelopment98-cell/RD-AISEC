@@ -121,7 +121,7 @@ export default async function BugBountyPage({
       </HelpBanner>
 
       {searchParams.ok && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
         </div>
       )}
@@ -202,7 +202,7 @@ export default async function BugBountyPage({
       <TabPanel id="submissions">
         <p className="text-sm text-gray-400">
           The end of the loop — every bug you submit, from triage to accepted to bounty.
-          {earnedCents > 0 && <span className="ml-1 text-emerald-300">Keep it going.</span>}
+          {earnedCents > 0 && <span className="ml-1 text-brand">Keep it going.</span>}
         </p>
         <div className="mt-3">
           <SubmissionsManager submissions={submissionRows} />
@@ -287,7 +287,7 @@ export default async function BugBountyPage({
                   ) : (
                     <span className="text-gray-300">{a.handle}</span>
                   )}
-                  {a.apiToken && <span className="ml-2 text-[11px] text-emerald-400">🔑 token set</span>}
+                  {a.apiToken && <span className="ml-2 text-[11px] text-brand">🔑 token set</span>}
                   {a.lastSyncStatus && (
                     <span className="ml-2 text-[11px] text-gray-500">· {a.lastSyncStatus}</span>
                   )}

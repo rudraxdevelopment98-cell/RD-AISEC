@@ -94,7 +94,7 @@ export function McpScannerPlayground({ initial }: { initial?: string }) {
             <div className="flex flex-wrap items-center gap-2 border-b border-surface-border pb-3">
               <span className="font-semibold text-white">{result.server}</span>
               <span className="text-xs text-gray-500">{result.tools} tool(s)</span>
-              <span className={`tag ml-auto ${max ? LEVEL_RING[max] : "border-emerald-500/40 text-emerald-300"}`}>
+              <span className={`tag ml-auto ${max ? LEVEL_RING[max] : "border-brand/40 text-brand"}`}>
                 {max ? `max: ${max}` : "clean ✓"}
               </span>
             </div>
@@ -111,7 +111,7 @@ export function McpScannerPlayground({ initial }: { initial?: string }) {
             )}
             <div className="mt-3 flex-1 space-y-2 overflow-y-auto stagger-in">
               {result.findings.length === 0 ? (
-                <p className="text-sm text-emerald-300">No issues found by the current checks.</p>
+                <p className="text-sm text-brand">No issues found by the current checks.</p>
               ) : (
                 result.findings.map((f, i) => (
                   <div key={i} className="rounded-lg border border-surface-border bg-surface/40 p-3">

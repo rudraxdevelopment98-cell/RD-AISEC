@@ -21,7 +21,7 @@ const TYPE_STYLE: Record<string, string> = {
   link: "border-sev-low/40 text-sev-low",
   book: "border-sev-med/40 text-sev-med",
   exploit: "border-sev-crit/40 text-sev-crit",
-  tool: "border-emerald-500/40 text-emerald-300",
+  tool: "border-brand/40 text-brand",
   cheatsheet: "border-violet-500/40 text-violet-300",
   other: "border-gray-500/40 text-gray-300",
 };

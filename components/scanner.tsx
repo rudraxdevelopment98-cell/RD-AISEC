@@ -38,7 +38,7 @@ function ResultBlock({ result }: { result: ScanResult }) {
               <div className="flex items-center gap-2">
                 <Icon
                   name={c.passed ? "check" : "alert"}
-                  className={`h-4 w-4 shrink-0 ${c.passed ? "text-emerald-400" : "text-sev-med"}`}
+                  className={`h-4 w-4 shrink-0 ${c.passed ? "text-brand" : "text-sev-med"}`}
                 />
                 <span className="text-sm text-gray-200">{c.name}</span>
               </div>

@@ -39,7 +39,7 @@ export function McpBenchmark() {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="card">
           <p className="text-xs uppercase tracking-wide text-gray-500">Detection rate</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-300">{rate}%</p>
+          <p className="mt-1 text-3xl font-bold text-brand">{rate}%</p>
           <p className="text-[11px] text-gray-500">{passed}/{rows.length} scenarios as expected</p>
         </div>
         <div className="card">
@@ -88,7 +88,7 @@ export function McpBenchmark() {
                 {ALL_CHECKS.map((c) => (
                   <td key={c.id} className="py-2.5 pr-3 text-center">
                     {fired.has(c.id) ? (
-                      <Icon name="check" className="mx-auto h-4 w-4 text-emerald-400" />
+                      <Icon name="check" className="mx-auto h-4 w-4 text-brand" />
                     ) : (
                       <span className="text-gray-700">·</span>
                     )}

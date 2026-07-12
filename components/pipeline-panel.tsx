@@ -126,7 +126,7 @@ export function PipelinePanel({
               <form action={toggleAutoApprove}>
                 <input type="hidden" name="engagementId" value={engagementId} />
                 <input type="hidden" name="autoApprove" value={(!pipeline.autoApprove).toString()} />
-                <button className={pipeline.autoApprove ? "text-emerald-400 hover:text-brand" : "text-gray-400 hover:text-gray-200"}>
+                <button className={pipeline.autoApprove ? "text-brand hover:text-brand" : "text-gray-400 hover:text-gray-200"}>
                   {pipeline.autoApprove ? "🤖 Auto-approve: on" : "Auto-approve: off"}
                 </button>
               </form>
@@ -139,7 +139,7 @@ export function PipelinePanel({
               {pipeline.status === "paused" && (
                 <form action={resumeAssessment}>
                   <input type="hidden" name="engagementId" value={engagementId} />
-                  <button className="text-emerald-400 hover:text-brand">Resume</button>
+                  <button className="text-brand hover:text-brand">Resume</button>
                 </form>
               )}
               {pipeline.status !== "done" && (

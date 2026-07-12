@@ -25,7 +25,7 @@ export default async function EngagementsPage({
       />
 
       {searchParams.ok && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
         </div>
       )}

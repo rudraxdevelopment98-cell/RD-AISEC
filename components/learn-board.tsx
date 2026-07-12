@@ -7,14 +7,14 @@ import { LEARN_CATEGORIES, type LearnTopic } from "@/data/learn";
 import { setLearnStatus } from "@/lib/learn";
 
 const LEVEL_TONE: Record<string, string> = {
-  beginner: "border-emerald-500/40 text-emerald-300",
+  beginner: "border-brand/40 text-brand",
   intermediate: "border-sev-med/40 text-sev-med",
   advanced: "border-sev-crit/40 text-sev-crit",
 };
 const STATUS_TONE: Record<string, string> = {
   todo: "text-gray-500",
   learning: "text-sev-low",
-  done: "text-emerald-300",
+  done: "text-brand",
 };
 
 export function LearnBoard({
@@ -52,7 +52,7 @@ export function LearnBoard({
       <div className="card mt-4">
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-gray-300">
-            <b className="text-emerald-300">{done}</b> learned ·{" "}
+            <b className="text-brand">{done}</b> learned ·{" "}
             <b className="text-sev-low">{learning}</b> in progress ·{" "}
             <b>{topics.length}</b> total
           </span>

@@ -46,7 +46,7 @@ export function ScanHistory({ scans, engagementId }: ScanHistoryProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-emerald-900/20 border-emerald-700 text-emerald-400";
+        return "bg-emerald-900/20 border-emerald-700 text-brand";
       case "running":
         return "bg-blue-900/20 border-blue-700 text-blue-400";
       case "failed":
@@ -117,7 +117,7 @@ export function ScanHistory({ scans, engagementId }: ScanHistoryProps) {
                         {scan.status.charAt(0).toUpperCase() + scan.status.slice(1)}
                       </div>
                       <div>
-                        <div className="font-mono text-sm text-emerald-400">{scan.target}</div>
+                        <div className="font-mono text-sm text-brand">{scan.target}</div>
                         <div className="text-xs text-gray-500">
                           {formatDate(scan.createdAt)}
                           {scan.durationMs && ` • ${(scan.durationMs / 1000).toFixed(2)}s`}

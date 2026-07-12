@@ -360,7 +360,7 @@ export function EngagementMap({ graph, engagementId }: { graph: EngagementGraph;
           <button onClick={downloadSvg} className="btn-ghost px-2 py-1 text-[11px]">SVG</button>
           <button onClick={toggleMaximize} className="btn-ghost px-2 py-1 text-[11px]" title="Fullscreen">{maximized ? "⤢ Exit" : "⛶ Full"}</button>
           <span className="font-mono text-[10px] text-gray-600">{Math.round(view.k * 100)}%</span>
-          {Object.keys(dragPos).length > 0 && <span className="text-[10px] text-emerald-400/70" title="Your layout is saved for this engagement">↺ layout saved</span>}
+          {Object.keys(dragPos).length > 0 && <span className="text-[10px] text-brand/70" title="Your layout is saved for this engagement">↺ layout saved</span>}
           <input
             value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search nodes…"

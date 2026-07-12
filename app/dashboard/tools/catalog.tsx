@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { SecurityTool } from "@/data/tools";
 
 const LICENSE_STYLES: Record<SecurityTool["license"], string> = {
-  "Open Source": "text-emerald-300 border-emerald-500/40",
+  "Open Source": "text-brand border-brand/40",
   Freemium: "text-sev-low border-sev-low/40",
   Paid: "text-sev-med border-sev-med/40",
 };

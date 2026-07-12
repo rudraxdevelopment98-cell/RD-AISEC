@@ -139,7 +139,7 @@ export function AirsightSetup({ machines, hostDevice = "" }: { machines: Airsigh
 
           <p className="mt-3 text-[11px] text-gray-500">{TIERS[tier].note}</p>
           {opts.csiUpgrade.available && (
-            <p className="mt-1 text-[11px] text-emerald-300">↑ CSI upgrade available on this adapter via {opts.csiUpgrade.tool} — unlocks pose / breathing / heart-rate.</p>
+            <p className="mt-1 text-[11px] text-brand">↑ CSI upgrade available on this adapter via {opts.csiUpgrade.tool} — unlocks pose / breathing / heart-rate.</p>
           )}
         </div>
       )}
@@ -164,7 +164,7 @@ export function AirsightSetup({ machines, hostDevice = "" }: { machines: Airsigh
 
 function Cap({ on, label }: { on: boolean; label: string }) {
   return (
-    <span className={`tag ${on ? "border-emerald-500/40 text-emerald-300" : "border-surface-border text-gray-600 line-through"}`}>
+    <span className={`tag ${on ? "border-brand/40 text-brand" : "border-surface-border text-gray-600 line-through"}`}>
       {on ? "✓" : "✗"} {label}
     </span>
   );

@@ -373,7 +373,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
                   <p className="truncate text-gray-400">
                     <span className="text-gray-600">You:</span> {last.said}
                   </p>
-                  <p className="truncate text-emerald-300/80">
+                  <p className="truncate text-brand/80">
                     <span className="text-gray-600">Shiva:</span> {last.reply}
                   </p>
                 </div>
@@ -413,7 +413,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
         title="Voice Command Center"
         className={`relative flex h-12 w-12 items-center justify-center rounded-full border shadow-lg transition ${
           listening
-            ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-200"
+            ? "border-emerald-400/60 bg-brand/20 text-brand"
             : "border-surface-border bg-surface-card/80 text-gray-300 hover:border-brand hover:text-white"
         }`}
       >
@@ -421,7 +421,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
         {(listening || wake) && (
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-brand" />
           </span>
         )}
       </button>

@@ -138,7 +138,7 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
                       {!!r.version && r.version !== RUNNER_VERSION && (
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="Update available" />
                       )}
-                      <span className={`ml-auto text-[10px] ${isOnline ? "text-emerald-400" : "text-gray-600"}`}>
+                      <span className={`ml-auto text-[10px] ${isOnline ? "text-brand" : "text-gray-600"}`}>
                         {isOnline ? "online" : "offline"}
                       </span>
                     </Link>

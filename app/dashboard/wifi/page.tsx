@@ -18,7 +18,7 @@ const RISK_TONE: Record<string, string> = {
   high: "border-sev-high/50 text-sev-high",
   medium: "border-sev-med/40 text-sev-med",
   low: "border-sev-low/40 text-sev-low",
-  good: "border-emerald-500/40 text-emerald-300",
+  good: "border-brand/40 text-brand",
 };
 const ISSUE_TONE: Record<string, string> = {
   critical: "text-sev-crit",
@@ -72,8 +72,8 @@ const SEC_TONE: Record<string, string> = {
   OPEN: "border-sev-crit/50 text-sev-crit",
   WEP: "border-sev-crit/50 text-sev-crit",
   WPA: "border-sev-med/40 text-sev-med",
-  WPA2: "border-emerald-500/40 text-emerald-300",
-  WPA3: "border-emerald-500/40 text-emerald-300",
+  WPA2: "border-brand/40 text-brand",
+  WPA3: "border-brand/40 text-brand",
 };
 
 export default async function WifiPage({
@@ -152,12 +152,12 @@ export default async function WifiPage({
         </div>
       )}
       {searchParams.scanned && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ Scan queued — networks appear below in a few seconds.
         </div>
       )}
       {searchParams.inspected && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ Inspecting the network (~30s capture) — connected devices appear below.
         </div>
       )}
@@ -676,7 +676,7 @@ export default async function WifiPage({
                             📡 No monitor-mode adapter detected. Plug a USB WiFi adapter that supports monitor mode into this machine (appears within ~30s). A VM&apos;s built-in WiFi usually can&apos;t capture.
                           </p>
                         )}
-                        <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[11px] text-gray-400">
+                        <p className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2 text-[11px] text-gray-400">
                           🛡 Safe by default: &quot;Enable monitor mode&quot; only converts a wireless card that is <b className="text-gray-200">not</b> this runner&apos;s uplink, and scopes the change to that one interface (it no longer kills NetworkManager globally, so ethernet stays up). If the <b className="text-gray-200">only</b> WiFi card is also the uplink, it refuses and asks for a separate USB dongle — so the runner can never cut its own link to the portal. &quot;Stop monitor mode&quot; re-manages every interface and restarts NetworkManager.
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs">

@@ -48,18 +48,18 @@ export default function ProgressPage() {
                 <span className="tag">{pct}%</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-border">
-                <div className="h-full rounded-full bg-emerald-500/80" style={{ width: `${pct}%` }} />
+                <div className="h-full rounded-full bg-brand/80" style={{ width: `${pct}%` }} />
               </div>
 
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-brand">
                     Done ({a.done.length})
                   </p>
                   <ul className="mt-1.5 space-y-1">
                     {a.done.map((d, i) => (
                       <li key={i} className="flex items-start gap-1.5 text-xs text-gray-300">
-                        <span className="mt-0.5 shrink-0 text-emerald-400">✓</span>
+                        <span className="mt-0.5 shrink-0 text-brand">✓</span>
                         <span>{d}</span>
                       </li>
                     ))}

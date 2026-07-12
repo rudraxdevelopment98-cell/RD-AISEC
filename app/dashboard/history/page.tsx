@@ -91,7 +91,7 @@ export default async function HistoryPage() {
   const stats = [
     { label: "Recon scans", value: scans.length },
     { label: "Runner jobs", value: jobs.length },
-    { label: "Completed", value: scansDone + jobsDone, accent: "text-emerald-300" },
+    { label: "Completed", value: scansDone + jobsDone, accent: "text-brand" },
     { label: "Failed", value: scansFailed + jobsFailed, accent: "text-sev-crit" },
   ];
 
@@ -172,7 +172,7 @@ export default async function HistoryPage() {
                   <span className="h-2 w-2 rounded-sm bg-sev-low" /> scans
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-sm bg-emerald-500" /> jobs
+                  <span className="h-2 w-2 rounded-sm bg-brand" /> jobs
                 </span>
               </div>
             </div>
@@ -192,7 +192,7 @@ export default async function HistoryPage() {
                       )}
                       {b.jobs > 0 && (
                         <div
-                          className="w-full bg-emerald-500/80"
+                          className="w-full bg-brand/80"
                           style={{ height: `${(b.jobs / total) * 100}%` }}
                           title={`${b.jobs} jobs`}
                         />
@@ -219,7 +219,7 @@ export default async function HistoryPage() {
               <h2 className="font-semibold text-brand-glow">Runner jobs by tool</h2>
               <div className="mt-4 space-y-2.5">
                 {byTool.map((b) => (
-                  <Bar key={b.key} label={b.key} count={b.count} max={maxTool} color="bg-emerald-500" />
+                  <Bar key={b.key} label={b.key} count={b.count} max={maxTool} color="bg-brand" />
                 ))}
               </div>
             </div>

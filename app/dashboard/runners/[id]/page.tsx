@@ -207,7 +207,7 @@ export default async function MachinePage({
           <p className="text-sm font-semibold text-white">
             <Icon name="chart" className="mr-1 inline h-4 w-4 text-brand" /> Live resources
           </p>
-          <span className={`text-[10px] ${online ? "text-emerald-400" : "text-gray-600"}`}>
+          <span className={`text-[10px] ${online ? "text-brand" : "text-gray-600"}`}>
             {online ? "live · refreshes on reload" : "offline"}
           </span>
         </div>

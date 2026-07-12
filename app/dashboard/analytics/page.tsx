@@ -18,7 +18,7 @@ const SEVERITY_BAR: Record<string, string> = {
 };
 const FINDING_STATUS_BAR: Record<string, string> = {
   open: "bg-sev-med",
-  fixed: "bg-emerald-500",
+  fixed: "bg-brand",
   accepted: "bg-gray-500",
   false_positive: "bg-slate-600",
 };
@@ -237,7 +237,7 @@ export default async function AnalyticsPage({
             {mapped} of {findings.length} findings mapped to a framework.
           </p>
           {searchParams.tagged && (
-            <p className="mt-2 text-xs text-emerald-300">
+            <p className="mt-2 text-xs text-brand">
               ✓ Tagged {searchParams.tagged} previously-unmapped finding
               {searchParams.tagged === "1" ? "" : "s"}.
             </p>

@@ -79,7 +79,7 @@ export default async function MembersPage({
       </HelpBanner>
 
       {searchParams.ok && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
         </div>
       )}
@@ -152,7 +152,7 @@ export default async function MembersPage({
                   <form action={setMemberStatus}>
                     <input type="hidden" name="id" value={m.id} />
                     <input type="hidden" name="status" value={m.status === "approved" ? "suspended" : "approved"} />
-                    <button className={m.status === "approved" ? "text-sev-med hover:text-sev-med" : "text-emerald-400 hover:text-emerald-300"}>
+                    <button className={m.status === "approved" ? "text-sev-med hover:text-sev-med" : "text-brand hover:text-brand"}>
                       {m.status === "approved" ? "Suspend" : "Approve"}
                     </button>
                   </form>

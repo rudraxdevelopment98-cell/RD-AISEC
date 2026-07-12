@@ -86,7 +86,7 @@ export function WifiAutomap() {
         <div>
           <canvas ref={canvasRef} width={340} height={300} className="w-full rounded-xl border border-surface-border" />
           <p className="mt-2 text-[11px] text-gray-500">
-            Blue = WiFi nodes · <span className="text-emerald-400">green</span> links are clear ·{" "}
+            Blue = WiFi nodes · <span className="text-brand">green</span> links are clear ·{" "}
             <span className="text-sev-crit">red</span> links are attenuated (cross an obstruction). The
             wall is where the red links intersect.
           </p>
