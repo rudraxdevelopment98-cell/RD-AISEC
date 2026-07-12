@@ -140,6 +140,77 @@ const paths: Record<string, React.ReactNode> = {
       <circle cx="12" cy="12" r="1.5" />
     </>
   ),
+  // Engine / command center — a chip.
+  engine: (
+    <>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+      <rect x="10" y="10" width="4" height="4" rx="0.5" />
+      <path d="M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2" />
+    </>
+  ),
+  // Network map — connected nodes.
+  network: (
+    <>
+      <circle cx="6" cy="6" r="2.4" />
+      <circle cx="18" cy="6" r="2.4" />
+      <circle cx="12" cy="18" r="2.4" />
+      <path d="M7.6 7.8 10.7 15.9M16.4 7.8 13.3 15.9M8.4 6h7.2" />
+    </>
+  ),
+  // Wireless attacks — signal waves.
+  wifi: (
+    <>
+      <path d="M4.5 10.5a10 10 0 0 1 15 0" />
+      <path d="M7.5 13.5a6 6 0 0 1 9 0" />
+      <circle cx="12" cy="18" r="1.2" />
+    </>
+  ),
+  // WiFi sensing — radar sweep with a moving target.
+  sensing: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 12 19 5" />
+      <circle cx="16" cy="9" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  // Exploitation — crosshair.
+  exploit: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </>
+  ),
+  // Reports — a document.
+  report: (
+    <>
+      <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v5h5" />
+      <path d="M9.5 13h5M9.5 16.5h5" />
+    </>
+  ),
+  // Members — two people.
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 5.2a3 3 0 0 1 0 5.6M17.5 14c2 .6 3.5 2.4 3.5 4.6" />
+    </>
+  ),
+  // Activity / SIEM — a pulse.
+  activity: (
+    <>
+      <path d="M3 12h4l2.5-7 5 14 2.5-7H21" />
+    </>
+  ),
+  // Programs / bug bounty — a bug.
+  bug: (
+    <>
+      <rect x="8" y="8" width="8" height="10" rx="4" />
+      <path d="M12 8V5M9 6 7.5 4.5M15 6l1.5-1.5M8 12H4M20 12h-4M8 16l-3 2M16 16l3 2M8 10 5 8M16 10l3-2" />
+    </>
+  ),
 };
 
 export function Icon({ name, className }: { name: string } & IconProps) {

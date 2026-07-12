@@ -23,11 +23,13 @@ export type NavItem = {
 
 export type NavGroup = { section: string; icon: string; items: NavItem[] };
 
-// Full navigation, reorganized by what you're doing: plan work → run offensive
-// ops → reference knowledge → admin. Items are filtered per-user by access.
-// Grouped by intent — "what am I here to do" — so every page has an obvious home.
+// Full navigation, reorganized by how you actually work: overview → the four
+// disciplines → the shared engine that does the work → the infrastructure it
+// runs on → wireless → intelligence → reference → admin. Every route keeps its
+// href (access grants + middleware are href-based), only the grouping, labels
+// and icons are reworked. Items are filtered per-user by access.
 export const NAV: NavGroup[] = [
-  // Land here.
+  // Land here — the at-a-glance across everything.
   {
     section: "Home",
     icon: "grid",
@@ -35,43 +37,51 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard", label: "Dashboard", icon: "grid", access: "always" },
     ],
   },
-  // The four service lines — what kind of work you're doing. Each is a real
-  // workspace over the shared engagement engine below.
+  // The four disciplines — what kind of work you're doing. Each is a workspace
+  // over the shared engine below.
   {
-    section: "Services",
+    section: "Disciplines",
     icon: "shield",
     items: [
-      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "target" },
-      { href: "/dashboard/pentest", label: "Penetration Testing", icon: "skull" },
-      { href: "/dashboard/forensics", label: "Digital Forensics", icon: "fingerprint" },
-      { href: "/dashboard/consulting", label: "Security Consulting", icon: "shield" },
+      { href: "/dashboard/bugbounty", label: "Bug Bounty", icon: "bug" },
+      { href: "/dashboard/pentest", label: "Pentest", icon: "target" },
+      { href: "/dashboard/forensics", label: "Forensics", icon: "fingerprint" },
+      { href: "/dashboard/consulting", label: "Consulting", icon: "shield" },
     ],
   },
-  // The shared engine every service line runs on: cases → findings → exploit.
+  // The shared engine every discipline runs on: score → cases → findings →
+  // exploit. (Exploit Lab lives as a tab inside Exploitation.)
   {
-    section: "Workspace",
-    icon: "briefcase",
+    section: "Engine",
+    icon: "engine",
     items: [
+      { href: "/dashboard/engine", label: "Command Center", icon: "engine", access: "always" },
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
-      { href: "/dashboard/engine", label: "Engine — Command Center", icon: "bolt", access: "always" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
-      { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
+      { href: "/dashboard/exploit", label: "Exploitation", icon: "exploit" },
       { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
     ],
   },
-  // Run the tools that feed the work.
+  // The machines and tools that feed the engine.
   {
-    section: "Recon & Scanning",
-    icon: "radar",
+    section: "Infrastructure",
+    icon: "server",
     items: [
-      { href: "/dashboard/jobs", label: "Jobs", icon: "bolt" },
-      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
       { href: "/dashboard/runners", label: "Machines", icon: "server" },
-      { href: "/dashboard/network", label: "Network Map", icon: "globe" },
-      { href: "/dashboard/wifi", label: "WiFi", icon: "globe" },
-      { href: "/dashboard/sensing", label: "WiFi Sensing", icon: "radar" },
-      { href: "/dashboard/import", label: "Import (Burp)", icon: "copy" },
+      { href: "/dashboard/jobs", label: "Jobs & Queue", icon: "bolt" },
+      { href: "/dashboard/scan", label: "Auto Scan", icon: "radar" },
+      { href: "/dashboard/network", label: "Network Map", icon: "network" },
+      { href: "/dashboard/import", label: "Import", icon: "copy" },
+    ],
+  },
+  // Everything wireless, in one place.
+  {
+    section: "Wireless",
+    icon: "wifi",
+    items: [
+      { href: "/dashboard/wifi", label: "WiFi Attacks", icon: "wifi" },
+      { href: "/dashboard/sensing", label: "Sensing (AirSight)", icon: "sensing" },
     ],
   },
   // Observe, measure, and get help — everything you look AT rather than run.
@@ -80,11 +90,10 @@ export const NAV: NavGroup[] = [
     icon: "chart",
     items: [
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
-      { href: "/dashboard/progress", label: "Progress", icon: "chart", access: "always" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
-      { href: "/dashboard/siem", label: "SIEM · Activity", icon: "clock", access: "owner" },
+      { href: "/dashboard/siem", label: "Activity & SIEM", icon: "activity", access: "owner" },
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
-      { href: "/dashboard/shiva", label: "Shiva — MCP Security", icon: "skull" },
+      { href: "/dashboard/shiva", label: "Shiva — MCP", icon: "eye" },
     ],
   },
   // Learn + reference, all in one place.
@@ -94,7 +103,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/guide", label: "How it works", icon: "book", access: "always" },
       { href: "/dashboard/learn", label: "Learn", icon: "book", access: "always" },
-      { href: "/dashboard/knowledge", label: "Knowledge Library", icon: "book" },
+      { href: "/dashboard/knowledge", label: "Knowledge", icon: "book" },
       { href: "/dashboard/frameworks", label: "Frameworks", icon: "shield" },
       { href: "/dashboard/tools", label: "Tool Catalog", icon: "wrench" },
       { href: "/dashboard/library", label: "Resource Vault", icon: "lock" },
@@ -105,8 +114,9 @@ export const NAV: NavGroup[] = [
     section: "Admin",
     icon: "lock",
     items: [
-      { href: "/dashboard/members", label: "Members", icon: "server", access: "owner" },
+      { href: "/dashboard/members", label: "Members", icon: "users", access: "owner" },
       { href: "/dashboard/settings", label: "Settings", icon: "wrench", access: "owner" },
+      { href: "/dashboard/progress", label: "Build Progress", icon: "chart", access: "always" },
     ],
   },
 ];
