@@ -59,8 +59,10 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
       { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
+      // Exploitation + Exploit Lab are one tabbed section (see EXPLOIT_TABS); Lab
+      // is reached from the Exploitation page's tabs, so it's not a separate nav
+      // item. Its access rides on the Exploitation grant (see lib/access.ts).
       { href: "/dashboard/exploit", label: "Exploitation", icon: "exploit" },
-      { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
     ],
   },
   // The machines and tools that feed the engine.

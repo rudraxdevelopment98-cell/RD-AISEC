@@ -27,6 +27,13 @@ const OWNER_ONLY = NAV_ITEMS.filter((i) => accessClass(i) === "owner").map(
   (i) => i.href,
 );
 
+// Some UI sections are one tabbed area whose sub-pages still live at separate
+// hrefs (e.g. Exploitation ↔ Exploit Lab). The alias' access rides on the
+// section it belongs to, so granting the section covers the sub-page too.
+const GRANT_ALIASES: Record<string, string> = {
+  "/dashboard/lab": "/dashboard/exploit",
+};
+
 export type AccessInfo = { role?: string | null; access?: string[] | null };
 
 export function parseAccess(raw?: string | null): string[] {
@@ -43,5 +50,9 @@ export function canAccess(pathname: string, info: AccessInfo): boolean {
   if (OWNER_ONLY.some((k) => pathname === k || pathname.startsWith(k + "/"))) return false;
   if (pathname === "/dashboard" || ALWAYS_ALLOWED.includes(pathname)) return true;
   const granted = info.access ?? [];
-  return granted.some((k) => pathname === k || pathname.startsWith(k + "/"));
+  const covers = (k: string) => pathname === k || pathname.startsWith(k + "/");
+  if (granted.some(covers)) return true;
+  // A merged-section sub-page is covered by a grant of its parent section.
+  const alias = GRANT_ALIASES[pathname];
+  return !!alias && granted.some((k) => alias === k || alias.startsWith(k + "/"));
 }
