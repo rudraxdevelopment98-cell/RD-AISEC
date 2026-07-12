@@ -126,7 +126,7 @@ export default async function BugBountyPage({
         </div>
       )}
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -162,7 +162,7 @@ export default async function BugBountyPage({
             <button className="btn-primary px-2 py-1">Automate engaged programs</button>
           </form>
           <form action={pauseAllPrograms}>
-            <button className="text-gray-500 hover:text-amber-400">Pause all</button>
+            <button className="text-gray-500 hover:text-sev-med">Pause all</button>
           </form>
           <span className="text-gray-600">Only programs you&apos;ve engaged are automated.</span>
         </div>
@@ -296,12 +296,12 @@ export default async function BugBountyPage({
                   {canSync && (
                     <form action={syncHackerOne}>
                       <input type="hidden" name="id" value={a.id} />
-                      <button className="text-sky-400 hover:text-sky-300">Sync now</button>
+                      <button className="text-sev-low hover:text-sev-low">Sync now</button>
                     </form>
                   )}
                   <form action={deleteBugAccount}>
                     <input type="hidden" name="id" value={a.id} />
-                    <button className="text-gray-500 hover:text-red-400">Remove</button>
+                    <button className="text-gray-500 hover:text-sev-crit">Remove</button>
                   </form>
                 </div>
               </div>

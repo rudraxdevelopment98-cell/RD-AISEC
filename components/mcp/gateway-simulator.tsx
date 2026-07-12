@@ -15,8 +15,8 @@ import { FIXTURES, FIXTURE_JSON } from "./fixtures";
 
 const VERDICT_STYLE: Record<Verdict, string> = {
   allow: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-  flag: "border-amber-500/50 bg-amber-500/15 text-amber-200",
-  block: "border-red-500/60 bg-red-500/20 text-red-200",
+  flag: "border-sev-med/50 bg-sev-med/15 text-sev-med",
+  block: "border-sev-crit/60 bg-sev-crit/20 text-sev-crit",
 };
 const VERDICT_ICON: Record<Verdict, string> = { allow: "check", flag: "alert", block: "lock" };
 
@@ -183,7 +183,7 @@ export function McpGatewaySimulator() {
                 <div
                   key={c.step}
                   className={`rounded-lg border p-2.5 ${
-                    c.verdict === "block" ? "border-red-500/40 bg-red-500/5" : "border-surface-border bg-surface/40"
+                    c.verdict === "block" ? "border-sev-crit/40 bg-sev-crit/5" : "border-surface-border bg-surface/40"
                   }`}
                 >
                   <div className="flex items-center gap-2">

@@ -209,7 +209,7 @@ export default async function JobsPage({
         </h2>
         {active.some((j) => j.status === "queued") && (
           <form action={cancelQueuedJobs}>
-            <button className="text-xs text-gray-500 hover:text-amber-400">
+            <button className="text-xs text-gray-500 hover:text-sev-med">
               Cancel all queued
             </button>
           </form>
@@ -244,7 +244,7 @@ export default async function JobsPage({
                     {j.status === "queued" && canRunNext(j) && (
                       <form action={prioritizeJob}>
                         <input type="hidden" name="id" value={j.id} />
-                        <button className="text-xs text-amber-400 hover:text-sev-med" title="Run this job before the others on its machine">
+                        <button className="text-xs text-sev-med hover:text-sev-med" title="Run this job before the others on its machine">
                           ↑ Run next
                         </button>
                       </form>
@@ -259,7 +259,7 @@ export default async function JobsPage({
                     )}
                     <form action={cancelJob}>
                       <input type="hidden" name="id" value={j.id} />
-                      <button className="text-xs text-gray-500 hover:text-amber-400">
+                      <button className="text-xs text-gray-500 hover:text-sev-med">
                         {j.status === "running" ? "Stop" : "Cancel"}
                       </button>
                     </form>
@@ -283,7 +283,7 @@ export default async function JobsPage({
                   </dd>
                 </dl>
                 {offlineWarn && (
-                  <p className="mt-2 text-xs text-amber-400">
+                  <p className="mt-2 text-xs text-sev-med">
                     ⚠ assigned machine is offline — won&apos;t run until it reconnects.
                   </p>
                 )}

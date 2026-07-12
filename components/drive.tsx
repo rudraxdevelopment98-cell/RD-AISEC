@@ -246,7 +246,7 @@ export function ConnectDriveButton() {
           </span>
           <button
             onClick={d.disconnect}
-            className="text-xs text-gray-500 hover:text-red-400"
+            className="text-xs text-gray-500 hover:text-sev-crit"
           >
             Disconnect
           </button>
@@ -256,7 +256,7 @@ export function ConnectDriveButton() {
           <Icon name="server" className="h-4 w-4" /> Connect drive
         </button>
       )}
-      {d.error && <span className="text-xs text-red-400">{d.error}</span>}
+      {d.error && <span className="text-xs text-sev-crit">{d.error}</span>}
     </div>
   );
 }

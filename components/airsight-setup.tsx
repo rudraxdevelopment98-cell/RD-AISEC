@@ -58,7 +58,7 @@ export function AirsightSetup({ machines, hostDevice = "" }: { machines: Airsigh
   return (
     <div className="space-y-4">
       {machines.length === 0 && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
+        <div className="rounded-xl border border-sev-med/40 bg-sev-med/10 px-4 py-2.5 text-sm text-sev-med">
           No capture machine connected. Run the engine on a Linux/Kali box with a monitor-capable USB
           adapter (e.g. AR9271 / TL-WN721N), then it appears here.
         </div>
@@ -111,7 +111,7 @@ export function AirsightSetup({ machines, hostDevice = "" }: { machines: Airsigh
         <div className="card">
           <p className="text-sm font-semibold text-white">3 · Capture options</p>
           {!opts.canCapture ? (
-            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <p className="mt-2 rounded-lg border border-sev-med/40 bg-sev-med/10 px-3 py-2 text-xs text-sev-med">
               This adapter can&apos;t do monitor mode, so it can&apos;t be a capture node. {opts.note}
             </p>
           ) : (
@@ -150,7 +150,7 @@ export function AirsightSetup({ machines, hostDevice = "" }: { machines: Airsigh
           <p className="text-sm font-semibold text-white">4 · Recommended setup</p>
           <p className="mt-2 text-sm text-gray-300">{plan.recommendation}</p>
           {plan.warnings.map((w, i) => (
-            <p key={i} className="mt-1 text-xs text-amber-300">⚠ {w}</p>
+            <p key={i} className="mt-1 text-xs text-sev-med">⚠ {w}</p>
           ))}
           <p className="mt-2 text-[11px] text-gray-500">
             Passive by default — AirSight captures and analyses, it never transmits or injects. Active

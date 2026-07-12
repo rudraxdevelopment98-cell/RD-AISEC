@@ -118,7 +118,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
             </label>
           </>
         ) : (
-          <span className="text-xs text-amber-300">Connect a capture machine with a monitor adapter.</span>
+          <span className="text-xs text-sev-med">Connect a capture machine with a monitor adapter.</span>
         )}
         <span className="ml-auto text-xs text-gray-500">{status}</span>
       </div>
@@ -140,7 +140,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
             <p className="text-sm font-semibold text-white">Presence timeline <span className="text-xs font-normal text-gray-500">· rolling history</span></p>
             <div className="flex items-center gap-2">
               <a href="/api/sensing/airsight?export=json" className="btn-ghost text-xs" download>⬇ Export JSON</a>
-              <button onClick={clearHistory} className="text-[11px] text-gray-500 hover:text-red-400">clear</button>
+              <button onClick={clearHistory} className="text-[11px] text-gray-500 hover:text-sev-crit">clear</button>
             </div>
           </div>
           {hist && (
@@ -166,7 +166,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
               })()}
             </svg>
           )}
-          <p className="mt-1 text-[10px] text-gray-500"><span className="text-sky-400">clients</span> / <span className="text-emerald-400">networks</span> per listen, over time. History persists across restarts.</p>
+          <p className="mt-1 text-[10px] text-gray-500"><span className="text-sev-low">clients</span> / <span className="text-emerald-400">networks</span> per listen, over time. History persists across restarts.</p>
         </div>
       )}
 
@@ -227,7 +227,7 @@ export function AirsightConsole({ machines, defaultIface }: { machines: ConsoleM
 }
 
 function Tile({ label, value, sub, accent }: { label: string; value: string; sub: string; accent?: "sky" | "amber" }) {
-  const color = accent === "sky" ? "text-sky-300" : accent === "amber" ? "text-amber-300" : "text-brand";
+  const color = accent === "sky" ? "text-sev-low" : accent === "amber" ? "text-sev-med" : "text-brand";
   return (
     <div className="card !p-3">
       <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>

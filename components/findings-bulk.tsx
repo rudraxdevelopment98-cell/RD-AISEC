@@ -88,7 +88,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
             <button
               disabled={pending}
               onClick={() => { if (confirm(`Delete ${selected.size} finding(s)?`)) run(bulkDeleteFindings); }}
-              className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+              className="rounded-md border border-sev-crit/40 px-2 py-1 text-sev-crit hover:bg-sev-crit/10"
             >
               Delete
             </button>
@@ -164,7 +164,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               </span>
               <Link
                 href={`/dashboard/findings/${f.id}/exploit`}
-                className="font-medium text-red-300 hover:text-red-200"
+                className="font-medium text-sev-crit hover:text-sev-crit"
               >
                 ⚔ Exploit it →
               </Link>
@@ -175,7 +175,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               <span className="text-[10px] uppercase tracking-wide text-gray-500">Retest</span>
               <button name="retest" value="requested" className="btn-ghost px-2 py-0.5">Requested</button>
               <button name="retest" value="passed" className="rounded-md border border-emerald-500/40 px-2 py-0.5 text-emerald-300 hover:bg-emerald-500/10">✓ Fixed</button>
-              <button name="retest" value="failed" className="rounded-md border border-red-500/40 px-2 py-0.5 text-red-300 hover:bg-red-500/10">✗ Still open</button>
+              <button name="retest" value="failed" className="rounded-md border border-sev-crit/40 px-2 py-0.5 text-sev-crit hover:bg-sev-crit/10">✗ Still open</button>
               {f.retest ? (
                 <button name="retest" value="" className="text-gray-600 hover:text-gray-400">clear</button>
               ) : null}

@@ -45,7 +45,7 @@ export default async function LabPage({
       />
       <SubNav items={EXPLOIT_TABS} />
 
-      <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
         <Icon name="alert" className="mr-1 inline h-4 w-4" />
         For authorized testing on systems you own or are permitted to test only.
       </div>

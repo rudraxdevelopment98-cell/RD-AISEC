@@ -131,7 +131,7 @@ export default async function MachinePage({
         actions={
           <form action={deleteRunner}>
             <input type="hidden" name="id" value={r.id} />
-            <button className="text-xs text-gray-500 hover:text-red-400">Revoke machine</button>
+            <button className="text-xs text-gray-500 hover:text-sev-crit">Revoke machine</button>
           </form>
         }
       />
@@ -150,13 +150,13 @@ export default async function MachinePage({
 
       {/* ── Update status ────────────────────────────────── */}
       {outdated && (
-        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-amber-200">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
           <p className="font-semibold">
             <Icon name="alert" className="mr-1 inline h-4 w-4" />
             Runner update available — v{r.version} → v{RUNNER_VERSION}
           </p>
           {busy ? (
-            <p className="mt-1 text-amber-200/90">
+            <p className="mt-1 text-sev-med/90">
               This machine only self-updates while <b>idle</b>, and right now it&apos;s running{" "}
               {runningCount} job{runningCount === 1 ? "" : "s"}
               {queuedCount > 0 ? ` with ${queuedCount} queued (${etaText} to clear)` : ""} — so it hasn&apos;t
@@ -164,11 +164,11 @@ export default async function MachinePage({
               drain the queue faster.
             </p>
           ) : (
-            <p className="mt-1 text-amber-200/90">
+            <p className="mt-1 text-sev-med/90">
               It&apos;s idle now, so it should self-update within a few minutes — or restart it to update right away.
             </p>
           )}
-          <p className="mt-1 text-[11px] text-amber-200/60">
+          <p className="mt-1 text-[11px] text-sev-med/60">
             Updates jump straight to the latest (v{RUNNER_VERSION}) — intermediate versions are skipped.
           </p>
           <form action={restartRunner} className="mt-2">

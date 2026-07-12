@@ -46,7 +46,7 @@ export default function KnowledgeTopicPage({
         ))}
       </div>
 
-      <p className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
+      <p className="mt-6 rounded-lg border border-sev-med/30 bg-sev-med/10 px-4 py-3 text-xs text-sev-med">
         {topic.disclaimer}
       </p>
     </div>

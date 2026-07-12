@@ -15,7 +15,7 @@ const STATUS_COLOR: Record<string, string> = {
   running: "ring-sky accent-sky",
   pending: "ring-amber accent-amber",
   queued: "ring-amber accent-amber",
-  failed: "border-red-500/40 text-red-300",
+  failed: "border-sev-crit/40 text-sev-crit",
   canceled: "border-gray-500/40 text-gray-400",
 };
 
@@ -92,7 +92,7 @@ export default async function HistoryPage() {
     { label: "Recon scans", value: scans.length },
     { label: "Runner jobs", value: jobs.length },
     { label: "Completed", value: scansDone + jobsDone, accent: "text-emerald-300" },
-    { label: "Failed", value: scansFailed + jobsFailed, accent: "text-red-300" },
+    { label: "Failed", value: scansFailed + jobsFailed, accent: "text-sev-crit" },
   ];
 
   // ---- Merged recent activity timeline ----
@@ -169,7 +169,7 @@ export default async function HistoryPage() {
               <h2 className="font-semibold text-brand-glow">Activity — last 14 days</h2>
               <div className="flex items-center gap-3 text-xs text-gray-400">
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-sm bg-sky-500" /> scans
+                  <span className="h-2 w-2 rounded-sm bg-sev-low" /> scans
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded-sm bg-emerald-500" /> jobs
@@ -185,7 +185,7 @@ export default async function HistoryPage() {
                     <div className="flex w-full flex-col justify-end" style={{ height: `${h}%` }}>
                       {b.scans > 0 && (
                         <div
-                          className="w-full bg-sky-500/80"
+                          className="w-full bg-sev-low/80"
                           style={{ height: `${(b.scans / total) * 100}%` }}
                           title={`${b.scans} scans`}
                         />
@@ -211,7 +211,7 @@ export default async function HistoryPage() {
               <h2 className="font-semibold text-brand-glow">Recon scans by type</h2>
               <div className="mt-4 space-y-2.5">
                 {byScanType.map((b) => (
-                  <Bar key={b.key} label={b.key} count={b.count} max={maxScanType} color="bg-sky-500" />
+                  <Bar key={b.key} label={b.key} count={b.count} max={maxScanType} color="bg-sev-low" />
                 ))}
               </div>
             </div>

@@ -116,7 +116,7 @@ export function WifiSensing({
     <div className="mt-4 space-y-4">
       {/* Fall alert */}
       {f?.fall && (
-        <div className="animate-pulse rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
+        <div className="animate-pulse rounded-xl border border-sev-crit/50 bg-sev-crit/10 px-4 py-3 text-sm font-semibold text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" /> Fall detected — sudden collapse then stillness on {iface}.
         </div>
       )}
@@ -278,7 +278,7 @@ function Tile({
   glow?: boolean;
 }) {
   const color =
-    accent === "sky" ? "text-sky-300" : accent === "rose" ? "text-rose-300" : accent === "amber" ? "text-amber-300" : "text-brand";
+    accent === "sky" ? "text-sev-low" : accent === "rose" ? "text-rose-300" : accent === "amber" ? "text-sev-med" : "text-brand";
   return (
     <div className={`card ${glow ? "ring-1 ring-emerald-500/30" : ""}`}>
       <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>

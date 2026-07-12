@@ -385,7 +385,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
                   onClick={pushToTalk}
                   className={`flex-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
                     listening && oneShotRef.current
-                      ? "bg-red-500/20 text-red-300 ring-1 ring-red-500/40"
+                      ? "bg-sev-crit/20 text-sev-crit ring-1 ring-red-500/40"
                       : "btn-primary"
                   }`}
                 >

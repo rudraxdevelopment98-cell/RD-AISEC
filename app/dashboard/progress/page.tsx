@@ -66,7 +66,7 @@ export default function ProgressPage() {
                   </ul>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-sev-med">
                     Remaining ({a.todo.length})
                   </p>
                   <ul className="mt-1.5 space-y-1">

@@ -30,7 +30,7 @@ export default async function ImportPage({
       </HelpBanner>
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>

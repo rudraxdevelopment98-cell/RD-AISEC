@@ -14,17 +14,17 @@ import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { PageHeader } from "@/components/page-header";
 
 const RISK_TONE: Record<string, string> = {
-  critical: "border-red-500/50 text-red-300",
-  high: "border-orange-500/50 text-orange-300",
-  medium: "border-amber-500/40 text-amber-300",
-  low: "border-sky-500/40 text-sky-300",
+  critical: "border-sev-crit/50 text-sev-crit",
+  high: "border-sev-high/50 text-sev-high",
+  medium: "border-sev-med/40 text-sev-med",
+  low: "border-sev-low/40 text-sev-low",
   good: "border-emerald-500/40 text-emerald-300",
 };
 const ISSUE_TONE: Record<string, string> = {
-  critical: "text-red-300",
-  high: "text-orange-300",
-  medium: "text-amber-300",
-  low: "text-sky-300",
+  critical: "text-sev-crit",
+  high: "text-sev-high",
+  medium: "text-sev-med",
+  low: "text-sev-low",
   info: "text-gray-400",
 };
 
@@ -69,9 +69,9 @@ const AIRODUMP_60_CMD =
 export const dynamic = "force-dynamic";
 
 const SEC_TONE: Record<string, string> = {
-  OPEN: "border-red-500/50 text-red-300",
-  WEP: "border-red-500/50 text-red-300",
-  WPA: "border-amber-500/40 text-amber-300",
+  OPEN: "border-sev-crit/50 text-sev-crit",
+  WEP: "border-sev-crit/50 text-sev-crit",
+  WPA: "border-sev-med/40 text-sev-med",
   WPA2: "border-emerald-500/40 text-emerald-300",
   WPA3: "border-emerald-500/40 text-emerald-300",
 };
@@ -128,7 +128,7 @@ export default async function WifiPage({
         }
       />
 
-      <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
         <Icon name="alert" className="mr-1 inline h-4 w-4" />
         Capturing handshakes and sending deauth frames is only legal on networks
         you own or are explicitly authorized to test. Misuse is illegal.
@@ -147,7 +147,7 @@ export default async function WifiPage({
       </HelpBanner>
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" /> {searchParams.error}
         </div>
       )}
@@ -162,13 +162,13 @@ export default async function WifiPage({
         </div>
       )}
       {searchParams.pwning && (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-2 text-sm text-sev-med">
           💥 Auto-pwn running — capture (~2 min) then crack. The password appears in
           the network&apos;s 🔓 banner below when done (this page auto-refreshes).
         </div>
       )}
       {searchParams.eviltwin && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           🪤 Auto Evil-Twin running — a fake AP + captive portal is up (up to ~5 min).
           It quits the moment a victim submits the password, which then appears in
           the network&apos;s 🪤 banner below (this page auto-refreshes).
@@ -227,7 +227,7 @@ export default async function WifiPage({
                     {r.wifiMonitor ? (
                       <span className="tag ring-emerald accent-emerald">monitor-capable</span>
                     ) : (
-                      <span className="tag border-amber-500/40 text-amber-300">no monitor mode</span>
+                      <span className="tag border-sev-med/40 text-sev-med">no monitor mode</span>
                     )}
                   </div>
                 </div>
@@ -264,7 +264,7 @@ export default async function WifiPage({
                     <TabPanel id="networks">
                     {/* Results */}
                     {scanning && (
-                      <p className="mt-3 text-sm text-sky-300">
+                      <p className="mt-3 text-sm text-sev-low">
                         <Icon name="bolt" className="mr-1 inline h-4 w-4" /> Scanning the air… results appear here automatically.
                       </p>
                     )}
@@ -286,7 +286,7 @@ export default async function WifiPage({
                       </p>
                     )}
                     {job?.status === "failed" && (
-                      <p className="mt-3 text-sm text-red-300">
+                      <p className="mt-3 text-sm text-sev-crit">
                         Scan failed —{" "}
                         {inMonitor
                           ? "airodump-ng may not be installed (install aircrack-ng below) or needs root."
@@ -389,10 +389,10 @@ export default async function WifiPage({
                       return (
                         <div className="mt-4 rounded-lg border border-brand/30 bg-brand/5 p-3">
                           <p className="text-xs font-semibold text-brand-glow">
-                            🔍 Inspecting {target || "AP"}{apVendor && apVendor !== "Unknown" ? ` · ${apVendor}` : ""} {busy && <span className="text-sky-300">· capturing…</span>}
+                            🔍 Inspecting {target || "AP"}{apVendor && apVendor !== "Unknown" ? ` · ${apVendor}` : ""} {busy && <span className="text-sev-low">· capturing…</span>}
                           </p>
                           {noMon && (
-                            <p className="mt-2 text-xs text-amber-300">
+                            <p className="mt-2 text-xs text-sev-med">
                               Needs a monitor-mode adapter. Enable monitor mode below, then Inspect again.
                             </p>
                           )}
@@ -447,7 +447,7 @@ export default async function WifiPage({
                                 <form action={deauthClient}>
                                   <input type="hidden" name="runnerId" value={r.id} />
                                   <input type="hidden" name="bssid" value={target} />
-                                  <button className="px-2 py-1 text-amber-300 hover:text-amber-200" title="Deauth all clients to force reconnect (authorized!)">
+                                  <button className="px-2 py-1 text-sev-med hover:text-sev-med" title="Deauth all clients to force reconnect (authorized!)">
                                     ⚡ Deauth all
                                   </button>
                                 </form>
@@ -489,14 +489,14 @@ export default async function WifiPage({
 
                               {/* Cracked passphrase banner. */}
                               {crackedKey && (
-                                <div className="mt-2 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                                <div className="mt-2 rounded-lg border border-sev-crit/50 bg-sev-crit/10 px-3 py-2 text-xs text-sev-crit">
                                   🔓 <b>Passphrase cracked:</b> <span className="font-mono">{crackedKey}</span> — weak/guessable. Recommend a long random passphrase or WPA3.
                                 </div>
                               )}
 
                               {/* Evil-twin captured password banner (from the one-click run). */}
                               {evilKey && (
-                                <div className="mt-2 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                                <div className="mt-2 rounded-lg border border-sev-crit/50 bg-sev-crit/10 px-3 py-2 text-xs text-sev-crit">
                                   🪤 <b>Password captured via Evil Twin:</b>{" "}
                                   <span className="font-mono">{evilKey}</span> — a user typed this into the
                                   fake captive portal. Strong proof the network is phishable; recommend
@@ -506,11 +506,11 @@ export default async function WifiPage({
 
                               {/* Evil Twin — aggressive. One-click auto runs above; manual fallback here. */}
                               <details className="mt-2">
-                                <summary className="cursor-pointer text-xs font-semibold text-amber-300 hover:text-amber-200">
+                                <summary className="cursor-pointer text-xs font-semibold text-sev-med hover:text-sev-med">
                                   🪤 Evil Twin / captive portal (how it works · manual command)
                                 </summary>
-                                <div className="mt-2 space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2">
-                                  <p className="text-[11px] text-red-200">
+                                <div className="mt-2 space-y-2 rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-2">
+                                  <p className="text-[11px] text-sev-crit">
                                     The <b>🪤 Auto Evil-Twin</b> button above does this for you in one click:
                                     it stands up a fake AP with this SSID + a captive portal that asks the
                                     victim for the WiFi password, runs headless, and quits the moment a
@@ -622,7 +622,7 @@ export default async function WifiPage({
                                               <input type="hidden" name="runnerId" value={r.id} />
                                               <input type="hidden" name="bssid" value={target} />
                                               <input type="hidden" name="client" value={c.mac} />
-                                              <button className="text-amber-300 hover:text-amber-200" title="Deauth this device (authorized!)">⚡ Deauth</button>
+                                              <button className="text-sev-med hover:text-sev-med" title="Deauth this device (authorized!)">⚡ Deauth</button>
                                             </form>
                                           </td>
                                         </tr>
@@ -634,7 +634,7 @@ export default async function WifiPage({
                             </>
                           )}
                           {insp.status === "failed" && (
-                            <p className="mt-2 text-xs text-red-300">Capture failed — ensure aircrack-ng is installed and the runner runs as root.</p>
+                            <p className="mt-2 text-xs text-sev-crit">Capture failed — ensure aircrack-ng is installed and the runner runs as root.</p>
                           )}
                         </div>
                       );
@@ -672,7 +672,7 @@ export default async function WifiPage({
                       </summary>
                       <div className="mt-2 space-y-2">
                         {!r.wifiMonitor && (
-                          <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">
+                          <p className="rounded-lg border border-sev-med/30 bg-sev-med/5 px-3 py-2 text-[11px] text-sev-med">
                             📡 No monitor-mode adapter detected. Plug a USB WiFi adapter that supports monitor mode into this machine (appears within ~30s). A VM&apos;s built-in WiFi usually can&apos;t capture.
                           </p>
                         )}

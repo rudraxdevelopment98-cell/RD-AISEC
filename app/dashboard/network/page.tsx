@@ -112,7 +112,7 @@ export default async function NetworkPage({
           pre-filled — pick your machine and run. Only scan networks you own or are
           authorized to test.
         </p>
-        <p className="mt-2 rounded-lg border border-sev-low/30 bg-sev-low/5 px-3 py-2 text-[11px] text-sky-200">
+        <p className="mt-2 rounded-lg border border-sev-low/30 bg-sev-low/5 px-3 py-2 text-[11px] text-sev-low">
           📷 <b>IoT / device assessment:</b> on the Jobs page pick{" "}
           <b>nmap → &quot;IoT device sweep&quot;</b> against your LAN CIDR. The portal then
           classifies each device (camera, router, printer, NAS, smart-home hub) and
@@ -135,7 +135,7 @@ export default async function NetworkPage({
             </Link>
           ))}
         </div>
-        <p className="mt-3 rounded-lg border border-sev-med/30 bg-sev-med/5 px-3 py-2 text-[11px] text-amber-200">
+        <p className="mt-3 rounded-lg border border-sev-med/30 bg-sev-med/5 px-3 py-2 text-[11px] text-sev-med">
           📡 <b>Monitor-mode capture</b> (deauth, handshake capture with
           airodump-ng) needs a USB adapter that supports monitor mode plugged into
           the runner machine and put into monitor mode

@@ -375,7 +375,7 @@ export function ProgramsManager({
                           </option>
                         ))}
                       </select>
-                      <button className="text-sky-400 hover:text-sev-low">Run pipeline now</button>
+                      <button className="text-sev-low hover:text-sev-low">Run pipeline now</button>
                     </form>
                   )}
 
@@ -386,7 +386,7 @@ export function ProgramsManager({
                     }}
                   >
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="text-gray-500 hover:text-red-400">Delete</button>
+                    <button className="text-gray-500 hover:text-sev-crit">Delete</button>
                   </form>
                 </div>
 
@@ -404,7 +404,7 @@ export function ProgramsManager({
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="auto" value="false" />
                           <input type="hidden" name="autoRunnerId" value={p.autoRunnerId} />
-                          <button className="text-amber-400 hover:text-sev-med">Pause automation</button>
+                          <button className="text-sev-med hover:text-sev-med">Pause automation</button>
                         </form>
                       </>
                     ) : (

@@ -18,9 +18,9 @@ export type ResourceItem = {
 };
 
 const TYPE_STYLE: Record<string, string> = {
-  link: "border-sky-500/40 text-sky-300",
-  book: "border-amber-500/40 text-amber-300",
-  exploit: "border-red-500/40 text-red-300",
+  link: "border-sev-low/40 text-sev-low",
+  book: "border-sev-med/40 text-sev-med",
+  exploit: "border-sev-crit/40 text-sev-crit",
   tool: "border-emerald-500/40 text-emerald-300",
   cheatsheet: "border-violet-500/40 text-violet-300",
   other: "border-gray-500/40 text-gray-300",
@@ -137,7 +137,7 @@ export function ResourceList({ resources }: { resources: ResourceItem[] }) {
 
             <form action={deleteResource} className="mt-3">
               <input type="hidden" name="id" value={r.id} />
-              <button type="submit" className="text-xs text-gray-600 hover:text-red-400">
+              <button type="submit" className="text-xs text-gray-600 hover:text-sev-crit">
                 Remove
               </button>
             </form>

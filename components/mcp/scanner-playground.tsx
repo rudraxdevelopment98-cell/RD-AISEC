@@ -15,7 +15,7 @@ import { FIXTURES, FIXTURE_JSON } from "./fixtures";
 
 const LEVEL_RING: Record<Severity, string> = {
   critical: "ring-fuchsia-500/50 text-fuchsia-200",
-  high: "border-red-500/40 text-red-300",
+  high: "border-sev-crit/40 text-sev-crit",
   medium: "ring-amber accent-amber",
   low: "ring-sky accent-sky",
   info: "border-surface-border text-gray-400",
@@ -86,7 +86,7 @@ export function McpScannerPlayground({ initial }: { initial?: string }) {
             </div>
           </div>
         ) : result.error ? (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+          <div className="rounded-lg border border-sev-crit/40 bg-sev-crit/10 p-3 text-sm text-sev-crit">
             <Icon name="alert" className="mr-1 inline h-4 w-4" /> Couldn&apos;t parse JSON: {result.error}
           </div>
         ) : (
@@ -122,8 +122,8 @@ export function McpScannerPlayground({ initial }: { initial?: string }) {
                     </div>
                     <p className="mt-1 text-sm text-gray-200">{f.title}</p>
                     {f.detail && <p className="mt-1 text-xs text-gray-400">{f.detail}</p>}
-                    {f.evidence && <p className="mt-1 text-[11px] text-amber-300/90">evidence: {f.evidence}</p>}
-                    {f.recommendation && <p className="mt-1 text-[11px] text-sky-300/80">fix: {f.recommendation}</p>}
+                    {f.evidence && <p className="mt-1 text-[11px] text-sev-med/90">evidence: {f.evidence}</p>}
+                    {f.recommendation && <p className="mt-1 text-[11px] text-sev-low/80">fix: {f.recommendation}</p>}
                   </div>
                 ))
               )}

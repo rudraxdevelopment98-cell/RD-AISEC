@@ -178,7 +178,7 @@ export function MaintenanceIndicator(props: MaintProps) {
       </p>
 
       {s.stale && (
-        <p className="mt-2 rounded-lg border border-sev-med/30 bg-sev-med/10 px-3 py-2 text-[11px] text-amber-200">
+        <p className="mt-2 rounded-lg border border-sev-med/30 bg-sev-med/10 px-3 py-2 text-[11px] text-sev-med">
           The machine started a maintenance step but hasn&apos;t reported in a while — it may have
           restarted or lost connection mid-pass. It will resume on the next cycle.
         </p>
@@ -200,9 +200,9 @@ function StageDot({
     state === "done"
       ? "border-brand/50 bg-brand/15 text-brand"
       : state === "active"
-      ? "border-sky-400/60 bg-sev-low/15 text-sky-200"
+      ? "border-sky-400/60 bg-sev-low/15 text-sev-low"
       : state === "stalled"
-      ? "border-sev-med/50 bg-sev-med/15 text-amber-200"
+      ? "border-sev-med/50 bg-sev-med/15 text-sev-med"
       : "border-surface-border bg-white/5 text-gray-500";
   return (
     <li className="flex flex-col items-center gap-1 text-center" title={label}>

@@ -125,7 +125,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
           </div>
 
           {error && (
-            <div className="rounded bg-red-900/20 border border-red-700 p-3 text-sm text-red-400">
+            <div className="rounded bg-red-900/20 border border-red-700 p-3 text-sm text-sev-crit">
               {error}
             </div>
           )}

@@ -165,7 +165,7 @@ export function ReconnaissanceResultsTabs({
                         key={port}
                         className="p-3 bg-gradient-to-br from-red-900/30 to-red-900/10 rounded border border-red-700/50 hover:border-red-600 transition-colors"
                       >
-                        <div className="font-mono font-bold text-red-400">{port}</div>
+                        <div className="font-mono font-bold text-sev-crit">{port}</div>
                         <div className="text-xs text-gray-400">{commonPortNames[port] || "Unknown"}</div>
                       </div>
                     );
@@ -239,7 +239,7 @@ export function ReconnaissanceResultsTabs({
                 {results.osintGathering.sslData.subject && (
                   <div className="text-sm">
                     <span className="text-gray-400">Subject:</span>
-                    <div className="font-mono text-amber-400 text-xs mt-1">
+                    <div className="font-mono text-sev-med text-xs mt-1">
                       {results.osintGathering.sslData.subject}
                     </div>
                   </div>
@@ -247,7 +247,7 @@ export function ReconnaissanceResultsTabs({
                 {results.osintGathering.sslData.issuer && (
                   <div className="text-sm">
                     <span className="text-gray-400">Issuer:</span>
-                    <div className="font-mono text-amber-400 text-xs mt-1">
+                    <div className="font-mono text-sev-med text-xs mt-1">
                       {results.osintGathering.sslData.issuer}
                     </div>
                   </div>
@@ -255,7 +255,7 @@ export function ReconnaissanceResultsTabs({
                 {results.osintGathering.sslData.dates && (
                   <div className="text-sm">
                     <span className="text-gray-400">Valid:</span>
-                    <div className="font-mono text-amber-400 text-xs mt-1">
+                    <div className="font-mono text-sev-med text-xs mt-1">
                       {results.osintGathering.sslData.dates.start} → {results.osintGathering.sslData.dates.end}
                     </div>
                   </div>

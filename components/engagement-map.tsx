@@ -501,7 +501,7 @@ export function EngagementMap({ graph, engagementId }: { graph: EngagementGraph;
               {stats[s]} {s}
             </span>
           ))}
-          {stats.confirmed > 0 && <span className="rounded-md border border-red-500/40 px-1.5 py-0.5 text-red-300">✓ {stats.confirmed} confirmed</span>}
+          {stats.confirmed > 0 && <span className="rounded-md border border-sev-crit/40 px-1.5 py-0.5 text-sev-crit">✓ {stats.confirmed} confirmed</span>}
         </div>
       </div>
 
@@ -560,7 +560,7 @@ function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (
                   <span className="inline-block h-2 w-2 rounded-full" style={{ background: SEV_COLOR[f.severity] ?? "#64748b" }} />
                   <span className="ml-1.5 text-gray-300">{f.title.length > 40 ? f.title.slice(0, 39) + "…" : f.title}</span>
                 </span>
-                <Link href={`/dashboard/findings/${f.id}/exploit`} className="shrink-0 text-red-300 hover:text-red-200">⚔</Link>
+                <Link href={`/dashboard/findings/${f.id}/exploit`} className="shrink-0 text-sev-crit hover:text-sev-crit">⚔</Link>
               </li>
             ))}
           </ul>

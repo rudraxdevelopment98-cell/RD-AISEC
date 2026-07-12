@@ -306,7 +306,7 @@ export default async function EngagementDetail({
         className={`rounded-xl border px-4 py-3 text-sm ${
           e.authorized
             ? "border-brand/40 bg-brand/10 text-emerald-200"
-            : "border-sev-med/40 bg-sev-med/10 text-amber-200"
+            : "border-sev-med/40 bg-sev-med/10 text-sev-med"
         }`}
       >
         <p className="flex items-center gap-2 font-medium">
@@ -385,7 +385,7 @@ export default async function EngagementDetail({
                     {t.title}
                   </span>
                   {t.locked && (
-                    <Icon name="lock" className="ml-auto h-3 w-3 text-amber-400" />
+                    <Icon name="lock" className="ml-auto h-3 w-3 text-sev-med" />
                   )}
                 </span>
                 <span className="text-xs text-gray-500">{t.desc}</span>
@@ -417,7 +417,7 @@ export default async function EngagementDetail({
                     <button
                       type="submit"
                       disabled={t.locked}
-                      className="text-[10px] font-medium text-sev-med/90 hover:text-amber-200 disabled:opacity-50"
+                      className="text-[10px] font-medium text-sev-med/90 hover:text-sev-med disabled:opacity-50"
                       title="All ports + vuln scripts + bigger wordlist"
                     >
                       ⚡ Deep scan
@@ -429,7 +429,7 @@ export default async function EngagementDetail({
           })}
         </div>
         {!e.authorized && (
-          <p className="mt-2 text-xs text-amber-400">
+          <p className="mt-2 text-xs text-sev-med">
             <Icon name="lock" className="mr-1 inline h-3 w-3" />
             Scanning &amp; exploitation are locked until written authorization is recorded above.
           </p>
@@ -505,7 +505,7 @@ export default async function EngagementDetail({
             <form action={setEngagementAuthSession} className="mt-2">
               <input type="hidden" name="id" value={e.id} />
               <input type="hidden" name="authSession" value="" />
-              <button type="submit" className="text-[11px] text-gray-500 hover:text-red-400">
+              <button type="submit" className="text-[11px] text-gray-500 hover:text-sev-crit">
                 Clear stored session
               </button>
             </form>
@@ -732,7 +732,7 @@ export default async function EngagementDetail({
             <form action={deleteResource}>
               <input type="hidden" name="id" value={r.id} />
               <input type="hidden" name="engagementId" value={e.id} />
-              <button type="submit" className="text-xs text-gray-600 hover:text-red-400">
+              <button type="submit" className="text-xs text-gray-600 hover:text-sev-crit">
                 Remove
               </button>
             </form>
@@ -749,7 +749,7 @@ export default async function EngagementDetail({
         <input type="hidden" name="id" value={e.id} />
         <button
           type="submit"
-          className="text-xs text-gray-600 hover:text-red-400"
+          className="text-xs text-gray-600 hover:text-sev-crit"
         >
           Delete this engagement
         </button>

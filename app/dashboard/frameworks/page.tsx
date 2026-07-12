@@ -26,7 +26,7 @@ export default function FrameworksPage() {
       {/* MITRE ATT&CK */}
       <section>
         <div className="flex items-center gap-2">
-          <Icon name="skull" className="h-5 w-5 text-red-400" />
+          <Icon name="skull" className="h-5 w-5 text-sev-crit" />
           <h2 className="text-lg font-bold">MITRE ATT&amp;CK — Enterprise tactics</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">
@@ -49,14 +49,14 @@ export default function FrameworksPage() {
       {/* OWASP Top 10 */}
       <section>
         <div className="flex items-center gap-2">
-          <Icon name="alert" className="h-5 w-5 text-amber-400" />
+          <Icon name="alert" className="h-5 w-5 text-sev-med" />
           <h2 className="text-lg font-bold">OWASP Top 10 (2021)</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">The most critical web-app security risks.</p>
         <div className="mt-4 space-y-2">
           {OWASP_TOP10.map((o) => (
             <div key={o.id} className="card flex items-start gap-3 py-3">
-              <span className="tag shrink-0 font-mono text-amber-300">{o.id}</span>
+              <span className="tag shrink-0 font-mono text-sev-med">{o.id}</span>
               <div>
                 <p className="font-semibold text-white">{o.name}</p>
                 <p className="text-xs text-gray-400">{o.desc}</p>
@@ -69,7 +69,7 @@ export default function FrameworksPage() {
       {/* NIST CSF */}
       <section>
         <div className="flex items-center gap-2">
-          <Icon name="shield" className="h-5 w-5 text-sky-400" />
+          <Icon name="shield" className="h-5 w-5 text-sev-low" />
           <h2 className="text-lg font-bold">NIST Cybersecurity Framework 2.0</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">The six core functions of a security program.</p>

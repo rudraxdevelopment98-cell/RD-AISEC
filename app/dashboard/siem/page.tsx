@@ -28,9 +28,9 @@ const SINCE_OPTIONS = [
 
 const SEV_STYLE: Record<string, string> = {
   critical: "text-fuchsia-300",
-  high: "text-red-300",
-  medium: "text-amber-300",
-  low: "text-sky-300",
+  high: "text-sev-crit",
+  medium: "text-sev-med",
+  low: "text-sev-low",
   info: "text-gray-400",
 };
 

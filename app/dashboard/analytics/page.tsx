@@ -10,14 +10,14 @@ import { PageHeader } from "@/components/page-header";
 export const dynamic = "force-dynamic";
 
 const SEVERITY_BAR: Record<string, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-amber-500",
-  low: "bg-sky-500",
+  critical: "bg-sev-crit",
+  high: "bg-sev-high",
+  medium: "bg-sev-med",
+  low: "bg-sev-low",
   info: "bg-gray-500",
 };
 const FINDING_STATUS_BAR: Record<string, string> = {
-  open: "bg-amber-500",
+  open: "bg-sev-med",
   fixed: "bg-emerald-500",
   accepted: "bg-gray-500",
   false_positive: "bg-slate-600",
@@ -116,8 +116,8 @@ export default async function AnalyticsPage({
   const stats = [
     { label: "Engagements", value: engagements.length },
     { label: "Total findings", value: findings.length },
-    { label: "Open findings", value: open, accent: "text-amber-300" },
-    { label: "Critical / High", value: critHigh, accent: "text-red-300" },
+    { label: "Open findings", value: open, accent: "text-sev-med" },
+    { label: "Critical / High", value: critHigh, accent: "text-sev-crit" },
   ];
 
   // Engagements ranked by open findings.
@@ -217,7 +217,7 @@ export default async function AnalyticsPage({
           ) : (
             <div className="mt-4 space-y-2.5">
               {byAttack.map((b) => (
-                <Bar key={b.key} label={b.label} count={b.count} max={maxAttack} color="bg-red-500/70" href={`/dashboard/findings?attack=${b.key}`} />
+                <Bar key={b.key} label={b.label} count={b.count} max={maxAttack} color="bg-sev-crit/70" href={`/dashboard/findings?attack=${b.key}`} />
               ))}
             </div>
           )}
@@ -229,7 +229,7 @@ export default async function AnalyticsPage({
           ) : (
             <div className="mt-4 space-y-2.5">
               {byOwasp.map((b) => (
-                <Bar key={b.key} label={b.label} count={b.count} max={maxOwasp} color="bg-amber-500/70" href={`/dashboard/findings?owasp=${b.key}`} />
+                <Bar key={b.key} label={b.label} count={b.count} max={maxOwasp} color="bg-sev-med/70" href={`/dashboard/findings?owasp=${b.key}`} />
               ))}
             </div>
           )}
@@ -282,7 +282,7 @@ export default async function AnalyticsPage({
               >
                 <span className="truncate text-gray-200">{e.name}</span>
                 <span className="shrink-0 text-gray-500">
-                  <span className="text-amber-300">{e.open} open</span> / {e.total}
+                  <span className="text-sev-med">{e.open} open</span> / {e.total}
                 </span>
               </Link>
             ))}

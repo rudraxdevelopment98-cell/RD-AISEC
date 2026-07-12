@@ -13,7 +13,7 @@ import { submitUrl, submissionHints } from "@/lib/submission";
 const LEVEL_STYLE: Record<string, string> = {
   ready: "ring-emerald accent-emerald",
   review: "ring-amber accent-amber",
-  weak: "border-red-500/40 text-red-300",
+  weak: "border-sev-crit/40 text-sev-crit",
 };
 const LEVEL_LABEL: Record<string, string> = {
   ready: "Looks submittable",
@@ -63,7 +63,7 @@ export function ReportBuilder(
         </div>
         <ul className="space-y-0.5">
           {validity.notes.map((n, i) => (
-            <li key={i} className={`text-[11px] ${n.kind === "good" ? "text-emerald-300" : "text-amber-300"}`}>
+            <li key={i} className={`text-[11px] ${n.kind === "good" ? "text-emerald-300" : "text-sev-med"}`}>
               {n.kind === "good" ? "✓" : "!"} {n.text}
             </li>
           ))}

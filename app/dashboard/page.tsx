@@ -27,9 +27,9 @@ const SEV_HEX: Record<string, string> = {
 
 const JOB_DOT: Record<string, string> = {
   done: "bg-emerald-500",
-  running: "bg-sky-500",
-  queued: "bg-amber-500",
-  failed: "bg-red-500",
+  running: "bg-sev-low",
+  queued: "bg-sev-med",
+  failed: "bg-sev-crit",
   canceled: "bg-gray-500",
 };
 
@@ -322,8 +322,8 @@ export default async function DashboardOverview({
 
   const metrics = [
     { label: "Engagements", value: engagementCount, suffix: "", icon: "briefcase", href: "/dashboard/engagements", accent: "text-brand" },
-    { label: "Open findings", value: openFindings, suffix: "", icon: "alert", href: "/dashboard/analytics", accent: "text-amber-300" },
-    { label: "Critical / High", value: critHigh, suffix: "", icon: "skull", href: "/dashboard/analytics", accent: "text-red-300" },
+    { label: "Open findings", value: openFindings, suffix: "", icon: "alert", href: "/dashboard/analytics", accent: "text-sev-med" },
+    { label: "Critical / High", value: critHigh, suffix: "", icon: "skull", href: "/dashboard/analytics", accent: "text-sev-crit" },
     { label: "Runners online", value: runnersOnline, suffix: `/${runners.length}`, icon: "server", href: "/dashboard/runners", accent: "text-emerald-300" },
   ];
 
@@ -331,7 +331,7 @@ export default async function DashboardOverview({
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader title="Dashboard" />
       {searchParams?.denied && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        <div className="rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
           You don&apos;t have access to that section. Ask an owner to grant it on the
           Members page.
         </div>
@@ -445,7 +445,7 @@ export default async function DashboardOverview({
             return (
               <div key={a.area} className="flex items-center justify-between gap-2 text-xs">
                 <span className="truncate text-gray-400">{a.area}</span>
-                <span className={pct >= 70 ? "text-emerald-400" : pct >= 40 ? "text-amber-300" : "text-gray-500"}>{pct}%</span>
+                <span className={pct >= 70 ? "text-emerald-400" : pct >= 40 ? "text-sev-med" : "text-gray-500"}>{pct}%</span>
               </div>
             );
           })}

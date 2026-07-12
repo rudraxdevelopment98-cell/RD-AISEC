@@ -61,7 +61,7 @@ export function EvidencePanel({ engagementId, evidence }: { engagementId: string
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="tag">{kindLabel(e.kind)}</span>
                       {e.size && <span className="tag">{e.size}</span>}
-                      <span className={`tag ${hashed ? "ring-emerald accent-emerald" : "border-amber-500/40 text-amber-300"}`}>
+                      <span className={`tag ${hashed ? "ring-emerald accent-emerald" : "border-sev-med/40 text-sev-med"}`}>
                         {hashed ? "✓ hashed" : "no hash"}
                       </span>
                     </div>
@@ -69,7 +69,7 @@ export function EvidencePanel({ engagementId, evidence }: { engagementId: string
                   <form action={deleteEvidence}>
                     <input type="hidden" name="id" value={e.id} />
                     <input type="hidden" name="engagementId" value={engagementId} />
-                    <button className="text-xs text-gray-600 hover:text-red-400">Delete</button>
+                    <button className="text-xs text-gray-600 hover:text-sev-crit">Delete</button>
                   </form>
                 </div>
 

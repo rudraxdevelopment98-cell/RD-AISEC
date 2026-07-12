@@ -210,7 +210,7 @@ export default async function FindingsPage({
         <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">✓ {sp.ok}</div>
       )}
       {sp.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />{sp.error}
         </div>
       )}
@@ -262,7 +262,7 @@ export default async function FindingsPage({
                 </span>
                 <form action={deleteSuppression}>
                   <input type="hidden" name="id" value={s.id} />
-                  <button className="shrink-0 text-gray-500 hover:text-red-400">Remove</button>
+                  <button className="shrink-0 text-gray-500 hover:text-sev-crit">Remove</button>
                 </form>
               </li>
               );

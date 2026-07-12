@@ -73,7 +73,7 @@ export function Assistant({ topics }: { topics: string[] }) {
       </div>
 
       {error && (
-        <p className="mt-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="mt-6 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           {error}
         </p>
       )}
@@ -87,7 +87,7 @@ export function Assistant({ topics }: { topics: string[] }) {
                 className={`tag shrink-0 ${
                   answer.source === "knowledge"
                     ? "border-emerald-500/40 text-emerald-300"
-                    : "border-sky-500/40 text-sky-300"
+                    : "border-sev-low/40 text-sev-low"
                 }`}
               >
                 {answer.source === "knowledge"
@@ -118,7 +118,7 @@ export function Assistant({ topics }: { topics: string[] }) {
             </section>
           ))}
 
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
+          <p className="rounded-lg border border-sev-med/30 bg-sev-med/10 px-4 py-3 text-xs text-sev-med">
             {answer.disclaimer}
           </p>
         </article>

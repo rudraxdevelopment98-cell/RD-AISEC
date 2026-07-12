@@ -254,7 +254,7 @@ export function NetworkGraph({
                       <span className="font-mono text-gray-200">
                         {p.port}/{p.proto}
                         {RISKY.has(p.port) && (
-                          <span className="ml-1 text-amber-400">●</span>
+                          <span className="ml-1 text-sev-med">●</span>
                         )}
                       </span>
                       <span className="truncate pl-2 text-gray-400">

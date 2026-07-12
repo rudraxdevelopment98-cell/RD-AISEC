@@ -67,11 +67,11 @@ export function WifiDevices({ machines }: { machines: DeviceMachine[] }) {
             </button>
           </div>
         ) : (
-          <span className="ml-auto text-xs text-amber-300">Connect a machine to scan the LAN</span>
+          <span className="ml-auto text-xs text-sev-med">Connect a machine to scan the LAN</span>
         )}
       </div>
 
-      {msg && <p className="mt-2 text-xs text-amber-300">{msg}</p>}
+      {msg && <p className="mt-2 text-xs text-sev-med">{msg}</p>}
 
       {summary && (
         <div className="mt-3 flex flex-wrap items-center gap-2">

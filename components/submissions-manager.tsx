@@ -34,7 +34,7 @@ export function SubmissionsManager({ submissions }: { submissions: SubmissionRow
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Submitted" value={String(stats.total)} />
         <Stat label="Accepted / paid" value={String(stats.won)} accent="text-emerald-300" />
-        <Stat label="Pending" value={String(stats.pending)} accent="text-sky-300" />
+        <Stat label="Pending" value={String(stats.pending)} accent="text-sev-low" />
         <Stat label="Bounty earned" value={formatReward(stats.earnedCents)} accent="text-brand" />
       </div>
 
@@ -118,7 +118,7 @@ export function SubmissionsManager({ submissions }: { submissions: SubmissionRow
                 </form>
                 <form action={deleteSubmission} className="ml-auto">
                   <input type="hidden" name="id" value={s.id} />
-                  <button className="text-gray-500 hover:text-red-400">Remove</button>
+                  <button className="text-gray-500 hover:text-sev-crit">Remove</button>
                 </form>
               </div>
             </div>

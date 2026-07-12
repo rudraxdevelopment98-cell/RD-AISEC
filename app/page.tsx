@@ -56,8 +56,8 @@ export default async function Home() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -left-24 top-0 h-80 w-80 rounded-full bg-sky-500/15 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-red-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 top-0 h-80 w-80 rounded-full bg-sev-low/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-sev-crit/15 blur-3xl" />
 
         <div className="relative mx-auto flex max-w-3xl flex-col items-center px-6 pb-10 pt-16 text-center">
           <p className="tag">Forensics · Pentesting · Consulting — AI-powered</p>

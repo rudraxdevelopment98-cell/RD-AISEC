@@ -23,11 +23,11 @@ export function FrameworkBadges({
   if (!a && !o) return null;
 
   const attackCls =
-    "tag border-red-500/30 text-[10px] text-red-300" +
-    (linked ? " transition hover:border-red-400 hover:bg-red-500/10" : "");
+    "tag border-sev-crit/30 text-[10px] text-sev-crit" +
+    (linked ? " transition hover:border-red-400 hover:bg-sev-crit/10" : "");
   const owaspCls =
-    "tag border-amber-500/30 text-[10px] text-amber-300" +
-    (linked ? " transition hover:border-amber-400 hover:bg-amber-500/10" : "");
+    "tag border-sev-med/30 text-[10px] text-sev-med" +
+    (linked ? " transition hover:border-amber-400 hover:bg-sev-med/10" : "");
 
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>

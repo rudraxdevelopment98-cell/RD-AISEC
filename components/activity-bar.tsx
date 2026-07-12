@@ -98,7 +98,7 @@ export function ActivityBar() {
         {m?.tempC != null && (
           <span
             title={`${m.name} · temperature`}
-            className={m.tempC >= 80 ? "text-red-300" : m.tempC >= 70 ? "text-amber-300" : ""}
+            className={m.tempC >= 80 ? "text-sev-crit" : m.tempC >= 70 ? "text-sev-med" : ""}
           >
             {m.tempC}°C
           </span>

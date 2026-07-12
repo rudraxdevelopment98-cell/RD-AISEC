@@ -28,7 +28,7 @@ export type JobRow = {
 
 const STATUS_STYLE: Record<string, string> = {
   done: "ring-emerald accent-emerald",
-  failed: "border-red-500/40 text-red-300",
+  failed: "border-sev-crit/40 text-sev-crit",
   canceled: "border-gray-500/40 text-gray-400",
 };
 
@@ -194,7 +194,7 @@ export function JobsTable({
                   runBulk(deleteJobs);
                 }
               }}
-              className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+              className="rounded-md border border-sev-crit/40 px-2 py-1 text-sev-crit hover:bg-sev-crit/10"
             >
               Delete
             </button>
@@ -279,7 +279,7 @@ export function JobsTable({
                   </form>
                   <form action={deleteJob}>
                     <input type="hidden" name="id" value={j.id} />
-                    <button className="text-xs text-gray-600 hover:text-red-400">Delete</button>
+                    <button className="text-xs text-gray-600 hover:text-sev-crit">Delete</button>
                   </form>
                   {j.exitCode != null && <span className="text-xs text-gray-500">exit {j.exitCode}</span>}
                 </div>

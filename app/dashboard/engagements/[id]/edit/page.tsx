@@ -33,7 +33,7 @@ export default async function EditEngagementPage({
       />
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -141,15 +141,15 @@ export default async function EditEngagementPage({
       </form>
 
       {/* Danger zone */}
-      <div className="card mt-6 border-red-500/30">
-        <h2 className="font-semibold text-red-300">Delete engagement</h2>
+      <div className="card mt-6 border-sev-crit/30">
+        <h2 className="font-semibold text-sev-crit">Delete engagement</h2>
         <p className="mt-1 text-sm text-gray-400">
           Permanently deletes this engagement and its findings. This can&apos;t be
           undone.
         </p>
         <form action={deleteEngagement} className="mt-3">
           <input type="hidden" name="id" value={e.id} />
-          <button className="rounded-lg border border-red-500/40 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10">
+          <button className="rounded-lg border border-sev-crit/40 px-3 py-2 text-sm text-sev-crit hover:bg-sev-crit/10">
             Delete this engagement
           </button>
         </form>

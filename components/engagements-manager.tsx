@@ -114,7 +114,7 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
             <p className="truncate text-xs text-gray-500">
               <span className="capitalize">{e.type}</span> · {e.client || "—"} ·{" "}
               {e.findingCount} finding{e.findingCount === 1 ? "" : "s"}
-              {!e.authorized && <span className="ml-2 text-amber-400">⚠ unauthorized</span>}
+              {!e.authorized && <span className="ml-2 text-sev-med">⚠ unauthorized</span>}
             </p>
           </div>
         </Link>
@@ -299,7 +299,7 @@ export function EngagementsManager({ engagements }: { engagements: EngagementRow
               }}
             >
               {withSelection()}
-              <button className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10">
+              <button className="rounded-md border border-sev-crit/40 px-2 py-1 text-sev-crit hover:bg-sev-crit/10">
                 Delete
               </button>
             </form>

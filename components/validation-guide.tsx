@@ -69,7 +69,7 @@ export function ValidationGuide({
               <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
                 {s.command}
               </pre>
-              <p className="mt-1 text-[11px] text-sky-300/80">
+              <p className="mt-1 text-[11px] text-sev-low/80">
                 <b>Confirms if:</b> {s.confirmsIf}
               </p>
             </li>
@@ -89,14 +89,14 @@ export function ValidationGuide({
                   r.proves
                     ? "border-emerald-500/40 bg-emerald-500/5"
                     : r.confirmed
-                      ? "border-amber-500/40 bg-amber-500/5"
+                      ? "border-sev-med/40 bg-sev-med/5"
                       : "border-surface-border bg-surface/30"
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Icon
                     name={r.confirmed ? "check" : "x"}
-                    className={`h-4 w-4 ${r.proves ? "text-emerald-400" : r.confirmed ? "text-amber-400" : "text-gray-600"}`}
+                    className={`h-4 w-4 ${r.proves ? "text-emerald-400" : r.confirmed ? "text-sev-med" : "text-gray-600"}`}
                   />
                   <span className="font-mono text-xs font-semibold text-white">{r.tool}</span>
                   <span className="text-[11px] text-gray-500">on {r.target}</span>

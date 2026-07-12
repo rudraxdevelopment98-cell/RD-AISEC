@@ -17,7 +17,7 @@ const GROUPS = GRANTABLE_ITEMS.reduce<Record<string, typeof GRANTABLE_ITEMS>>((a
 const STATUS_STYLE: Record<string, string> = {
   approved: "ring-emerald accent-emerald",
   pending: "ring-amber accent-amber",
-  suspended: "border-red-500/40 text-red-300",
+  suspended: "border-sev-crit/40 text-sev-crit",
 };
 
 function AccessCheckboxes({ checked }: { checked: Set<string> }) {
@@ -84,7 +84,7 @@ export default async function MembersPage({
         </div>
       )}
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -152,13 +152,13 @@ export default async function MembersPage({
                   <form action={setMemberStatus}>
                     <input type="hidden" name="id" value={m.id} />
                     <input type="hidden" name="status" value={m.status === "approved" ? "suspended" : "approved"} />
-                    <button className={m.status === "approved" ? "text-amber-400 hover:text-amber-300" : "text-emerald-400 hover:text-emerald-300"}>
+                    <button className={m.status === "approved" ? "text-sev-med hover:text-sev-med" : "text-emerald-400 hover:text-emerald-300"}>
                       {m.status === "approved" ? "Suspend" : "Approve"}
                     </button>
                   </form>
                   <form action={removeMember}>
                     <input type="hidden" name="id" value={m.id} />
-                    <button className="text-gray-500 hover:text-red-400">Remove</button>
+                    <button className="text-gray-500 hover:text-sev-crit">Remove</button>
                   </form>
                 </div>
 

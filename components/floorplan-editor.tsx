@@ -207,7 +207,7 @@ export function FloorPlanEditor({
               <NumRow label="Width (m)" value={selRoom.w} onChange={(v) => patchRoom(selRoom.id, { w: v })} />
               <NumRow label="Depth (m)" value={selRoom.h} onChange={(v) => patchRoom(selRoom.id, { h: v })} />
             </div>
-            <button onClick={del} className="mt-3 text-[11px] text-gray-500 hover:text-red-400">Delete room</button>
+            <button onClick={del} className="mt-3 text-[11px] text-gray-500 hover:text-sev-crit">Delete room</button>
           </div>
         )}
         {selAnchor && (
@@ -220,7 +220,7 @@ export function FloorPlanEditor({
               <NumRow label="X (m)" value={selAnchor.x} onChange={(v) => patchAnchor(selAnchor.id, { x: v })} />
               <NumRow label="Y (m)" value={selAnchor.y} onChange={(v) => patchAnchor(selAnchor.id, { y: v })} />
             </div>
-            <button onClick={del} className="mt-3 text-[11px] text-gray-500 hover:text-red-400">Delete node</button>
+            <button onClick={del} className="mt-3 text-[11px] text-gray-500 hover:text-sev-crit">Delete node</button>
           </div>
         )}
         {!selRoom && !selAnchor && (

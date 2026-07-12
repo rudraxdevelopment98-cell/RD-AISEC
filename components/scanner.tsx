@@ -13,7 +13,7 @@ function ResultBlock({ result }: { result: ScanResult }) {
     return (
       <div className="card border-l-2 border-l-red-500/60">
         <p className="font-mono text-sm text-white">{result.target}</p>
-        <p className="mt-1 text-sm text-red-300">{result.error}</p>
+        <p className="mt-1 text-sm text-sev-crit">{result.error}</p>
       </div>
     );
   }
@@ -38,7 +38,7 @@ function ResultBlock({ result }: { result: ScanResult }) {
               <div className="flex items-center gap-2">
                 <Icon
                   name={c.passed ? "check" : "alert"}
-                  className={`h-4 w-4 shrink-0 ${c.passed ? "text-emerald-400" : "text-amber-400"}`}
+                  className={`h-4 w-4 shrink-0 ${c.passed ? "text-emerald-400" : "text-sev-med"}`}
                 />
                 <span className="text-sm text-gray-200">{c.name}</span>
               </div>
@@ -152,7 +152,7 @@ export function Scanner({
       </p>
 
       {error && (
-        <p className="mt-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="mt-6 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           {error}
         </p>
       )}

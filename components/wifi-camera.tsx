@@ -256,12 +256,12 @@ export function WifiCamera({
     <div className="space-y-4">
       {/* Live vs Demo clarity — make it obvious when this isn't real signal. */}
       {machines.length === 0 ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
+        <div className="rounded-xl border border-sev-med/40 bg-sev-med/10 px-4 py-2.5 text-sm text-sev-med">
           ◐ <b>Demo (simulation)</b> — no runner connected, so this is a synthetic walk-through, not
           your real room. Connect a machine running the engine (with WiFi) to read real signal.
         </div>
       ) : mode === "demo" ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-xs text-amber-200/90">
+        <div className="rounded-xl border border-sev-med/30 bg-sev-med/5 px-4 py-2 text-xs text-sev-med/90">
           ◐ Demo mode — simulated. Switch to <b>Live · real WiFi</b> and press Start to read the room.
         </div>
       ) : !running ? (
@@ -398,7 +398,7 @@ function Tile({
   accent?: "sky" | "rose" | "amber"; glow?: boolean;
 }) {
   const color =
-    accent === "sky" ? "text-sky-300" : accent === "rose" ? "text-rose-300" : accent === "amber" ? "text-amber-300" : "text-brand";
+    accent === "sky" ? "text-sev-low" : accent === "rose" ? "text-rose-300" : accent === "amber" ? "text-sev-med" : "text-brand";
   return (
     <div className={`card !p-3 ${glow ? "ring-1 ring-emerald-500/30" : ""}`}>
       <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>

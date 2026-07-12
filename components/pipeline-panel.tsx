@@ -84,7 +84,7 @@ export function PipelinePanel({
               {pipeline?.status === "canceled" ? "Restart assessment" : "Run full assessment"}
             </button>
             {blocked && (
-              <span className="text-xs text-amber-400">
+              <span className="text-xs text-sev-med">
                 {!authorized ? "Record authorization first." : "Register a runner first."}
               </span>
             )}
@@ -145,7 +145,7 @@ export function PipelinePanel({
               {pipeline.status !== "done" && (
                 <form action={cancelAssessment}>
                   <input type="hidden" name="engagementId" value={engagementId} />
-                  <button className="text-gray-500 hover:text-red-400">Cancel</button>
+                  <button className="text-gray-500 hover:text-sev-crit">Cancel</button>
                 </form>
               )}
             </div>
@@ -209,7 +209,7 @@ export function PipelinePanel({
                             <input type="hidden" name="engagementId" value={engagementId} />
                             <input type="hidden" name="stage" value={s.key} />
                             <button
-                              className="text-xs text-sev-med/90 hover:text-amber-200"
+                              className="text-xs text-sev-med/90 hover:text-sev-med"
                               title="All ports + vuln scripts + bigger wordlist, then continue"
                             >
                               ↻ Re-run deeper

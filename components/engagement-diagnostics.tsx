@@ -5,8 +5,8 @@ import { installRequiredTools } from "@/lib/runners";
 
 const LEVEL: Record<string, { icon: string; cls: string; dot: string }> = {
   ok: { icon: "check", cls: "text-emerald-300", dot: "bg-emerald-400" },
-  warn: { icon: "alert", cls: "text-amber-300", dot: "bg-amber-400" },
-  fail: { icon: "x", cls: "text-red-300", dot: "bg-red-400" },
+  warn: { icon: "alert", cls: "text-sev-med", dot: "bg-amber-400" },
+  fail: { icon: "x", cls: "text-sev-crit", dot: "bg-red-400" },
 };
 
 export function EngagementDiagnostics({
@@ -23,7 +23,7 @@ export function EngagementDiagnostics({
       : warnCount > 0
         ? `Ready, with ${warnCount} thing${warnCount === 1 ? "" : "s"} to improve`
         : "Ready to find bugs";
-  const tone = failCount > 0 ? "text-red-300" : warnCount > 0 ? "text-amber-300" : "text-emerald-300";
+  const tone = failCount > 0 ? "text-sev-crit" : warnCount > 0 ? "text-sev-med" : "text-emerald-300";
 
   return (
     <section className="mt-6">

@@ -5,8 +5,8 @@ import type { SecurityTool } from "@/data/tools";
 
 const LICENSE_STYLES: Record<SecurityTool["license"], string> = {
   "Open Source": "text-emerald-300 border-emerald-500/40",
-  Freemium: "text-sky-300 border-sky-500/40",
-  Paid: "text-amber-300 border-amber-500/40",
+  Freemium: "text-sev-low border-sev-low/40",
+  Paid: "text-sev-med border-sev-med/40",
 };
 
 export function ToolCatalog({

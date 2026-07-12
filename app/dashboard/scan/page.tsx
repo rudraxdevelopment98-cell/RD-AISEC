@@ -44,7 +44,7 @@ export default async function ScanPage({
       />
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -162,7 +162,7 @@ export default async function ScanPage({
                   <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
                     <form action={runScheduleNow}>
                       <input type="hidden" name="id" value={s.id} />
-                      <button className="text-sky-400 hover:text-sky-300">Run now</button>
+                      <button className="text-sev-low hover:text-sev-low">Run now</button>
                     </form>
                     <form action={toggleSchedule}>
                       <input type="hidden" name="id" value={s.id} />
@@ -172,7 +172,7 @@ export default async function ScanPage({
                     </form>
                     <form action={deleteSchedule}>
                       <input type="hidden" name="id" value={s.id} />
-                      <button className="text-gray-500 hover:text-red-400">Delete</button>
+                      <button className="text-gray-500 hover:text-sev-crit">Delete</button>
                     </form>
                   </div>
                 </div>

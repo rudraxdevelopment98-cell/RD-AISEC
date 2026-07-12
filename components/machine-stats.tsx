@@ -61,7 +61,7 @@ export function MachineStats({ s, compact = false }: { s: MachineStat; compact?:
       {!compact && (
         <div className="flex flex-wrap gap-1.5 pt-0.5 text-[10px]">
           {s.tempC != null && (
-            <span className={`tag ${s.tempC >= 80 ? "text-red-300" : s.tempC >= 70 ? "text-amber-300" : ""}`}>
+            <span className={`tag ${s.tempC >= 80 ? "text-sev-crit" : s.tempC >= 70 ? "text-sev-med" : ""}`}>
               {s.tempC}°C
             </span>
           )}

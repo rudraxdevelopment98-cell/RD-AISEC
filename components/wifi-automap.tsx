@@ -80,14 +80,14 @@ export function WifiAutomap() {
     <div className="card mt-4">
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-white">Auto-map from signal flow</span>
-        <span className="tag border-amber-500/40 text-amber-300">beta · needs a multi-node mesh</span>
+        <span className="tag border-sev-med/40 text-sev-med">beta · needs a multi-node mesh</span>
       </div>
       <div className="mt-3 grid gap-4 lg:grid-cols-[1fr_1.1fr]">
         <div>
           <canvas ref={canvasRef} width={340} height={300} className="w-full rounded-xl border border-surface-border" />
           <p className="mt-2 text-[11px] text-gray-500">
             Blue = WiFi nodes · <span className="text-emerald-400">green</span> links are clear ·{" "}
-            <span className="text-red-400">red</span> links are attenuated (cross an obstruction). The
+            <span className="text-sev-crit">red</span> links are attenuated (cross an obstruction). The
             wall is where the red links intersect.
           </p>
         </div>

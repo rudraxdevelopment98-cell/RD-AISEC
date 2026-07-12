@@ -67,16 +67,16 @@ chmod 600 ~/.config/rdaisec/runner.env`
         <SubmitButton />
       </form>
 
-      {state.error && <p className="mt-2 text-xs text-red-400">{state.error}</p>}
+      {state.error && <p className="mt-2 text-xs text-sev-crit">{state.error}</p>}
 
       {state.token && (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-          <p className="text-sm font-semibold text-amber-300">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 p-4">
+          <p className="text-sm font-semibold text-sev-med">
             <Icon name="lock" className="mr-1 inline h-4 w-4" />
             Token for “{state.name}” — copy it now, it won&apos;t be shown again.
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md border border-surface-border bg-black/50 px-3 py-2 font-mono text-xs text-amber-200">
+            <code className="flex-1 overflow-x-auto rounded-md border border-surface-border bg-black/50 px-3 py-2 font-mono text-xs text-sev-med">
               {state.token}
             </code>
             <CopyButton value={state.token} label="Copy token" />

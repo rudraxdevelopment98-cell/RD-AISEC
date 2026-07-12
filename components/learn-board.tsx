@@ -8,12 +8,12 @@ import { setLearnStatus } from "@/lib/learn";
 
 const LEVEL_TONE: Record<string, string> = {
   beginner: "border-emerald-500/40 text-emerald-300",
-  intermediate: "border-amber-500/40 text-amber-300",
-  advanced: "border-red-500/40 text-red-300",
+  intermediate: "border-sev-med/40 text-sev-med",
+  advanced: "border-sev-crit/40 text-sev-crit",
 };
 const STATUS_TONE: Record<string, string> = {
   todo: "text-gray-500",
-  learning: "text-sky-300",
+  learning: "text-sev-low",
   done: "text-emerald-300",
 };
 
@@ -53,7 +53,7 @@ export function LearnBoard({
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-gray-300">
             <b className="text-emerald-300">{done}</b> learned ·{" "}
-            <b className="text-sky-300">{learning}</b> in progress ·{" "}
+            <b className="text-sev-low">{learning}</b> in progress ·{" "}
             <b>{topics.length}</b> total
           </span>
           <span className="text-gray-400">{pct}%</span>

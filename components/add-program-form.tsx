@@ -67,7 +67,7 @@ export function AddProgramForm() {
   }
 
   const noteColor =
-    note?.kind === "err" ? "text-red-300" : note?.kind === "warn" ? "text-amber-300" : "text-emerald-300";
+    note?.kind === "err" ? "text-sev-crit" : note?.kind === "warn" ? "text-sev-med" : "text-emerald-300";
 
   return (
     <form action={addBugProgram} className="mt-3 space-y-3">

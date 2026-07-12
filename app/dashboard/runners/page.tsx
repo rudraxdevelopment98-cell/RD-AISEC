@@ -224,7 +224,7 @@ python3 rdaisec_runner.py`}
             </p>
           </div>
 
-          <p className="rounded-lg border border-sev-low/30 bg-sev-low/10 px-3 py-2 text-xs text-sky-200">
+          <p className="rounded-lg border border-sev-low/30 bg-sev-low/10 px-3 py-2 text-xs text-sev-low">
             💡 Running the portal locally instead of Vercel? Set{" "}
             <code className="font-mono">PORTAL_URL=&quot;http://&lt;your-PC-LAN-IP&gt;:3000&quot;</code>{" "}
             — not <code className="font-mono">localhost</code>, which would point
@@ -364,7 +364,7 @@ python3 rdaisec_runner.py`}
                 <div className="flex justify-end">
                   <form action={deleteRunner}>
                     <input type="hidden" name="id" value={r.id} />
-                    <button className="text-xs text-gray-600 hover:text-red-400">Revoke machine</button>
+                    <button className="text-xs text-gray-600 hover:text-sev-crit">Revoke machine</button>
                   </form>
                 </div>
 
@@ -520,7 +520,7 @@ python3 rdaisec_runner.py`}
                       <form action={installAllTools}>
                         <input type="hidden" name="runnerId" value={r.id} />
                         <button
-                          className="text-xs text-sev-med hover:text-amber-200 disabled:opacity-40"
+                          className="text-xs text-sev-med hover:text-sev-med disabled:opacity-40"
                           disabled={!online}
                           title={online ? "" : "Machine is offline"}
                         >
@@ -547,7 +547,7 @@ python3 rdaisec_runner.py`}
 
                       {/* Tor not installed → one-click install */}
                       {r.anonymity && r.anonStatus === "no-tor" && (
-                        <div className="mt-2 rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-2 text-xs text-red-200">
+                        <div className="mt-2 rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-2 text-xs text-sev-crit">
                           Tor isn&apos;t installed, so traffic can&apos;t be anonymized. Install it:
                           <div className="mt-1.5 flex gap-2">
                             {(["tor", "torsocks"] as const).map((pkg) => (

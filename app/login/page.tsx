@@ -38,7 +38,7 @@ export default function LoginPage({
       </p>
 
       {errorMessage && (
-        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           {errorMessage}
         </p>
       )}
@@ -111,7 +111,7 @@ export default function LoginPage({
         )}
 
         {!googleEnabled && !githubEnabled && !devEnabled && (
-          <p className="text-sm text-amber-400">
+          <p className="text-sm text-sev-med">
             No sign-in method is configured yet. Set OAuth credentials (or
             ALLOW_DEV_LOGIN=true) in your environment — see{" "}
             <span className="font-mono">.env.example</span>.

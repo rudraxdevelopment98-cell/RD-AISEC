@@ -50,7 +50,7 @@ export function ScanHistory({ scans, engagementId }: ScanHistoryProps) {
       case "running":
         return "bg-blue-900/20 border-blue-700 text-blue-400";
       case "failed":
-        return "bg-red-900/20 border-red-700 text-red-400";
+        return "bg-red-900/20 border-red-700 text-sev-crit";
       default:
         return "bg-gray-900/20 border-gray-700 text-gray-400";
     }
@@ -161,7 +161,7 @@ export function ScanHistory({ scans, engagementId }: ScanHistoryProps) {
                       {scan.error && (
                         <div>
                           <span className="text-gray-400">Error:</span>
-                          <span className="ml-2 text-red-400">{scan.error}</span>
+                          <span className="ml-2 text-sev-crit">{scan.error}</span>
                         </div>
                       )}
                       {scan.completedAt && (

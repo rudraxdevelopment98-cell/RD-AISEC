@@ -48,7 +48,7 @@ export function AssessmentPanel({ engagementId, assessments }: { engagementId: s
                   <form action={deleteAssessment}>
                     <input type="hidden" name="id" value={a.id} />
                     <input type="hidden" name="engagementId" value={engagementId} />
-                    <button className="text-xs text-gray-600 hover:text-red-400">Delete</button>
+                    <button className="text-xs text-gray-600 hover:text-sev-crit">Delete</button>
                   </form>
                 </div>
 
@@ -61,8 +61,8 @@ export function AssessmentPanel({ engagementId, assessments }: { engagementId: s
                   <span className="text-xs text-gray-500">maturity {s.maturityAvg.toFixed(1)}/5</span>
                   <div className="flex flex-wrap gap-1.5 text-[11px]">
                     <span className="tag ring-emerald accent-emerald">{s.pass} pass</span>
-                    <span className="tag border-amber-500/40 text-amber-300">{s.partial} partial</span>
-                    <span className="tag border-red-500/40 text-red-300">{s.fail} fail</span>
+                    <span className="tag border-sev-med/40 text-sev-med">{s.partial} partial</span>
+                    <span className="tag border-sev-crit/40 text-sev-crit">{s.fail} fail</span>
                     <span className="tag">{s.na} n/a</span>
                   </div>
                 </div>
