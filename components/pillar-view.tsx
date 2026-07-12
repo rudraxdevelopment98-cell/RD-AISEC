@@ -17,23 +17,21 @@ export function PillarView({
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader title={pillar.title} subtitle={pillar.tagline} />
+      {/* Intro card — no repeated title (PageHeader owns it); just the icon,
+          what this discipline is, and the primary actions. */}
       <header className="card relative mt-3 overflow-hidden">
         <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ring-${pillar.accent}`} />
-        <div className="flex items-center gap-3">
-          <span className={`flex h-12 w-12 items-center justify-center rounded-xl border ring-${pillar.accent} accent-${pillar.accent}`}>
+        <div className="flex items-start gap-3">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ring-${pillar.accent} accent-${pillar.accent}`}>
             <Icon name={pillar.icon} className="h-6 w-6" />
           </span>
-          <div>
-            <div className="text-2xl font-bold text-gradient">{pillar.title}</div>
-            <p className={`text-sm accent-${pillar.accent}`}>{pillar.tagline}</p>
-          </div>
+          <p className="text-sm text-gray-400">{pillar.description}</p>
         </div>
-        <p className="mt-3 text-sm text-gray-400">{pillar.description}</p>
 
         {/* At-a-glance */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="tag">{engagements.length} engagement{engagements.length === 1 ? "" : "s"}</span>
-          {openTotal > 0 && <span className="tag border-amber-500/40 text-amber-300">{openTotal} open finding{openTotal === 1 ? "" : "s"}</span>}
+          {openTotal > 0 && <span className="tag border-sev-med/40 text-sev-med">{openTotal} open finding{openTotal === 1 ? "" : "s"}</span>}
           <span className={`tag ring-${pillar.accent} accent-${pillar.accent}`}>{pillar.stages.length} workflow stages</span>
         </div>
 
@@ -78,7 +76,7 @@ export function PillarView({
                 {e.client && <span className="text-xs text-gray-500">{e.client}</span>}
               </span>
               <span className="flex shrink-0 items-center gap-2 text-xs">
-                {e.open > 0 && <span className="tag border-amber-500/40 text-amber-300">{e.open} open</span>}
+                {e.open > 0 && <span className="tag border-sev-med/40 text-sev-med">{e.open} open</span>}
                 <span className="text-gray-500">{e.findings} finding{e.findings === 1 ? "" : "s"}</span>
                 <EngagementStatusBadge value={e.status} />
                 <Icon name="arrow" className="h-4 w-4 text-gray-500" />
