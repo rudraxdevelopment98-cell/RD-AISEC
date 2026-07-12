@@ -33,10 +33,10 @@ export const dynamic = "force-dynamic";
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const STATUS_COLOR: Record<string, string> = {
-  done: "text-emerald-300",
-  running: "text-sky-300",
-  queued: "text-amber-300",
-  failed: "text-red-300",
+  done: "text-brand",
+  running: "text-sev-low",
+  queued: "text-sev-med",
+  failed: "text-sev-crit",
   canceled: "text-gray-400",
 };
 
@@ -137,12 +137,12 @@ export default async function MachinePage({
       />
 
       {searchParams.queued && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2.5 text-sm text-brand">
           ✓ Command queued — watch it under Recent jobs below.
         </div>
       )}
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2.5 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -150,7 +150,7 @@ export default async function MachinePage({
 
       {/* ── Update status ────────────────────────────────── */}
       {outdated && (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-amber-200">
           <p className="font-semibold">
             <Icon name="alert" className="mr-1 inline h-4 w-4" />
             Runner update available — v{r.version} → v{RUNNER_VERSION}
@@ -288,7 +288,7 @@ export default async function MachinePage({
           {wifi.length > 0 && (
             <div className="card">
               <p className="text-xs font-semibold text-gray-400">
-                📶 Wireless interfaces {r.wifiMonitor && <span className="text-emerald-300">· monitor-capable</span>}
+                📶 Wireless interfaces {r.wifiMonitor && <span className="text-brand">· monitor-capable</span>}
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {wifi.map((w) => (
@@ -373,7 +373,7 @@ export default async function MachinePage({
           <span className="text-sm text-gray-300">
             🧅 Route tool traffic through Tor
             {r.anonymity && r.anonStatus === "no-tor" && (
-              <span className="ml-2 text-xs text-red-300">Tor isn&apos;t installed</span>
+              <span className="ml-2 text-xs text-sev-crit">Tor isn&apos;t installed</span>
             )}
           </span>
           <div className="flex items-center gap-2">
@@ -470,7 +470,7 @@ export default async function MachinePage({
               t.installed
                 ? "ring-emerald accent-emerald"
                 : t.installable
-                  ? "border-amber-500/30 text-amber-300/80"
+                  ? "border-sev-med/30 text-sev-med/80"
                   : "border-gray-600/30 text-gray-500"
             }`}
           >
@@ -479,8 +479,8 @@ export default async function MachinePage({
         ))}
       </div>
       <p className="mt-2 text-[11px] text-gray-600">
-        <span className="text-emerald-300">✓ installed</span> ·{" "}
-        <span className="text-amber-300/80">＋ installable (one-click above)</span> ·{" "}
+        <span className="text-brand">✓ installed</span> ·{" "}
+        <span className="text-sev-med/80">＋ installable (one-click above)</span> ·{" "}
         <span className="text-gray-500">· not auto-installable</span>. Installs use
         apt or <code className="font-mono">go install</code>; the runner also
         self-heals missing tools when a job needs one.
@@ -548,7 +548,7 @@ function Stat({
   return (
     <div className="card">
       <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`mt-0.5 text-lg font-bold ${warn ? "text-amber-300" : "text-white"}`}>{value}</p>
+      <p className={`mt-0.5 text-lg font-bold ${warn ? "text-sev-med" : "text-white"}`}>{value}</p>
       {sub && <p className="text-[11px] text-gray-500">{sub}</p>}
     </div>
   );

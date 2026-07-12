@@ -56,8 +56,8 @@ function opportunityScore(p: ProgramRow): number {
 }
 
 function opportunityLabel(score: number): { text: string; cls: string } {
-  if (score >= 25) return { text: "🔥 Hot", cls: "border-red-500/40 text-red-300" };
-  if (score >= 10) return { text: "Promising", cls: "border-amber-500/40 text-amber-300" };
+  if (score >= 25) return { text: "🔥 Hot", cls: "border-sev-crit/40 text-sev-crit" };
+  if (score >= 10) return { text: "Promising", cls: "border-sev-med/40 text-sev-med" };
   return { text: "Quiet", cls: "border-gray-500/40 text-gray-400" };
 }
 
@@ -206,7 +206,7 @@ export function ProgramsManager({
               }}
             >
               {withSelection()}
-              <button className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10">
+              <button className="rounded-md border border-sev-crit/40 px-2 py-1 text-sev-crit hover:bg-sev-crit/10">
                 Delete
               </button>
             </form>
@@ -287,12 +287,12 @@ export function ProgramsManager({
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
                       <span>
                         Scans: {jobsDone}/{jobs.length} done
-                        {jobsActive > 0 && <span className="text-sky-300"> · {jobsActive} running</span>}
+                        {jobsActive > 0 && <span className="text-sev-low"> · {jobsActive} running</span>}
                       </span>
                       <span>
                         {open.length} open findings
-                        {crit > 0 && <span className="text-red-300"> · {crit} crit</span>}
-                        {high > 0 && <span className="text-orange-300"> · {high} high</span>}
+                        {crit > 0 && <span className="text-sev-crit"> · {crit} crit</span>}
+                        {high > 0 && <span className="text-sev-high"> · {high} high</span>}
                       </span>
                     </div>
                     {jobs.length > 0 && (
@@ -302,15 +302,15 @@ export function ProgramsManager({
                     )}
                     {(exploitsFound > 0 || validatedVulns > 0) && (
                       <p className="mt-2 text-xs">
-                        <span className="text-red-300">🎯 {exploitsFound} public exploit{exploitsFound === 1 ? "" : "s"} found</span>
+                        <span className="text-sev-crit">🎯 {exploitsFound} public exploit{exploitsFound === 1 ? "" : "s"} found</span>
                         {validatedVulns > 0 && (
-                          <span className="text-orange-300"> · {validatedVulns} validated vuln{validatedVulns === 1 ? "" : "s"}</span>
+                          <span className="text-sev-high"> · {validatedVulns} validated vuln{validatedVulns === 1 ? "" : "s"}</span>
                         )}
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">
                       {exploitable > 0 && (
-                        <Link href="/dashboard/exploit" className="text-red-300 hover:underline">
+                        <Link href="/dashboard/exploit" className="text-sev-crit hover:underline">
                           ⚔ {exploitable} open to review →
                         </Link>
                       )}
@@ -345,7 +345,7 @@ export function ProgramsManager({
                   ) : (
                     <form action={createEngagementFromProgram}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="text-emerald-400 hover:text-emerald-300">Create engagement</button>
+                      <button className="text-emerald-400 hover:text-brand">Create engagement</button>
                     </form>
                   )}
 
@@ -375,7 +375,7 @@ export function ProgramsManager({
                           </option>
                         ))}
                       </select>
-                      <button className="text-sky-400 hover:text-sky-300">Run pipeline now</button>
+                      <button className="text-sky-400 hover:text-sev-low">Run pipeline now</button>
                     </form>
                   )}
 
@@ -404,7 +404,7 @@ export function ProgramsManager({
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="auto" value="false" />
                           <input type="hidden" name="autoRunnerId" value={p.autoRunnerId} />
-                          <button className="text-amber-400 hover:text-amber-300">Pause automation</button>
+                          <button className="text-amber-400 hover:text-sev-med">Pause automation</button>
                         </form>
                       </>
                     ) : (
@@ -423,7 +423,7 @@ export function ProgramsManager({
                             </option>
                           ))}
                         </select>
-                        <button className="text-emerald-400 hover:text-emerald-300">Enable automation</button>
+                        <button className="text-emerald-400 hover:text-brand">Enable automation</button>
                       </form>
                     )}
                   </div>

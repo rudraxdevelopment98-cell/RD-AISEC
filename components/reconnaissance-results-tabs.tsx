@@ -84,7 +84,7 @@ export function ReconnaissanceResultsTabs({
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
               activeTab === tab.id
-                ? "border-emerald-500 text-emerald-400"
+                ? "border-brand text-emerald-400"
                 : "border-transparent text-gray-400 hover:text-white"
             }`}
           >
@@ -205,7 +205,7 @@ export function ReconnaissanceResultsTabs({
                   {results.webTechDetection.technologies.map((tech, idx) => (
                     <div
                       key={idx}
-                      className="px-3 py-1 bg-sky-900/30 border border-sky-700 rounded-full text-sm text-sky-300 hover:bg-sky-900/50 transition-colors"
+                      className="px-3 py-1 bg-sky-900/30 border border-sky-700 rounded-full text-sm text-sev-low hover:bg-sky-900/50 transition-colors"
                     >
                       {tech}
                     </div>
@@ -235,7 +235,7 @@ export function ReconnaissanceResultsTabs({
           <div className="space-y-4">
             {results.osintGathering.sslData && (
               <div className="p-4 bg-amber-900/20 border border-amber-700/50 rounded space-y-3">
-                <h4 className="font-semibold text-sm text-amber-300">SSL Certificate</h4>
+                <h4 className="font-semibold text-sm text-sev-med">SSL Certificate</h4>
                 {results.osintGathering.sslData.subject && (
                   <div className="text-sm">
                     <span className="text-gray-400">Subject:</span>

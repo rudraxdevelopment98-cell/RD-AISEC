@@ -29,7 +29,7 @@ const STATUS_STYLE: Record<string, string> = {
   queued: "ring-amber accent-amber",
   running: "ring-sky accent-sky",
   done: "ring-emerald accent-emerald",
-  failed: "border-red-500/40 text-red-300",
+  failed: "border-sev-crit/40 text-sev-crit",
   canceled: "border-gray-500/40 text-gray-400",
 };
 
@@ -138,7 +138,7 @@ export default async function JobsPage({
       </HelpBanner>
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -244,7 +244,7 @@ export default async function JobsPage({
                     {j.status === "queued" && canRunNext(j) && (
                       <form action={prioritizeJob}>
                         <input type="hidden" name="id" value={j.id} />
-                        <button className="text-xs text-amber-400 hover:text-amber-300" title="Run this job before the others on its machine">
+                        <button className="text-xs text-amber-400 hover:text-sev-med" title="Run this job before the others on its machine">
                           ↑ Run next
                         </button>
                       </form>
@@ -319,7 +319,7 @@ export default async function JobsPage({
         </Link>
       </div>
       {failedCount > 0 && (
-        <p className="mt-2 text-xs text-red-300">
+        <p className="mt-2 text-xs text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-3 w-3" />
           {failedCount} failed — expand a row for the reason.
         </p>

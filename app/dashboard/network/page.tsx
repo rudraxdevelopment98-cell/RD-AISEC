@@ -84,13 +84,13 @@ export default async function NetworkPage({
       </HelpBanner>
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
       )}
       {searchParams.queued && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-brand">
           <Icon name="check" className="mr-1 inline h-4 w-4" />
           Scan queued — it&apos;ll appear below once the runner finishes (refresh
           in a bit).
@@ -112,7 +112,7 @@ export default async function NetworkPage({
           pre-filled — pick your machine and run. Only scan networks you own or are
           authorized to test.
         </p>
-        <p className="mt-2 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-[11px] text-sky-200">
+        <p className="mt-2 rounded-lg border border-sev-low/30 bg-sev-low/5 px-3 py-2 text-[11px] text-sky-200">
           📷 <b>IoT / device assessment:</b> on the Jobs page pick{" "}
           <b>nmap → &quot;IoT device sweep&quot;</b> against your LAN CIDR. The portal then
           classifies each device (camera, router, printer, NAS, smart-home hub) and
@@ -135,7 +135,7 @@ export default async function NetworkPage({
             </Link>
           ))}
         </div>
-        <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">
+        <p className="mt-3 rounded-lg border border-sev-med/30 bg-sev-med/5 px-3 py-2 text-[11px] text-amber-200">
           📡 <b>Monitor-mode capture</b> (deauth, handshake capture with
           airodump-ng) needs a USB adapter that supports monitor mode plugged into
           the runner machine and put into monitor mode
@@ -185,8 +185,8 @@ export default async function NetworkPage({
           </h2>
           <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat value={hosts.length} label="hosts up" />
-            <Stat value={withPorts} label="with open ports" accent="text-emerald-300" />
-            <Stat value={totalPorts} label="open ports" accent="text-amber-300" />
+            <Stat value={withPorts} label="with open ports" accent="text-brand" />
+            <Stat value={totalPorts} label="open ports" accent="text-sev-med" />
           </section>
           {hosts.length === 0 ? (
             <div className="card mt-6 text-sm text-gray-500">
@@ -226,8 +226,8 @@ export default async function NetworkPage({
           {/* Summary */}
           <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat value={hosts.length} label="hosts up" />
-            <Stat value={withPorts} label="with open ports" accent="text-emerald-300" />
-            <Stat value={totalPorts} label="open ports" accent="text-amber-300" />
+            <Stat value={withPorts} label="with open ports" accent="text-brand" />
+            <Stat value={totalPorts} label="open ports" accent="text-sev-med" />
           </section>
 
           {hosts.length === 0 ? (

@@ -31,17 +31,17 @@ export type WirePayload = {
 };
 
 const TIER_TONE: Record<Tier, string> = {
-  P1: "text-red-300 border-red-500/50 bg-red-500/15",
-  P2: "text-orange-300 border-orange-500/40 bg-orange-500/10",
-  P3: "text-amber-300 border-amber-500/40 bg-amber-500/10",
-  P4: "text-sky-300 border-sky-500/40 bg-sky-500/10",
+  P1: "text-sev-crit border-sev-crit/50 bg-sev-crit/15",
+  P2: "text-sev-high border-sev-high/40 bg-sev-high/10",
+  P3: "text-sev-med border-sev-med/40 bg-sev-med/10",
+  P4: "text-sev-low border-sev-low/40 bg-sev-low/10",
 };
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "bg-red-500";
-  if (score >= 60) return "bg-orange-500";
-  if (score >= 35) return "bg-amber-500";
-  return "bg-sky-500";
+  if (score >= 80) return "bg-sev-crit";
+  if (score >= 60) return "bg-sev-high";
+  if (score >= 35) return "bg-sev-med";
+  return "bg-sev-low";
 }
 
 type Tab = "risk" | "fix" | "intel";
@@ -114,7 +114,7 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
         {(["P1", "P2", "P3", "P4"] as Tier[]).map((t) => (
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={t} count={s.tiers[t]} tone={TIER_TONE[t]} />
         ))}
-        <FilterChip active={filter === "kev"} onClick={() => setFilter("kev")} label="🔥 KEV" count={s.kev} tone="text-red-300 border-red-500/50 bg-red-500/15" />
+        <FilterChip active={filter === "kev"} onClick={() => setFilter("kev")} label="🔥 KEV" count={s.kev} tone="text-sev-crit border-sev-crit/50 bg-sev-crit/15" />
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-2 rounded-xl border border-surface-border bg-black/20 px-3 py-1">
             <span className="text-gray-500">🔎</span>
@@ -155,8 +155,8 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${TIER_TONE[sel.risk.tier]}`}>{sel.risk.tier}</span>
                     <span className="text-xs text-gray-500">{sel.risk.tierLabel}</span>
-                    {sel.risk.knownExploited && <span className="rounded-full border border-red-500/50 bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-300">🔥 KEV</span>}
-                    {sel.confirmed && <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">✓ proven</span>}
+                    {sel.risk.knownExploited && <span className="rounded-full border border-sev-crit/50 bg-sev-crit/15 px-2 py-0.5 text-[10px] font-semibold text-sev-crit">🔥 KEV</span>}
+                    {sel.confirmed && <span className="rounded-full border border-brand/40 bg-brand/10 px-2 py-0.5 text-[10px] text-brand">✓ proven</span>}
                   </div>
                   <h2 className="mt-1.5 text-base font-semibold leading-snug text-gray-100">{sel.title}</h2>
                   <p className="mt-0.5 text-xs text-gray-500">
@@ -210,7 +210,7 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
               <div key={c.asset} className="card">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-mono text-sm text-gray-100">{c.asset}</span>
-                  <span className="shrink-0 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-300">risk {c.combinedRisk}</span>
+                  <span className="shrink-0 rounded-full border border-sev-crit/40 bg-sev-crit/10 px-2 py-0.5 text-[11px] text-sev-crit">risk {c.combinedRisk}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {c.steps.map((st, i) => (
@@ -234,7 +234,7 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
                 <div key={a.asset} className="flex items-center gap-2 text-sm">
                   <span className={`rounded border px-1.5 text-[10px] ${TIER_TONE[a.tier]}`}>{a.tier}</span>
                   <span className="min-w-0 flex-1 truncate font-mono text-gray-200">{a.asset || "—"}</span>
-                  {a.kev > 0 && <span className="text-[10px] text-red-300">🔥{a.kev}</span>}
+                  {a.kev > 0 && <span className="text-[10px] text-sev-crit">🔥{a.kev}</span>}
                   <span className="text-xs text-gray-500">{a.count} finding{a.count === 1 ? "" : "s"}</span>
                 </div>
               ))}
@@ -280,9 +280,9 @@ function Header({ index, s, kevCount }: { index: number; s: WirePayload["summary
       <div className="flex items-center gap-3">
         <RiskIndex value={index} />
         <div className="grid grid-cols-2 gap-1.5">
-          <Tile label="P1 critical" value={s.tiers.P1} tone="text-red-300" />
-          <Tile label="Proven" value={s.confirmed} tone="text-emerald-300" />
-          <Tile label="KEV" value={s.kev} tone="text-orange-300" />
+          <Tile label="P1 critical" value={s.tiers.P1} tone="text-sev-crit" />
+          <Tile label="Proven" value={s.confirmed} tone="text-brand" />
+          <Tile label="KEV" value={s.kev} tone="text-sev-high" />
           <Tile label="Findings" value={s.total} tone="text-gray-200" />
         </div>
       </div>
@@ -319,7 +319,7 @@ function Tile({ label, value, tone }: { label: string; value: number; tone: stri
 function ScoreDial({ score }: { score: number }) {
   return (
     <div className="shrink-0 text-right">
-      <div className={`text-3xl font-bold ${score >= 80 ? "text-red-300" : score >= 60 ? "text-orange-300" : score >= 35 ? "text-amber-300" : "text-sky-300"}`}>{score}</div>
+      <div className={`text-3xl font-bold ${score >= 80 ? "text-sev-crit" : score >= 60 ? "text-sev-high" : score >= 35 ? "text-sev-med" : "text-sev-low"}`}>{score}</div>
       <div className="text-[10px] uppercase tracking-wider text-gray-500">risk</div>
     </div>
   );
@@ -353,8 +353,8 @@ function QueueRow({ it, rank, active, onClick }: { it: WireItem; rank: number; a
         <span className="w-6 shrink-0 text-center text-xs text-gray-600">{rank}</span>
         <span className={`rounded border px-1.5 text-[10px] font-semibold ${TIER_TONE[it.risk.tier]}`}>{it.risk.tier}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-100">{it.title}</span>
-        {it.risk.knownExploited && <span className="shrink-0 text-[11px] text-red-300">🔥</span>}
-        {it.confirmed && <span className="shrink-0 text-[11px] text-emerald-300">✓</span>}
+        {it.risk.knownExploited && <span className="shrink-0 text-[11px] text-sev-crit">🔥</span>}
+        {it.confirmed && <span className="shrink-0 text-[11px] text-brand">✓</span>}
         <span className="w-8 shrink-0 text-right text-sm font-bold text-gray-300">{it.risk.score}</span>
       </div>
       <div className="mt-1.5 flex items-center gap-2 pl-8">
@@ -380,7 +380,7 @@ function RiskTab({ risk }: { risk: RiskScore }) {
       <div className="mt-1.5 space-y-1.5">
         {risk.factors.map((f, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className={`w-10 shrink-0 text-right font-mono text-xs font-semibold ${f.delta >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+            <span className={`w-10 shrink-0 text-right font-mono text-xs font-semibold ${f.delta >= 0 ? "text-brand" : "text-sev-crit"}`}>
               {f.delta >= 0 ? "+" : ""}{f.delta}
             </span>
             <span className="text-gray-200">{f.label}</span>

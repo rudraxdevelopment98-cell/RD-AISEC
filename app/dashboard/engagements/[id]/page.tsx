@@ -83,10 +83,10 @@ export default async function EngagementDetail({
   // Severity tally for the dashboard stat row (ProjectDiscovery-style).
   const sevCount = (s: string) => e.findings.filter((f) => f.severity === s).length;
   const SEV_STATS = [
-    { key: "critical", label: "Critical", dot: "bg-red-500" },
-    { key: "high", label: "High", dot: "bg-orange-500" },
-    { key: "medium", label: "Medium", dot: "bg-amber-500" },
-    { key: "low", label: "Low", dot: "bg-sky-500" },
+    { key: "critical", label: "Critical", dot: "bg-sev-crit" },
+    { key: "high", label: "High", dot: "bg-sev-high" },
+    { key: "medium", label: "Medium", dot: "bg-sev-med" },
+    { key: "low", label: "Low", dot: "bg-sev-low" },
     { key: "info", label: "Info", dot: "bg-gray-400" },
   ];
 
@@ -162,7 +162,7 @@ export default async function EngagementDetail({
       icon: "radar",
       title: "Scan & recon",
       desc: "httpx + nuclei + nmap now",
-      accent: "text-sky-300",
+      accent: "text-sev-low",
       locked: !e.authorized,
     },
     {
@@ -170,7 +170,7 @@ export default async function EngagementDetail({
       icon: "skull",
       title: "Exploit & validate",
       desc: confirmedCount > 0 ? `${confirmedCount} confirmed · validate more` : "Validate exploitability now",
-      accent: "text-red-300",
+      accent: "text-sev-crit",
       locked: !e.authorized,
     },
     {
@@ -178,14 +178,14 @@ export default async function EngagementDetail({
       icon: "check",
       title: "Fix & triage",
       desc: `${openCount} open · add fix guidance`,
-      accent: "text-emerald-300",
+      accent: "text-brand",
     },
     {
       href: "/dashboard/lab",
       icon: "wrench",
       title: "Research & lab",
       desc: "Build PoCs · Drive · exploits",
-      accent: "text-amber-300",
+      accent: "text-sev-med",
     },
     {
       href: "/dashboard/bugbounty",
@@ -271,12 +271,12 @@ export default async function EngagementDetail({
       </header>
 
       {searchParams.ok && (
-        <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
         </div>
       )}
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -305,8 +305,8 @@ export default async function EngagementDetail({
       <section
         className={`rounded-xl border px-4 py-3 text-sm ${
           e.authorized
-            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-            : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+            ? "border-brand/40 bg-brand/10 text-emerald-200"
+            : "border-sev-med/40 bg-sev-med/10 text-amber-200"
         }`}
       >
         <p className="flex items-center gap-2 font-medium">
@@ -417,7 +417,7 @@ export default async function EngagementDetail({
                     <button
                       type="submit"
                       disabled={t.locked}
-                      className="text-[10px] font-medium text-amber-300/90 hover:text-amber-200 disabled:opacity-50"
+                      className="text-[10px] font-medium text-sev-med/90 hover:text-amber-200 disabled:opacity-50"
                       title="All ports + vuln scripts + bigger wordlist"
                     >
                       ⚡ Deep scan
@@ -486,7 +486,7 @@ export default async function EngagementDetail({
             <Icon name="lock" className="h-4 w-4 text-brand" />
             <h3 className="text-sm font-semibold text-white">Authenticated scanning</h3>
             {authSessionLabel ? (
-              <span className="tag border-emerald-500/50 text-emerald-300 text-[10px]">
+              <span className="tag border-brand/50 text-brand text-[10px]">
                 active · {authSessionLabel}
               </span>
             ) : (

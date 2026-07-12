@@ -118,8 +118,8 @@ export default async function RunnersPage({
 
       {/* Installations — tools that jobs need but the machine is missing */}
       {suggestions.length > 0 && (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-          <h2 className="text-sm font-semibold text-amber-300">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 p-4">
+          <h2 className="text-sm font-semibold text-sev-med">
             <Icon name="wrench" className="mr-1 inline h-4 w-4" />
             Installations needed
           </h2>
@@ -216,7 +216,7 @@ python3 rdaisec_runner.py`}
           <div>
             <p className="font-semibold text-white">5. Verify &amp; test</p>
             <p className="text-gray-400">
-              The runner flips to <span className="text-emerald-300">online</span>{" "}
+              The runner flips to <span className="text-brand">online</span>{" "}
               below. Queue an <code className="font-mono">nmap</code> →{" "}
               <em>Quick</em> against{" "}
               <code className="font-mono">scanme.nmap.org</code>, watch it run,
@@ -224,7 +224,7 @@ python3 rdaisec_runner.py`}
             </p>
           </div>
 
-          <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+          <p className="rounded-lg border border-sev-low/30 bg-sev-low/10 px-3 py-2 text-xs text-sky-200">
             💡 Running the portal locally instead of Vercel? Set{" "}
             <code className="font-mono">PORTAL_URL=&quot;http://&lt;your-PC-LAN-IP&gt;:3000&quot;</code>{" "}
             — not <code className="font-mono">localhost</code>, which would point
@@ -235,7 +235,7 @@ python3 rdaisec_runner.py`}
       </details>
 
       {searchParams.error && (
-        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />
           {searchParams.error}
         </div>
@@ -304,13 +304,13 @@ python3 rdaisec_runner.py`}
                       )}
                       {r.toolCount > 0 && <span className="tag">🧰 {r.toolCount} tools</span>}
                       {missing.length > 0 && (
-                        <span className="tag border-amber-500/40 text-amber-300">
+                        <span className="tag border-sev-med/40 text-sev-med">
                           {missing.length} missing
                         </span>
                       )}
                       {r.version && (
                         <span
-                          className={`tag ${outdated ? "border-amber-500/40 text-amber-300" : ""}`}
+                          className={`tag ${outdated ? "border-sev-med/40 text-sev-med" : ""}`}
                           title={outdated ? "A newer runner is out — it updates itself automatically" : undefined}
                         >
                           v{r.version}
@@ -321,7 +321,7 @@ python3 rdaisec_runner.py`}
                         <span
                           className={`tag ${
                             r.anonStatus === "no-tor"
-                              ? "border-red-500/40 text-red-300"
+                              ? "border-sev-crit/40 text-sev-crit"
                               : "border-violet-500/40 text-violet-300"
                           }`}
                         >
@@ -378,7 +378,7 @@ python3 rdaisec_runner.py`}
                           <Icon name="wrench" className="h-3.5 w-3.5" />
                           Tools
                           {missing.length > 0 && (
-                            <span className="text-xs font-normal text-amber-300">
+                            <span className="text-xs font-normal text-sev-med">
                               · {missing.length} to install
                             </span>
                           )}
@@ -410,7 +410,7 @@ python3 rdaisec_runner.py`}
                             <button className="btn-ghost px-3 py-1 text-xs">Install one-click</button>
                           </form>
                         ) : (
-                          <p className="mt-2 text-xs text-emerald-300/80">
+                          <p className="mt-2 text-xs text-brand/80">
                             ✓ All installable tools are present.
                           </p>
                         )}
@@ -424,12 +424,12 @@ python3 rdaisec_runner.py`}
                                   <span
                                     className={
                                       ins.status === "failed"
-                                        ? "text-red-300"
+                                        ? "text-sev-crit"
                                         : ins.status === "installing"
-                                          ? "text-sky-300"
+                                          ? "text-sev-low"
                                           : ins.status === "done"
-                                            ? "text-emerald-300"
-                                            : "text-amber-300"
+                                            ? "text-brand"
+                                            : "text-sev-med"
                                     }
                                   >
                                     {ins.status === "installing" && (
@@ -520,7 +520,7 @@ python3 rdaisec_runner.py`}
                       <form action={installAllTools}>
                         <input type="hidden" name="runnerId" value={r.id} />
                         <button
-                          className="text-xs text-amber-300 hover:text-amber-200 disabled:opacity-40"
+                          className="text-xs text-sev-med hover:text-amber-200 disabled:opacity-40"
                           disabled={!online}
                           title={online ? "" : "Machine is offline"}
                         >
@@ -547,7 +547,7 @@ python3 rdaisec_runner.py`}
 
                       {/* Tor not installed → one-click install */}
                       {r.anonymity && r.anonStatus === "no-tor" && (
-                        <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-200">
+                        <div className="mt-2 rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-2 text-xs text-red-200">
                           Tor isn&apos;t installed, so traffic can&apos;t be anonymized. Install it:
                           <div className="mt-1.5 flex gap-2">
                             {(["tor", "torsocks"] as const).map((pkg) => (

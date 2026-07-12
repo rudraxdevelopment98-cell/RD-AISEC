@@ -27,8 +27,8 @@ type Pipeline = {
 };
 
 const STAGE_TONE: Record<string, string> = {
-  done: "border-emerald-500/40 text-emerald-300",
-  running: "border-sky-500/50 text-sky-300",
+  done: "border-brand/40 text-brand",
+  running: "border-sev-low/50 text-sev-low",
   pending: "border-surface-border text-gray-500",
   skipped: "border-gray-600/40 text-gray-500",
 };
@@ -102,12 +102,12 @@ export function PipelinePanel({
               <span
                 className={`tag ${
                   pipeline.status === "done"
-                    ? "border-emerald-500/40 text-emerald-300"
+                    ? "border-brand/40 text-brand"
                     : pipeline.status === "awaiting_approval"
-                      ? "border-amber-500/40 text-amber-300"
+                      ? "border-sev-med/40 text-sev-med"
                       : pipeline.status === "paused"
                         ? "border-gray-500/40 text-gray-400"
-                        : "border-sky-500/50 text-sky-300"
+                        : "border-sev-low/50 text-sev-low"
                 }`}
               >
                 {pipeline.status === "awaiting_approval"
@@ -119,27 +119,27 @@ export function PipelinePanel({
                       : "⏸ Paused"}
               </span>
               {pipeline.deep && (
-                <span className="tag border-amber-500/40 text-amber-300">⚡ Deep</span>
+                <span className="tag border-sev-med/40 text-sev-med">⚡ Deep</span>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs">
               <form action={toggleAutoApprove}>
                 <input type="hidden" name="engagementId" value={engagementId} />
                 <input type="hidden" name="autoApprove" value={(!pipeline.autoApprove).toString()} />
-                <button className={pipeline.autoApprove ? "text-emerald-400 hover:text-emerald-300" : "text-gray-400 hover:text-gray-200"}>
+                <button className={pipeline.autoApprove ? "text-emerald-400 hover:text-brand" : "text-gray-400 hover:text-gray-200"}>
                   {pipeline.autoApprove ? "🤖 Auto-approve: on" : "Auto-approve: off"}
                 </button>
               </form>
               {pipeline.status === "running" && (
                 <form action={pauseAssessment}>
                   <input type="hidden" name="engagementId" value={engagementId} />
-                  <button className="text-gray-400 hover:text-amber-300">Pause</button>
+                  <button className="text-gray-400 hover:text-sev-med">Pause</button>
                 </form>
               )}
               {pipeline.status === "paused" && (
                 <form action={resumeAssessment}>
                   <input type="hidden" name="engagementId" value={engagementId} />
-                  <button className="text-emerald-400 hover:text-emerald-300">Resume</button>
+                  <button className="text-emerald-400 hover:text-brand">Resume</button>
                 </form>
               )}
               {pipeline.status !== "done" && (
@@ -160,7 +160,7 @@ export function PipelinePanel({
                 const isCurrent = s.key === pipeline.currentKey;
                 const awaiting = isCurrent && pipeline.status === "awaiting_approval";
                 const prog = progress[s.key];
-                const tone = awaiting ? "border-amber-500/50 text-amber-300" : STAGE_TONE[s.status] ?? STAGE_TONE.pending;
+                const tone = awaiting ? "border-sev-med/50 text-sev-med" : STAGE_TONE[s.status] ?? STAGE_TONE.pending;
                 return (
                   <li
                     key={s.key}
@@ -209,7 +209,7 @@ export function PipelinePanel({
                             <input type="hidden" name="engagementId" value={engagementId} />
                             <input type="hidden" name="stage" value={s.key} />
                             <button
-                              className="text-xs text-amber-300/90 hover:text-amber-200"
+                              className="text-xs text-sev-med/90 hover:text-amber-200"
                               title="All ports + vuln scripts + bigger wordlist, then continue"
                             >
                               ↻ Re-run deeper

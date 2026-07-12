@@ -56,13 +56,13 @@ export function MaintenanceBadge(props: MaintProps) {
   });
 
   const tone = s.stale
-    ? "text-amber-300 border-amber-500/40 bg-amber-500/10"
+    ? "text-sev-med border-sev-med/40 bg-sev-med/10"
     : s.stage === "failed"
-    ? "text-red-300 border-red-500/40 bg-red-500/10"
+    ? "text-sev-crit border-sev-crit/40 bg-sev-crit/10"
     : s.active
-    ? "text-sky-300 border-sky-500/40 bg-sky-500/10"
+    ? "text-sev-low border-sev-low/40 bg-sev-low/10"
     : s.stage === "done"
-    ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+    ? "text-brand border-brand/40 bg-brand/10"
     : "text-gray-400 border-surface-border bg-white/5";
 
   return (
@@ -122,11 +122,11 @@ export function MaintenanceIndicator(props: MaintProps) {
               props.enabled === false
                 ? "text-gray-500"
                 : s.stale
-                ? "text-amber-300"
+                ? "text-sev-med"
                 : s.stage === "failed"
-                ? "text-red-300"
+                ? "text-sev-crit"
                 : s.active
-                ? "text-sky-300"
+                ? "text-sev-low"
                 : "text-gray-200"
             }`}
           >
@@ -178,7 +178,7 @@ export function MaintenanceIndicator(props: MaintProps) {
       </p>
 
       {s.stale && (
-        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+        <p className="mt-2 rounded-lg border border-sev-med/30 bg-sev-med/10 px-3 py-2 text-[11px] text-amber-200">
           The machine started a maintenance step but hasn&apos;t reported in a while — it may have
           restarted or lost connection mid-pass. It will resume on the next cycle.
         </p>
@@ -198,11 +198,11 @@ function StageDot({
 }) {
   const ring =
     state === "done"
-      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+      ? "border-brand/50 bg-brand/15 text-brand"
       : state === "active"
-      ? "border-sky-400/60 bg-sky-500/15 text-sky-200"
+      ? "border-sky-400/60 bg-sev-low/15 text-sky-200"
       : state === "stalled"
-      ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
+      ? "border-sev-med/50 bg-sev-med/15 text-amber-200"
       : "border-surface-border bg-white/5 text-gray-500";
   return (
     <li className="flex flex-col items-center gap-1 text-center" title={label}>
