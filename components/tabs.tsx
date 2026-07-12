@@ -43,7 +43,7 @@ export function Tabs({
               onClick={() => setActive(t.id)}
               className={`-mb-px cursor-pointer whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm font-medium transition ${
                 on
-                  ? "border-brand bg-white/[0.05] text-white"
+                  ? "border-brand bg-brand/10 text-white"
                   : "border-transparent text-gray-400 hover:bg-white/[0.03] hover:text-gray-200"
               }`}
             >

@@ -25,7 +25,7 @@ export function SubNav({
             href={it.href}
             className={`-mb-px inline-flex items-center gap-1.5 whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm font-medium transition ${
               active
-                ? "border-brand bg-white/[0.05] text-white"
+                ? "border-brand bg-brand/10 text-white"
                 : "border-transparent text-gray-400 hover:bg-white/[0.03] hover:text-gray-200"
             }`}
           >
@@ -40,6 +40,6 @@ export function SubNav({
 
 /** The Exploitation section's tabs (Exploitation ↔ Exploit Lab). */
 export const EXPLOIT_TABS = [
-  { href: "/dashboard/exploit", label: "Exploitation", icon: "skull" },
+  { href: "/dashboard/exploit", label: "Exploitation", icon: "exploit" },
   { href: "/dashboard/lab", label: "Exploit Lab", icon: "wrench" },
 ];
