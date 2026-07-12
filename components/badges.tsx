@@ -1,24 +1,26 @@
 import type { Confidence } from "@/lib/exploit-confidence";
 
+// Severity uses the tokenized `sev-*` scale (globals.css → tailwind), so it stays
+// correct in both themes with no per-theme override hacks.
 const SEVERITY_STYLES: Record<string, string> = {
-  info: "border-gray-500/40 text-gray-200 bg-gray-500/10",
-  low: "border-sky-500/40 text-sky-200 bg-sky-500/10",
-  medium: "border-amber-500/50 text-amber-200 bg-amber-500/15",
-  high: "border-orange-500/50 text-orange-200 bg-orange-500/15",
-  critical: "border-red-500/60 text-red-200 bg-red-500/20",
+  info: "border-sev-info/40 text-sev-info bg-sev-info/10",
+  low: "border-sev-low/40 text-sev-low bg-sev-low/10",
+  medium: "border-sev-med/50 text-sev-med bg-sev-med/15",
+  high: "border-sev-high/50 text-sev-high bg-sev-high/15",
+  critical: "border-sev-crit/60 text-sev-crit bg-sev-crit/15",
 };
 
 const FINDING_STATUS_STYLES: Record<string, string> = {
-  open: "border-amber-500/40 text-amber-300",
-  fixed: "border-emerald-500/40 text-emerald-300",
-  accepted: "border-gray-500/40 text-gray-300",
-  false_positive: "border-slate-500/40 text-slate-400",
+  open: "border-sev-med/40 text-sev-med",
+  fixed: "border-brand/40 text-brand",
+  accepted: "border-sev-info/40 text-sev-info",
+  false_positive: "border-surface-border text-gray-400",
 };
 
 const ENGAGEMENT_STATUS_STYLES: Record<string, string> = {
-  planning: "border-gray-500/40 text-gray-300",
-  active: "border-emerald-500/40 text-emerald-300",
-  completed: "border-sky-500/40 text-sky-300",
+  planning: "border-sev-info/40 text-sev-info",
+  active: "border-brand/40 text-brand",
+  completed: "border-sev-low/40 text-sev-low",
 };
 
 function label(s: string) {
@@ -27,9 +29,9 @@ function label(s: string) {
 
 // Proof-by-exploitation confidence (see lib/exploit-confidence.ts).
 const CONFIDENCE_STYLES: Record<Confidence, string> = {
-  proven: "border-red-500/60 text-red-200 bg-red-500/15",
-  validated: "border-emerald-500/50 text-emerald-200 bg-emerald-500/10",
-  reported: "border-gray-500/40 text-gray-400",
+  proven: "border-sev-crit/60 text-sev-crit bg-sev-crit/15",
+  validated: "border-brand/50 text-brand bg-brand/10",
+  reported: "border-sev-info/40 text-gray-400",
 };
 const CONFIDENCE_TITLE: Record<Confidence, string> = {
   proven: "Proven — a working exploit ran",

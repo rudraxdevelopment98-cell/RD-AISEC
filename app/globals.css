@@ -63,13 +63,22 @@ html:has(.app-dashboard) {
   --white: 255 255 255;
   --black: 0 0 0;
 
-  --surface: 8 9 12;
-  --surface-card: 16 18 22;
-  --surface-border: 34 39 48;
+  --surface: 8 11 16;
+  --surface-card: 16 21 29;
+  --surface-border: 34 43 56;
 
-  --brand: 52 211 153;
+  --brand: 53 226 164;
   --brand-dark: 16 185 129;
-  --brand-glow: 110 231 183;
+  --brand-glow: 123 243 198;
+
+  /* Semantic severity — one source of truth (separate from the brand accent).
+     Stored as R G B triplets so they take any opacity: rgb(var(--sev-crit)/.15). */
+  --sev-crit: 255 106 125;
+  --sev-high: 255 154 83;
+  --sev-med: 242 193 78;
+  --sev-low: 90 167 255;
+  --sev-ok: 53 226 164;
+  --sev-info: 148 163 184;
 
   --gray-50: 249 250 251;
   --gray-100: 243 244 246;
@@ -124,13 +133,21 @@ html:has(.app-dashboard) {
   --white: 17 24 39;   /* swapped: "white" utilities become dark ink */
   --black: 255 255 255; /* swapped: "black" utilities become light      */
 
-  --surface: 244 246 250;
+  --surface: 245 247 250;
   --surface-card: 255 255 255;
-  --surface-border: 214 220 230;
+  --surface-border: 224 229 238;
 
   --brand: 5 150 105;
   --brand-dark: 4 120 87;
   --brand-glow: 6 95 70;
+
+  /* Semantic severity (light) — deeper, legible on white. */
+  --sev-crit: 214 48 74;
+  --sev-high: 226 98 42;
+  --sev-med: 184 134 11;
+  --sev-low: 37 99 201;
+  --sev-ok: 5 150 105;
+  --sev-info: 90 100 118;
 
   /* Inverted gray ramp — index meaning flips so primary/muted text stays right. */
   --gray-50: 3 7 18;

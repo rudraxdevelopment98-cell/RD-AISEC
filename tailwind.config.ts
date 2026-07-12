@@ -26,6 +26,16 @@ const config: Config = {
           card: "rgb(var(--surface-card) / <alpha-value>)",
           border: "rgb(var(--surface-border) / <alpha-value>)",
         },
+        // Semantic severity — one tokenized scale for both themes, so badges and
+        // stripes stop hardcoding red/orange/amber and needing light-mode overrides.
+        sev: {
+          crit: "rgb(var(--sev-crit) / <alpha-value>)",
+          high: "rgb(var(--sev-high) / <alpha-value>)",
+          med: "rgb(var(--sev-med) / <alpha-value>)",
+          low: "rgb(var(--sev-low) / <alpha-value>)",
+          ok: "rgb(var(--sev-ok) / <alpha-value>)",
+          info: "rgb(var(--sev-info) / <alpha-value>)",
+        },
         // white/black are SWAPPED in light mode (see tokens) so text-white,
         // bg-white/N, bg-black/N and border-white/N all invert automatically.
         white: "rgb(var(--white) / <alpha-value>)",
