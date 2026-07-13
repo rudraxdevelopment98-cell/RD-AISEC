@@ -35,17 +35,23 @@ PYTHON="$(command -v python3 || true)"
 echo "== RD-AISEC runner setup =="
 
 # ── 1. Discover PORTAL_URL + RUNNER_TOKEN (env → saved → old setup → prompt) ──
+# Pull KEY=value out of a blob, tolerating `export KEY=`, single/double quotes and
+# trailing junk. Returns the last (most recent) match.
+extract() {
+  local key="$1"
+  grep -hoE "${key}=[\"']?[^\"'[:space:]]+" 2>/dev/null | tail -1 | sed -E "s/^${key}=[\"']?//"
+}
 discover() {
   local key="$1" v="${!1:-}"
   [ -n "$v" ] && { printf '%s' "$v"; return; }
   for f in "$CFG" "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.zshrc"; do
     [ -f "$f" ] || continue
-    v=$(grep -hoE "${key}=[^ \"']+" "$f" 2>/dev/null | tail -1 | cut -d= -f2-)
+    v=$(extract "$key" < "$f")
     [ -n "$v" ] && { printf '%s' "$v"; return; }
   done
-  v=$(crontab -l 2>/dev/null | grep -hoE "${key}=[^ \"']+" | tail -1 | cut -d= -f2- || true)
+  v=$(crontab -l 2>/dev/null | extract "$key" || true)
   [ -n "$v" ] && { printf '%s' "$v"; return; }
-  v=$(sudo grep -hoE "${key}=[^ \"']+" /etc/systemd/system/rdaisec-runner.service 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  v=$(sudo cat /etc/systemd/system/rdaisec-runner.service 2>/dev/null | extract "$key" || true)
   printf '%s' "$v"
 }
 
