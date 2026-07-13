@@ -107,7 +107,7 @@ export default async function Home() {
 
       {/* Closing quote */}
       <section className="mx-auto max-w-4xl px-6 pb-16">
-        <blockquote className="rounded-2xl border border-surface-border bg-surface-card/40 px-6 py-10 text-center">
+        <blockquote className="rounded-xl border border-surface-border bg-surface-card/40 px-6 py-10 text-center">
           <p className="text-xl font-semibold text-gray-200 sm:text-2xl">
             &ldquo;Pentesting shows you what an attacker{" "}
             <span className="text-glow-red">could reach</span>. Forensics shows

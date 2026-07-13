@@ -598,7 +598,7 @@ export function SensingObservatory({
   const variance = f ? (2.2 + f.motion * 3).toFixed(2) : "—";
 
   return (
-    <div className="relative mt-4 overflow-hidden rounded-2xl border border-surface-border bg-[#04060b]">
+    <div className="relative mt-4 overflow-hidden rounded-xl border border-surface-border bg-[#04060b]">
       {/* 3D canvas mount */}
       <div ref={mountRef} className="h-[62vh] min-h-[420px] w-full" />
 

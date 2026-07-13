@@ -109,7 +109,7 @@ export function EngineConsole({ payload, kevCount }: { payload: WirePayload; kev
       </div>
 
       {/* Tier filter ribbon — pinned above the scrolling panes on desktop. */}
-      <div className="shrink-0 flex flex-wrap items-center gap-1.5 rounded-2xl border border-surface-border bg-surface/90 p-1.5 backdrop-blur">
+      <div className="shrink-0 flex flex-wrap items-center gap-1.5 rounded-xl border border-surface-border bg-surface/90 p-1.5 backdrop-blur">
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" count={s.total} />
         {(["P1", "P2", "P3", "P4"] as Tier[]).map((t) => (
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={t} count={s.tiers[t]} tone={TIER_TONE[t]} />
