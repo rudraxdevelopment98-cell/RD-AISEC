@@ -34,7 +34,7 @@ export function SidebarShell({ children }: { children: React.ReactNode }) {
   return (
     <aside
       data-collapsed={collapsed ? "true" : "false"}
-      className={`group relative z-10 hidden h-screen shrink-0 flex-col border-r border-surface-border bg-surface-card/40 transition-[width] duration-200 lg:flex print:!hidden ${
+      className={`group relative z-10 hidden h-screen shrink-0 flex-col border-r border-surface-border bg-surface-card/70 transition-[width] duration-200 lg:flex print:!hidden ${
         collapsed ? "w-16" : "w-64"
       }`}
     >

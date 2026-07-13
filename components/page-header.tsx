@@ -31,7 +31,7 @@ export function PageHeader({
       <div
         className={`sticky top-0 z-30 -mx-4 flex h-[var(--app-header-h)] items-center justify-between gap-3 border-b border-surface-border bg-surface px-4 pr-14 sm:-mx-6 sm:px-6 sm:pr-16 ${className}`}
       >
-        <h1 className="min-w-0 flex-1 truncate text-xl font-bold">{title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">{title}</h1>
         {actions && (
           <div className="flex shrink-0 items-center justify-end gap-2">{actions}</div>
         )}
