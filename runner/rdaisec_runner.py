@@ -51,7 +51,7 @@ import urllib.request
 #      blip in a VM no longer triggers a network-restart storm.
 #   3. Every subsystem stays fully isolated: nothing a background loop does can
 #      take the runner offline or kill the core poll→run→post loop.
-RUNNER_VERSION = "54"
+RUNNER_VERSION = "55"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -758,7 +758,12 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     # can never stall this request (and thus the heartbeat).
     with _STATS_LOCK:
         st = dict(_STATS)
-    req.add_header("X-Runner-Installed", ",".join(st.get("installed") or []))
+    # Only send the installed-tools list when we actually have one. Sending an
+    # empty header during the brief startup window (before the stats cache primes)
+    # would otherwise blank the portal's tool list.
+    _inst = st.get("installed") or []
+    if _inst:
+        req.add_header("X-Runner-Installed", ",".join(_inst))
     _num = {
         "X-Runner-Cpu": "cpu", "X-Runner-Mem": "mem", "X-Runner-Temp": "temp",
         "X-Runner-Mem-Used": "mem_used", "X-Runner-Mem-Total": "mem_total",

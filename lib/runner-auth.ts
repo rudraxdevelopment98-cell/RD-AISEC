@@ -117,7 +117,12 @@ export async function authenticateRunner(req: Request, opts?: { light?: boolean 
         wifi,
         wifiMonitor,
         ...(wifiDetail ? { wifiDetail } : {}),
-        installed,
+        // Only update the installed-tools list when the runner actually reported
+        // one. An EMPTY header must never overwrite a good list — during a runner
+        // restart (e.g. self-update) there's a brief window before its telemetry
+        // cache primes where it sends "", and blindly writing that blanked the
+        // field, making every tool show "uninstalled" until the next good write.
+        ...(installed ? { installed } : {}),
         ...(cpuPct !== undefined ? { cpuPct } : {}),
         ...(memPct !== undefined ? { memPct } : {}),
         ...(tempC !== undefined && Number.isFinite(tempC) ? { tempC } : {}),
