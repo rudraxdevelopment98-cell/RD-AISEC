@@ -20,6 +20,22 @@ export const dynamic = "force-dynamic";
 // Hour choices for the maintenance-window selects (00:00–23:00).
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+// Compact relative time ("just now" / "12s ago" / "4m ago" / "2h ago") — far more
+// scannable on a status card than a full locale timestamp.
+function ago(date: Date | string, now: number): string {
+  const s = Math.max(0, Math.round((now - new Date(date).getTime()) / 1000));
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// GB from MB, one decimal (e.g. 2.1).
+const gb = (mb?: number | null) => (mb ? (mb / 1024).toFixed(1) : "—");
+
 export default async function RunnersPage({
   searchParams,
 }: {
@@ -288,9 +304,19 @@ python3 rdaisec_runner.py`}
                 <div>
                   <p className="text-xs text-gray-500">
                     {r.lastSeenAt
-                      ? `Last seen ${new Date(r.lastSeenAt).toLocaleString()}`
+                      ? `Last seen ${ago(r.lastSeenAt, now)}`
                       : "Never connected yet — run the agent on the machine."}
                   </p>
+                  {/* Live vitals at a glance (only when online + reported). */}
+                  {online && (r.cpuPct != null || r.memTotalMb) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-gray-400">
+                      {r.cpuPct != null && <span>CPU <b className="font-semibold text-gray-200">{r.cpuPct}%</b></span>}
+                      {r.memTotalMb ? <span>RAM <b className="font-semibold text-gray-200">{gb(r.memUsedMb)}/{gb(r.memTotalMb)}G</b></span> : null}
+                      {r.diskTotalMb ? <span>SSD <b className="font-semibold text-gray-200">{gb(r.diskUsedMb)}/{gb(r.diskTotalMb)}G</b></span> : null}
+                      {r.tempC != null && <span><b className="font-semibold text-gray-200">{r.tempC}°C</b></span>}
+                      {r.cores ? <span><b className="font-semibold text-gray-200">{r.cores}</b> cores</span> : null}
+                    </div>
+                  )}
                   {r.lastSeenAt && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {r.maintStage && r.maintStage !== "idle" && (
