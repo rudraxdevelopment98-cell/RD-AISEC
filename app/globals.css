@@ -25,6 +25,14 @@ html:has(.app-dashboard) {
   z-index: 20;
 }
 
+/* Accessibility — one clear, consistent keyboard-focus ring everywhere (only for
+   keyboard/AT users, never on mouse click). */
+:focus-visible {
+  outline: 2px solid rgb(var(--brand));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Slim, unobtrusive scrollbar for internal scroll panes (no chunky default). */
 .scroll-slim {
   scrollbar-width: thin;
@@ -79,6 +87,10 @@ html:has(.app-dashboard) {
   --sev-low: 90 167 255;
   --sev-ok: 53 226 164;
   --sev-info: 148 163 184;
+
+  /* Modern elevation — a precise, flat-panel shadow (not heavy glass). */
+  --elev-1: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px -1px rgb(0 0 0 / 0.5), 0 12px 32px -20px rgb(0 0 0 / 0.6);
+  --elev-2: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6), 0 2px 6px -3px rgb(0 0 0 / 0.5);
 
   --gray-50: 249 250 251;
   --gray-100: 243 244 246;
@@ -149,6 +161,9 @@ html:has(.app-dashboard) {
   --sev-ok: 5 150 105;
   --sev-info: 90 100 118;
 
+  --elev-1: 0 1px 2px rgb(15 23 42 / 0.05), 0 12px 30px -20px rgb(15 23 42 / 0.16);
+  --elev-2: 0 2px 6px -2px rgb(15 23 42 / 0.08), 0 16px 40px -20px rgb(15 23 42 / 0.18);
+
   /* Inverted gray ramp — index meaning flips so primary/muted text stays right. */
   --gray-50: 3 7 18;
   --gray-100: 17 24 39;
@@ -208,27 +223,22 @@ body {
      the morphing backdrop behind it, a bright specular top edge + glass rim read
      as light catching the surface, and a soft float shadow lifts it off the
      canvas. This one class themes nearly every surface in the app. */
+  /* Modern precise panel — a solid surface, a crisp hairline border and a clean
+     flat-elevation shadow. Reads sharper and more contemporary than the old
+     frosted-gradient card, and repaints cheaply (no backdrop-filter). */
   .card {
-    @apply relative rounded-2xl p-5;
-    /* Opaque backing (surface-card) UNDER the glass sheen, so the card needs no
-       backdrop-filter. Dozens of live blur layers repainting on every scroll
-       frame was the main source of dashboard jank; the look is preserved via the
-       sheen gradient + lit rim + shadow. */
-    background: var(--card-bg), rgb(var(--surface-card));
-    border: 1px solid var(--card-border);
-    box-shadow: var(--card-shadow);
+    @apply relative rounded-xl p-5;
+    background: rgb(var(--surface-card));
+    border: 1px solid rgb(var(--surface-border));
+    box-shadow: var(--elev-1);
   }
   .card-hover {
-    @apply card transition-all duration-300;
+    @apply card transition-all duration-200;
   }
   .card-hover:hover {
     transform: translateY(-2px);
-    border-color: rgb(var(--brand) / 0.38);
-    background: var(--card-hover-bg), rgb(var(--surface-card));
-    box-shadow:
-      var(--card-shadow),
-      0 0 0 1px rgb(var(--brand) / 0.10),
-      0 10px 32px -10px rgb(var(--brand) / 0.20);
+    border-color: rgb(var(--brand) / 0.5);
+    box-shadow: var(--elev-2), 0 0 0 1px rgb(var(--brand) / 0.12);
   }
   /* Frosted "liquid glass" panel — used for the mobile drawer, sidebar rail and
      any solid overlay. Denser frost so content behind stays legible. */
@@ -302,28 +312,29 @@ body {
       0 10px 26px -10px rgb(var(--brand) / 0.45);
   }
   .tag {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs text-gray-300;
-    background: var(--input-bg);
-    border: 1px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-gray-300;
+    background: rgb(var(--surface) / 0.6);
+    border: 1px solid rgb(var(--surface-border));
   }
   .nav-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-300 transition-all duration-200 hover:text-white;
+    @apply relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-150 hover:bg-surface hover:text-gray-100;
   }
-  .nav-link:hover {
-    background: var(--ghost-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight);
-  }
-  /* Active item: a brand-tinted glass highlight with a lit top edge. */
+  /* Active item: solid brand text + a signature emerald left-edge indicator —
+     precise and unmistakable, no heavy glass. */
   .nav-link-active {
-    @apply text-brand;
-    background:
-      linear-gradient(158deg, rgb(var(--brand) / 0.20), rgb(var(--brand) / 0.04) 60%),
-      rgb(var(--brand) / 0.05) !important;
-    border: 1px solid rgb(var(--brand) / 0.28);
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      0 4px 16px -8px rgb(var(--brand) / 0.4);
+    @apply bg-brand/10 text-brand;
+  }
+  .nav-link-active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 1.05rem;
+    width: 3px;
+    transform: translateY(-50%);
+    border-radius: 0 3px 3px 0;
+    background: rgb(var(--brand));
+    box-shadow: 0 0 10px -1px rgb(var(--brand) / 0.7);
   }
   .nav-section {
     @apply px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600;
