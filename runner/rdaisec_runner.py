@@ -51,7 +51,7 @@ import urllib.request
 #      blip in a VM no longer triggers a network-restart storm.
 #   3. Every subsystem stays fully isolated: nothing a background loop does can
 #      take the runner offline or kill the core poll→run→post loop.
-RUNNER_VERSION = "56"
+RUNNER_VERSION = "57"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2542,10 +2542,33 @@ def preflight() -> bool:
         return False
 
 
+def ensure_tool_path():
+    """Put the standard tool directories on PATH even when we're launched with a
+    minimal environment (systemd / cron give a stripped PATH). Without this,
+    Go-installed tools in ~/go/bin and things in /usr/local/bin can't be found —
+    so they'd show 'uninstalled' and their jobs would fail with 127. Also sets
+    GOPATH so `go install` (auto-install) lands somewhere on PATH. Idempotent."""
+    home = os.path.expanduser("~")
+    gopath = os.environ.get("GOPATH") or os.path.join(home, "go")
+    os.environ["GOPATH"] = gopath
+    wanted = [
+        "/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin",
+        os.path.join(gopath, "bin"), os.path.join(home, ".local", "bin"), "/snap/bin",
+    ]
+    cur = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    for d in wanted:
+        if d and d not in cur:
+            cur.append(d)
+    os.environ["PATH"] = os.pathsep.join(cur)
+
+
 def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
     if not PORTAL_URL or not RUNNER_TOKEN:
         sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
+    # Repair PATH before anything probes for tools, so a service/cron launch finds
+    # the same tools an interactive shell would.
+    ensure_tool_path()
     # Enforce TLS: refuse to send the token/jobs/output over plaintext HTTP so a
     # misconfigured PORTAL_URL can never silently downgrade to cleartext. (All
     # traffic already rides inside HTTPS, which urllib verifies by default;
