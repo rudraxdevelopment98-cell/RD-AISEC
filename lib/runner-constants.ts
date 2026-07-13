@@ -669,7 +669,7 @@ export const JOB_PRIORITY = {
 // Version scheme (from v52): a whole-number bump (52 → 53) is a MAJOR change;
 // a dotted bump (52.1, 52.1.1) is a MINOR one. The runner compares these as an
 // integer tuple when deciding whether to self-update.
-export const RUNNER_VERSION = "53";
+export const RUNNER_VERSION = "54";
 
 // A runner is considered offline if it hasn't polled within this window. Kept
 // generous (several missed heartbeats) so a busy machine under heavy job load —

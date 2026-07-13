@@ -51,7 +51,7 @@ import urllib.request
 #      blip in a VM no longer triggers a network-restart storm.
 #   3. Every subsystem stays fully isolated: nothing a background loop does can
 #      take the runner offline or kill the core poll→run→post loop.
-RUNNER_VERSION = "53"
+RUNNER_VERSION = "54"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -97,6 +97,11 @@ MAINT_LOCK = threading.Lock()
 MAX_WORKERS = max(1, int(os.environ.get("MAX_WORKERS", "3")))
 ACTIVE_WORKERS = 0
 WORKERS_LOCK = threading.Lock()
+
+# True until our first successful job poll. While set, requests carry
+# X-Runner-Boot so the portal requeues any jobs left "running" under us by a
+# previous process (self-update / crash) — they'd otherwise never retry.
+BOOT = True
 
 # Tor anonymity (toggled from the portal). When on, tool traffic is wrapped with
 # torsocks so it exits through the Tor network.
@@ -739,6 +744,11 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
     req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
     req.add_header("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
+    # Until our first successful job poll, tell the portal we just (re)started so
+    # it requeues any jobs still marked "running" under us from a previous process
+    # (e.g. after a self-update / crash) — otherwise they'd sit stuck forever.
+    if BOOT:
+        req.add_header("X-Runner-Boot", "1")
     with MAINT_LOCK:
         _maint = MAINT
     if _maint and _maint != "idle":
@@ -1525,8 +1535,10 @@ def _apply_maint_schedule(headers):
 
 def poll():
     """Poll for the next job. Returns (job_or_None, anonymity_flag_or_None)."""
+    global BOOT
     try:
         resp = request("GET", "/api/runner/job")
+        BOOT = False  # first successful poll delivered the boot signal
         _apply_workers(resp.headers)
         _apply_maint_schedule(resp.headers)
         anon = resp.headers.get("X-Runner-Anonymity") == "on"

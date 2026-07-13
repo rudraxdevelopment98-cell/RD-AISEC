@@ -54,6 +54,43 @@ export async function GET(req: Request) {
   });
   const adoptableIds = staleRunners.map((r: { id: string }) => r.id);
 
+  // ── Reclaim abandoned "running" jobs ────────────────────────────────────────
+  // A job goes to "running" the moment it's claimed. If the runner then dies /
+  // goes offline before posting a result (the recurring offline problem), the
+  // job would otherwise sit "running" FOREVER — never finishing, never retried,
+  // so the queue looks stuck and "nothing runs". On every poll we put such jobs
+  // back to "queued" so they get picked up again:
+  //   • jobs whose owning runner is offline/deleted (it can't finish them), and
+  //   • any job stuck "running" past a hard cap (runner restarted mid-job, or a
+  //     hung tool) — well beyond the longest real tool timeout.
+  // A freshly-(re)started runner sends X-Runner-Boot on its first poll. Its old
+  // process is gone, so any job it still shows "running" is abandoned — requeue
+  // this runner's own running jobs immediately (covers graceful self-update /
+  // restart, which don't trip the offline window above).
+  if (req.headers.get("x-runner-boot") === "1") {
+    await prisma.job
+      .updateMany({
+        where: { runnerId: runner.id, status: "running" },
+        data: { status: "queued", startedAt: null },
+      })
+      .catch(() => ({ count: 0 }));
+  }
+
+  const STUCK_RUNNING_MS = 45 * 60 * 1000; // 45 min
+  await prisma.job
+    .updateMany({
+      where: {
+        status: "running",
+        OR: [
+          { runnerId: null },
+          { runnerId: { in: adoptableIds } },
+          { startedAt: { lt: new Date(Date.now() - STUCK_RUNNING_MS) } },
+        ],
+      },
+      data: { status: "queued", startedAt: null },
+    })
+    .catch(() => ({ count: 0 }));
+
   // Claim the highest-priority queued job (ties broken by age), with a guarded
   // update so two concurrent polls can't grab the same job. "Run next" / "Run
   // first" raise a job's priority above the rest of the queue.
