@@ -51,7 +51,7 @@ import urllib.request
 #      blip in a VM no longer triggers a network-restart storm.
 #   3. Every subsystem stays fully isolated: nothing a background loop does can
 #      take the runner offline or kill the core poll→run→post loop.
-RUNNER_VERSION = "55"
+RUNNER_VERSION = "56"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1076,6 +1076,10 @@ def heartbeat_loop():
                         time.sleep(1)
                     else:
                         raise
+            # Log the transition back to reachable so the console makes the state
+            # obvious (it only prints on CHANGE, not every beat).
+            if PING_FAILS > 0:
+                print(f"✓ portal reachable again after {PING_FAILS} failed ping(s) — machine online")
             PING_FAILS = 0
             # Honor a portal-requested restart (Machines page → Restart). Re-exec
             # picks up the latest script via self-update on startup.
@@ -1086,10 +1090,12 @@ def heartbeat_loop():
                 pass
             # Kill any jobs canceled from the portal so their worker slots free up.
             check_cancellations()
-        except Exception:  # noqa: BLE001 — the heartbeat must NEVER die
+        except Exception as e:  # noqa: BLE001 — the heartbeat must NEVER die
             # A failed ping just counts; the connection_guardian thread owns all
             # local-network recovery (it probes + escalates continuously), so the
             # heartbeat stays a pure, lightweight pinger and the two never fight.
+            if PING_FAILS == 0:
+                print(f"✗ can't reach the portal — machine will show OFFLINE. ({e})")
             PING_FAILS += 1
         time.sleep(PING_SECONDS)
 
@@ -2508,6 +2514,34 @@ def worker(job):
             ACTIVE_WORKERS -= 1
 
 
+def preflight() -> bool:
+    """Test portal connectivity once at startup and print a plain diagnosis. Never
+    raises. Returns True if the portal answered."""
+    try:
+        resp = request("GET", "/api/runner/ping", timeout=15)
+        code = getattr(resp, "status", 200)
+        print(f"✓ Connected to the portal (HTTP {code}). This machine should now show ONLINE on the Machines page.")
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            print("✗ The portal REJECTED this runner's token (HTTP 401).")
+            print("  → RUNNER_TOKEN doesn't match a machine on the portal. Recreate the machine")
+            print("    on the Machines page and copy the new token, or fix RUNNER_TOKEN.")
+        else:
+            print(f"✗ The portal is reachable but returned HTTP {e.code}. It may be waking up — retrying shortly.")
+        return False
+    except Exception as e:  # noqa: BLE001
+        print(f"✗ Cannot reach the portal at {PORTAL_URL}")
+        print(f"  reason: {e}")
+        print("  Check, in order:")
+        print("    1. PORTAL_URL is exactly your portal address (https://…), no trailing slash.")
+        print("    2. This machine has internet:  curl -sS https://1.1.1.1  (should not hang)")
+        print("    3. Nothing (VM NAT / proxy / firewall) blocks outbound HTTPS to the portal.")
+        print("    Direct test (shows the real HTTP status):")
+        print('      curl -sS -m 15 -H "Authorization: Bearer $RUNNER_TOKEN" "$PORTAL_URL/api/runner/ping" -w "\\nHTTP %{http_code}\\n"')
+        return False
+
+
 def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
     if not PORTAL_URL or not RUNNER_TOKEN:
@@ -2522,6 +2556,12 @@ def main():
             "runner↔portal channel is encrypted (localhost is allowed for testing)."
         )
     print(f"RD-AISEC runner → {PORTAL_URL}")
+
+    # Preflight: one clear connectivity check so a wrong URL/token or a blocked
+    # network is obvious immediately, instead of the machine silently sitting
+    # "offline". This also stamps lastSeenAt, so a healthy runner shows online at
+    # once.
+    preflight()
 
     # Pull the latest runner before doing anything else; if newer this re-execs.
     self_update()
