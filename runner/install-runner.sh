@@ -100,6 +100,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=$USER_NAME
+Environment=HOME=$HOME
+Environment=GOPATH=$HOME/go
+# A FULL PATH — a systemd service otherwise gets a minimal one that omits
+# /usr/local/bin and ~/go/bin, so Go-based tools (subfinder/httpx/nuclei/katana/
+# dalfox/naabu…) can't be found → they show "uninstalled" and their jobs fail.
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/go/bin:$HOME/.local/bin:/snap/bin
 Environment=PORTAL_URL=$PORTAL_URL
 Environment=RUNNER_TOKEN=$RUNNER_TOKEN
 ExecStart=$PYTHON $DEST
@@ -125,6 +131,9 @@ else
   cat > "$STATE/run.sh" <<EOF
 #!/usr/bin/env bash
 set -a; source "$CFG"; set +a
+# Full PATH so Go-based tools (~/go/bin) + /usr/local/bin are found under cron.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/go/bin:$HOME/.local/bin:/snap/bin:\$PATH"
+export GOPATH="$HOME/go"
 while true; do "$PYTHON" "$DEST"; sleep 5; done
 EOF
   chmod +x "$STATE/run.sh"
