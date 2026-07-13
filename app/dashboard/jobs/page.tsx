@@ -121,6 +121,14 @@ export default async function JobsPage({
   const history = jobs.filter((j) => !["queued", "running"].includes(j.status));
   const failedCount = history.filter((j) => j.status === "failed").length;
 
+  // Queue health — a plain-language read on whether work can actually run, so
+  // "nothing's happening" is never a mystery.
+  const onlineRunners = runners.filter(
+    (r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
+  ).length;
+  const runningCount = active.filter((j) => j.status === "running").length;
+  const queuedCount = active.filter((j) => j.status === "queued").length;
+
   return (
     <div className="mx-auto max-w-5xl">
       {/* Only auto-refresh while something is live — so filtering History isn't reset. */}
@@ -215,6 +223,25 @@ export default async function JobsPage({
           </form>
         )}
       </div>
+
+      {/* Queue health — why work is / isn't running, in one line. */}
+      {active.length > 0 && (
+        queuedCount > 0 && onlineRunners === 0 ? (
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-3 py-2 text-sm text-sev-crit">
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
+            No machine online — {queuedCount} job{queuedCount === 1 ? "" : "s"} waiting. Start your runner; they&apos;ll run automatically the moment it connects.
+          </p>
+        ) : (
+          <p className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+            <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${runningCount > 0 ? "bg-brand" : "bg-gray-500"}`} />
+            <span className="font-mono tabular-nums text-gray-200">{runningCount}</span> running ·
+            <span className="font-mono tabular-nums text-gray-200"> {queuedCount}</span> queued ·
+            {onlineRunners > 0
+              ? <> <span className="font-mono tabular-nums text-brand">{onlineRunners}</span> machine{onlineRunners === 1 ? "" : "s"} online, claiming work</>
+              : <> no machines online</>}
+          </p>
+        )
+      )}
       {active.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500">Nothing running. Queue a job above.</p>
       ) : (
