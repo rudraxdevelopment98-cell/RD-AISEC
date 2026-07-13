@@ -337,7 +337,7 @@ export default async function DashboardOverview({
         </div>
       )}
       {/* Galaxy hero */}
-      <section className="galaxy relative overflow-hidden rounded-2xl border border-surface-border p-6 sm:p-8">
+      <section className="galaxy relative overflow-hidden rounded-xl border border-surface-border p-6 sm:p-8">
         <div className="galaxy-stars" aria-hidden />
         <div className="scanline" aria-hidden />
         <svg
@@ -356,7 +356,7 @@ export default async function DashboardOverview({
             <span className="tag ring-emerald accent-emerald">
               <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-emerald-400" /> Authorized session
             </span>
-            <h1 className="mt-3 text-2xl font-bold sm:text-3xl">
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
               Welcome back, <span className="text-gradient">{firstName}</span>
             </h1>
             <p className="mt-1 max-w-md text-gray-400">
@@ -390,23 +390,23 @@ export default async function DashboardOverview({
         </section>
       )}
 
-      {/* Metric cards */}
+      {/* Metric tiles — uppercase label, large mono figure (modern stat-tile). */}
       <section className="stagger-in grid grid-cols-2 gap-4 lg:grid-cols-4">
         {metrics.map((m, i) => (
           <Link
             key={m.label}
             href={m.href}
-            className="card-hover fade-up"
+            className="card-hover fade-up group"
             style={{ animationDelay: `${i * 70}ms` }}
           >
-            <div className="flex items-center justify-between">
-              <p className={`text-3xl font-bold ${m.accent}`}>
-                <Counter value={m.value} />
-                {m.suffix && <span className="text-xl text-gray-500">{m.suffix}</span>}
-              </p>
-              <Icon name={m.icon} className="h-5 w-5 text-gray-500" />
+            <div className="flex items-start justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{m.label}</p>
+              <Icon name={m.icon} className="h-4 w-4 text-gray-600 transition-colors group-hover:text-brand" />
             </div>
-            <p className="mt-1 text-sm text-gray-400">{m.label}</p>
+            <p className={`mt-2 font-mono text-3xl font-semibold tabular-nums tracking-tight ${m.accent}`}>
+              <Counter value={m.value} />
+              {m.suffix && <span className="text-lg text-gray-500">{m.suffix}</span>}
+            </p>
           </Link>
         ))}
       </section>
