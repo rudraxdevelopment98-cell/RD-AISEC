@@ -34,7 +34,12 @@ class Grant:
 
     def covers(self, target: str) -> bool:
         """A grant covers a target if the target is the scope or a sub-domain/host
-        of it (simple, conservative suffix match on host boundaries)."""
+        of it (conservative suffix match on host boundaries). Scope "*" is the
+        portal-authorized wildcard used for legacy jobs — where the PORTAL is the
+        authorization authority (it only queues jobs for authorized engagements),
+        so the agent-side gate defers to it. Explicit v2 task scopes are enforced."""
+        if self.scope == "*":
+            return True
         if not self.scope or not target:
             return False
         s, t = self.scope.lower().strip(), target.lower().strip()

@@ -40,7 +40,7 @@ def register(reg: Registry) -> None:
         name="core.tool",
         authorization="active",
         description="Run an allowlisted tool binary against a target.",
-        inputs={"bin": "str", "args": "list[str]?", "target": "str"},
+        inputs={"bin": "str", "args": "list[str]?", "flag": "str?", "target": "str"},
         outputs={"stdout": "str", "exitCode": "int"},
     )
     def _tool(ctx, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,12 +49,22 @@ def register(reg: Registry) -> None:
             raise ValueError(f"tool not found on PATH: {bin_!r}")
         args = inputs.get("args") or []
         if isinstance(args, str):
-            args = args.split()
-        target = inputs.get("target")
-        argv = [bin_, *args] + ([target] if target else [])
+            args = [a for a in args.split(" ") if a]
+        target = str(inputs.get("target") or "")
+        flag = inputs.get("flag")
+        argv = [bin_, *args]
+        if target:
+            if flag:
+                # URL-based tool (httpx/nuclei/sqlmap…) — keep the full URL after the flag.
+                argv += [flag, target]
+            else:
+                # Host-based tool (nmap/whois/dig…) — strip any scheme/path.
+                import re
+                host = re.sub(r"^[a-z][a-z0-9+.\-]*://", "", target, flags=re.I).split("/")[0]
+                argv.append(host)
         timeout = int(inputs.get("timeout") or 900)
         p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
-        return {"stdout": p.stdout, "stderr": p.stderr, "exitCode": p.returncode}
+        return {"stdout": p.stdout, "stderr": p.stderr, "exitCode": p.returncode, "argv": argv}
 
     @reg.capability(
         name="recon.resolve",
