@@ -21,6 +21,7 @@ import time
 # Local package imports (run from inside runner/agent/).
 from capabilities import Registry
 import modules
+import crypto
 from adapt import job_to_task, result_from_report
 from tasks import run_task
 from channel import PollChannel
@@ -109,6 +110,7 @@ class Agent:
             sys.exit("Set PORTAL_URL and RUNNER_TOKEN first.")
         self.reg = Registry()
         modules.register(self.reg)
+        crypto.register(self.reg)
         self.tools: dict = {}
         self.stats = Stats()
         self.boot = True
