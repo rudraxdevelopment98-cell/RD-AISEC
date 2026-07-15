@@ -100,9 +100,25 @@ results back; the portal parses them into findings.
   Access-aware routing; pure intent parser is unit-tested. Bottom-left FAB.
 
 ## Runner
-- Current version: **39** (`lib/runner-constants.ts` RUNNER_VERSION must match
+- **v2 "Operations Agent" (in progress, `runner/agent/`).** A from-scratch rebuild:
+  instead of one allowlisted command per job, it runs **task graphs** (multi-step
+  ops that chain, pass data, branch, and pass an authorization gate) built from
+  **capability modules**. Design: `docs/runner-v2-architecture.md`. Status: Phase 0
+  foundation done (task engine + adapter + channel + agent loop, v1 drop-in);
+  Phases 4 & 5 have first cuts. Capabilities: `core.shell/tool/findings`,
+  `recon.resolve`, `crypto.tls_audit`, `crypto.hash_audit`, `web.security_headers`,
+  `wifi.survey`, plus a rule-based **planner** (goal→graph). 121 test assertions
+  green (`runner/agent/test_*.py`, stdlib-only). Next: Phase 1 realtime bus
+  (portal pub/sub + `BusChannel`) + Phase 2 interactive sessions — both pair with
+  portal/UI work. v1 (`rdaisec_runner.py`) stays the shipping runner until v2 lands.
+- Current version: **57** (`lib/runner-constants.ts` RUNNER_VERSION must match
   `runner/rdaisec_runner.py`). Self-updates from v25+, so runners pull new
   versions automatically. Highlights since v30:
+  - **v53–57** reliability rebuild — the runner kept going "offline"/stuck: moved
+    telemetry off the heartbeat hot path, non-destructive networking, job reclaim
+    (offline runner → requeue) + boot-requeue, PATH self-heal (systemd's minimal
+    PATH hid `~/go/bin`), don't wipe tools on an empty header. One-command systemd
+    install/uninstall (`runner/install-runner.sh`, `uninstall-runner.sh`).
   - **v39** redact auth-session/cookie when the runner echoes a command.
   - **v37** sync CISA **KEV** catalog to the portal (`/api/runner/intel`).
   - **v36** never let the main loop die under a large queue.

@@ -203,16 +203,26 @@ library supports, and impactful steps still stop at the authorization gate.
 
 ## 13. Phased roadmap
 
-- **Phase 0 — Foundation (Tier 1 core).** New agent skeleton: channel abstraction
+- **Phase 0 ✅ — Foundation (Tier 1 core).** New agent skeleton: channel abstraction
   (long-poll now, bus-ready), **task engine (DAG runner)**, capability-module
-  loader, and port the reliability floor (heartbeat, reclaim, PATH, self-update,
-  single-instance). Ships doing everything v1 does, via modules.
+  loader, and the reliability floor (heartbeat, reclaim, PATH, self-update,
+  single-instance). Ships doing everything v1 does, via modules. Built + tested in
+  `runner/agent/` (task engine, adapter, channel, agent loop).
 - **Phase 1 — Realtime bus** + live streaming + the kill switch + audit.
 - **Phase 2 — Interactive sessions** (PTY + browser) and **artifact transfer**.
 - **Phase 3 — Network pivoting** (SOCKS + forwards + tunnels).
-- **Phase 4 — Capability library depth** (crypto, exploit, wifi port, forensics).
+- **Phase 4 — Capability library depth** (crypto ✅ TLS+hash, web ✅ headers,
+  wifi ✅ survey; exploit + forensics next).
 - **Phase 5 — AI planner** (goal → task graph → execute w/ approval gates).
+  **Rule-based core ✅** (`planner.py`: goal→graph, scope-bound, gated); the LLM
+  step-selector slots into `planner.plan()` behind the same signature.
 - **Phase 6 — Fleet** (multi-agent coordination, distributed tasks).
 
-**Start point:** Phase 0 — the task engine + module loader + reliability floor.
-Everything advanced hangs off it, and it's shippable as a drop-in for v1.
+**Progress (2026-07-15):** Phase 0 foundation complete; Phases 4 & 5 have working
+first cuts. Capability set: `core.shell/tool/findings`, `recon.resolve`,
+`crypto.tls_audit`, `crypto.hash_audit`, `web.security_headers`, `wifi.survey`.
+121 test assertions green (`runner/agent/test_*.py`). All modules are stdlib-only
+and pure-analysis where possible, so judgement is tested offline.
+
+**Next:** Phase 1 realtime bus (portal-side pub/sub + `BusChannel`), then Phase 2
+interactive sessions. Both need portal changes, so they pair with UI work.
