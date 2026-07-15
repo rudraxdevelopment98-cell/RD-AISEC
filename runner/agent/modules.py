@@ -67,6 +67,23 @@ def register(reg: Registry) -> None:
         return {"stdout": p.stdout, "stderr": p.stderr, "exitCode": p.returncode, "argv": argv}
 
     @reg.capability(
+        name="core.findings",
+        authorization="passive",
+        description="Aggregate findings emitted by prior steps into one report.",
+        inputs={"from": "list[Finding] | list of those"},
+        outputs={"findings": "list", "count": "int"},
+    )
+    def _findings(ctx, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        src = inputs.get("from")
+        items: list = []
+        for chunk in (src if isinstance(src, list) else [src]):
+            if isinstance(chunk, list):
+                items.extend(chunk)
+            elif isinstance(chunk, dict):
+                items.append(chunk)
+        return {"findings": items, "count": len(items)}
+
+    @reg.capability(
         name="recon.resolve",
         authorization="passive",
         description="Resolve a hostname to IP addresses (passive lookup).",
