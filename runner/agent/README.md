@@ -16,6 +16,7 @@ Full design: [`../../docs/runner-v2-architecture.md`](../../docs/runner-v2-archi
 | `adapt.py` | v1 drop-in — turns a legacy `(tool,target,args)` job into a one-step task and back into the v1 result shape. |
 | `modules.py` | Built-in capabilities: `core.shell`, `core.tool`, `core.findings`, `recon.resolve`. |
 | `crypto.py` | `crypto.tls_audit` — weak-crypto detection (OWASP A02) from TLS scan data. |
+| `web.py` | `web.security_headers` — missing/weak HTTP security headers + unsafe cookies (OWASP A05). |
 | `agent.py` | The agent: PATH self-heal, non-blocking heartbeat, telemetry cache, and the poll→run→post loop. |
 
 ## Run it
@@ -33,6 +34,7 @@ endpoints, so today's scans run unchanged while the task engine powers them.
 python3 test_engine.py   # 11 — ordering, data-flow, branching, authz gate, cycle detection
 python3 test_adapt.py    # 7  — v1 job → task → v1 result drop-in
 python3 test_crypto.py   # 21 — weak-crypto classification + sslscan parse→analyze
+python3 test_web.py      # 18 — HTTP hardening gaps, hardened-clean, header-block parse
 python3 test_flow.py     # 8  — real multi-step op (resolve→tls_audit→report), gated
 ```
 
