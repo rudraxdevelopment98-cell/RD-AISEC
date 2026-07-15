@@ -23,6 +23,7 @@ from capabilities import Registry
 import modules
 import crypto
 import web
+import wifi
 from adapt import job_to_task, result_from_report
 from tasks import run_task
 from channel import PollChannel
@@ -113,6 +114,7 @@ class Agent:
         modules.register(self.reg)
         crypto.register(self.reg)
         web.register(self.reg)
+        wifi.register(self.reg)
         self.tools: dict = {}
         self.stats = Stats()
         self.boot = True
