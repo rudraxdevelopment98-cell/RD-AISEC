@@ -17,6 +17,7 @@ Full design: [`../../docs/runner-v2-architecture.md`](../../docs/runner-v2-archi
 | `modules.py` | Built-in capabilities: `core.shell`, `core.tool`, `core.findings`, `recon.resolve`. |
 | `crypto.py` | `crypto.tls_audit` — weak-crypto detection (OWASP A02) from TLS scan data. |
 | `web.py` | `web.security_headers` — missing/weak HTTP security headers + unsafe cookies (OWASP A05). |
+| `planner.py` | **Goal → task graph.** Turns "assess crypto on acme.io" into an authorized graph composing the capabilities. Rule-based now; the exact seam an LLM planner slots into. |
 | `agent.py` | The agent: PATH self-heal, non-blocking heartbeat, telemetry cache, and the poll→run→post loop. |
 
 ## Run it
@@ -35,6 +36,7 @@ python3 test_engine.py   # 11 — ordering, data-flow, branching, authz gate, cy
 python3 test_adapt.py    # 7  — v1 job → task → v1 result drop-in
 python3 test_crypto.py   # 21 — weak-crypto classification + sslscan parse→analyze
 python3 test_web.py      # 18 — HTTP hardening gaps, hardened-clean, header-block parse
+python3 test_planner.py  # 18 — goal→graph intent detection + engine runs the plan, gated
 python3 test_flow.py     # 8  — real multi-step op (resolve→tls_audit→report), gated
 ```
 
@@ -71,6 +73,6 @@ That's the whole extension model: new abilities are new modules, no core changes
 - Phase 1 — realtime bus + live streaming + kill switch + audit
 - Phase 2 — interactive sessions (PTY / browser) + artifact transfer
 - Phase 3 — network pivoting (SOCKS / forwards / tunnels)
-- Phase 4 — capability library depth (crypto ✅ started, exploit, wifi, forensics)
-- Phase 5 — AI planner (goal → task graph → execute with approval gates)
+- Phase 4 — capability library depth (crypto ✅, web ✅, exploit, wifi, forensics)
+- Phase 5 — AI planner (goal → task graph → execute with approval gates) — **rule-based core ✅**, LLM step-selector slots into `planner.plan()`
 - Phase 6 — fleet (multi-agent coordination)
