@@ -152,6 +152,77 @@ def parse_sslscan(output: str) -> Dict[str, Any]:
     return {"protocols": protocols, "ciphers": ciphers, "cert": cert or None}
 
 
+# ── Hash posture (identify + judge stored-secret hashing) ────────────────────
+# Fast, unsalted, or broken hashes are dangerous for password storage: they're
+# cheap to brute-force at scale. Modern baseline is a slow KDF (bcrypt/argon2/
+# scrypt/PBKDF2). severity is the risk of finding this hash protecting secrets.
+_HASH_WEAK = {
+    "MD5":      ("high", "MD5 is broken and fast — trivially brute-forced; unusable for passwords."),
+    "MD4":      ("high", "MD4 is broken and obsolete."),
+    "SHA-1":    ("high", "SHA-1 is broken (collisions) and fast — not for passwords."),
+    "NTLM":     ("high", "NTLM is unsalted MD4 — rainbow-tableable; a domain risk."),
+    "LM":       ("critical", "LM hash — case-folded, split into 7-char halves; cracks in seconds."),
+    "MySQL323": ("critical", "MySQL pre-4.1 hash — 16-bit-ish, cracks instantly."),
+    "MySQL-SHA1": ("high", "MySQL 4.1+ is unsalted double-SHA1 — fast, no salt."),
+    "SHA-224":  ("medium", "Raw SHA-2 is fast and (here) unsalted — wrong tool for passwords."),
+    "SHA-256":  ("medium", "Raw SHA-256 is fast and unsalted — use a slow KDF for passwords."),
+    "SHA-384":  ("medium", "Raw SHA-384 is fast and unsalted — use a slow KDF for passwords."),
+    "SHA-512":  ("medium", "Raw SHA-512 is fast and unsalted — use a slow KDF for passwords."),
+}
+# Slow KDFs — the right answer. Presence of these is GOOD (no finding).
+_KDF_PREFIX = {
+    "$2a$": "bcrypt", "$2b$": "bcrypt", "$2y$": "bcrypt",
+    "$argon2i$": "argon2i", "$argon2id$": "argon2id", "$argon2d$": "argon2d",
+    "$6$": "sha512crypt", "$5$": "sha256crypt", "$1$": "md5crypt",
+    "$scrypt$": "scrypt", "$pbkdf2": "pbkdf2",
+}
+
+
+def identify_hash(digest: str) -> Dict[str, Any]:
+    """Best-effort: what is this digest, and is it safe for password storage?
+    Returns {candidates: [...], kdf: bool, severity, note}. Length + charset +
+    known prefixes — the same heuristics hashid/name-that-hash use, no deps."""
+    d = (digest or "").strip()
+    for pref, name in _KDF_PREFIX.items():
+        if d.startswith(pref):
+            return {"candidates": [name], "kdf": True, "severity": "info",
+                    "note": f"{name} is a slow, salted KDF — appropriate for passwords."}
+    if d.startswith("*") and len(d) == 41 and re.fullmatch(r"\*[0-9A-Fa-f]{40}", d):
+        return _hash_result(["MySQL-SHA1"])
+    if not re.fullmatch(r"[0-9A-Fa-f]+", d):
+        return {"candidates": [], "kdf": False, "severity": "info",
+                "note": "Not a recognised hex digest or known KDF format."}
+    by_len = {
+        16: ["MySQL323"],
+        32: ["MD5", "NTLM", "MD4"],
+        40: ["SHA-1"],
+        56: ["SHA-224"],
+        64: ["SHA-256"],
+        96: ["SHA-384"],
+        128: ["SHA-512"],
+    }
+    return _hash_result(by_len.get(len(d), []))
+
+
+def _hash_result(candidates: List[str]) -> Dict[str, Any]:
+    if not candidates:
+        return {"candidates": [], "kdf": False, "severity": "info",
+                "note": "Unrecognised digest length."}
+    sevs = [_HASH_WEAK[c][0] for c in candidates if c in _HASH_WEAK]
+    worst = _worst_severity(sevs) if sevs else "info"
+    note = next((_HASH_WEAK[c][1] for c in candidates if c in _HASH_WEAK), "")
+    return {"candidates": candidates, "kdf": False, "severity": worst, "note": note}
+
+
+def hash_findings(digest: str) -> List[Dict[str, Any]]:
+    r = identify_hash(digest)
+    if r["kdf"] or not r["candidates"] or r["severity"] == "info":
+        return []
+    cands = "/".join(r["candidates"])
+    return [_finding(f"Weak password hash detected ({cands})", r["severity"],
+                     f"Digest matches {cands}: {digest[:12]}…", r["note"])]
+
+
 def register(reg: Registry) -> None:
     @reg.capability(
         name="crypto.tls_audit",
@@ -171,3 +242,24 @@ def register(reg: Registry) -> None:
         parsed = parse_sslscan(str(raw))
         res = analyze(parsed["protocols"], parsed["ciphers"], parsed["cert"], host=host.split(":")[0])
         return res
+
+    @reg.capability(
+        name="crypto.hash_audit",
+        authorization="passive",
+        description="Identify a hash digest and flag broken/fast algorithms used for "
+                    "password storage (recommend a slow KDF).",
+        inputs={"digest": "str", "digests": "list[str]? (audit many)"},
+        outputs={"candidates": "list", "kdf": "bool", "findings": "list"},
+    )
+    def _hash_audit(ctx, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        many = inputs.get("digests")
+        if many:
+            findings: List[Dict[str, Any]] = []
+            ids = []
+            for d in many:
+                ids.append({"digest": str(d), **identify_hash(str(d))})
+                findings.extend(hash_findings(str(d)))
+            return {"identified": ids, "findings": findings, "weak": len(findings)}
+        digest = str(inputs.get("digest") or "")
+        r = identify_hash(digest)
+        return {**r, "findings": hash_findings(digest), "weak": len(hash_findings(digest))}

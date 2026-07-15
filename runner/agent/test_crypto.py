@@ -1,6 +1,7 @@
 """Crypto posture tests — run:  python3 test_crypto.py"""
 import sys
-from crypto import analyze, cipher_weakness, has_forward_secrecy, parse_sslscan
+from crypto import (analyze, cipher_weakness, has_forward_secrecy, parse_sslscan,
+                    identify_hash, hash_findings)
 
 PASS = FAIL = 0
 def ok(c, m):
@@ -59,6 +60,23 @@ ok("RC4-SHA" in p["ciphers"], "parsed accepted ciphers")
 ok(p["cert"]["keyBits"] == 1024, "parsed cert key bits")
 res2 = analyze(**{k: p[k] for k in ("protocols", "ciphers")}, cert=p["cert"], host="x.io")
 ok(res2["weak"] >= 4, "end-to-end parse→analyze produces findings")
+
+print("hash identification + posture")
+ok(identify_hash("5f4dcc3b5aa765d61d8327deb882cf99")["candidates"] == ["MD5", "NTLM", "MD4"],
+   "32-hex → MD5/NTLM/MD4 candidates")
+ok(identify_hash("5f4dcc3b5aa765d61d8327deb882cf99")["severity"] == "high", "MD5-class → high")
+ok(identify_hash("a" * 64)["candidates"] == ["SHA-256"], "64-hex → SHA-256")
+ok(identify_hash("a" * 40)["candidates"] == ["SHA-1"], "40-hex → SHA-1")
+ok(identify_hash("*" + "A" * 40)["candidates"] == ["MySQL-SHA1"], "*<40hex> → MySQL-SHA1")
+ok(identify_hash("$2b$12$" + "x" * 53)["kdf"] is True, "bcrypt prefix → recognised KDF")
+ok(identify_hash("$2b$12$" + "x" * 53)["severity"] == "info", "a proper KDF is not a finding")
+ok(identify_hash("$argon2id$v=19$m=65536")["candidates"] == ["argon2id"], "argon2id recognised")
+ok(identify_hash("$6$salt$hash")["kdf"] is True, "sha512crypt ($6$) is a KDF")
+ok(identify_hash("nothex!!")["candidates"] == [], "non-hex, non-KDF → unrecognised")
+ok(hash_findings("5f4dcc3b5aa765d61d8327deb882cf99")[0]["category"] == "crypto",
+   "a weak hash produces a crypto finding")
+ok(hash_findings("$2b$12$" + "x" * 53) == [], "a bcrypt hash produces NO finding")
+ok(hash_findings("a" * 64)[0]["severity"] == "medium", "raw SHA-256 for passwords → medium")
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
