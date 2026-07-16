@@ -12,12 +12,13 @@ Full design: [`../../docs/runner-v2-architecture.md`](../../docs/runner-v2-archi
 |---|---|
 | `capabilities.py` | `Capability` + `Registry`. Abilities are pluggable modules, each with an authorization level (`passive`/`active`/`intrusive`). |
 | `tasks.py` | The **task engine** — parses a graph, orders steps by dependency, flows data via `$step.output` refs, branches on `when`, enforces the **authorization gate** per target. |
-| `channel.py` | How the agent talks to the portal. `PollChannel` (v1-compatible HTTPS poll) now; a `BusChannel` (realtime pub/sub) drops in behind the same interface later. |
+| `channel.py` | How the agent talks to the portal. `PollChannel` (v1-compatible HTTPS poll) with `post_events` feeding the **realtime bus** (durable per-job event log the UI tails); a full `BusChannel` drops in behind the same interface later. |
 | `adapt.py` | v1 drop-in — turns a legacy `(tool,target,args)` job into a one-step task and back into the v1 result shape. |
 | `modules.py` | Built-in capabilities: `core.shell`, `core.tool`, `core.findings`, `recon.resolve`. |
 | `crypto.py` | `crypto.tls_audit` (weak TLS crypto, OWASP A02) + `crypto.hash_audit` (identify a digest, flag broken/fast password hashes → recommend a KDF). |
 | `web.py` | `web.security_headers` — missing/weak HTTP security headers + unsafe cookies (OWASP A05). |
 | `wifi.py` | `wifi.survey` — airodump CSV → APs + client devices (vendor, signal→distance, open/WEP/TKIP posture) for the home map. Passive. |
+| `forensics.py` | `forensics.iocs` — extract + classify IOCs (IPs, domains, URLs, emails, hashes, CVEs, BTC) from text, refanging analyst notation. Passive. |
 | `planner.py` | **Goal → task graph.** Turns "assess crypto on acme.io" into an authorized graph composing the capabilities. Rule-based now; the exact seam an LLM planner slots into. |
 | `agent.py` | The agent: PATH self-heal, non-blocking heartbeat, telemetry cache, and the poll→run→post loop. |
 
@@ -38,7 +39,9 @@ python3 test_adapt.py    # 7  — v1 job → task → v1 result drop-in
 python3 test_crypto.py   # 34 — weak-crypto classification, sslscan parse, hash identify/posture
 python3 test_web.py      # 18 — HTTP hardening gaps, hardened-clean, header-block parse
 python3 test_wifi.py     # 25 — airodump CSV → APs/stations, vendor, distance, posture
+python3 test_forensics.py# 24 — IOC extract/classify, refang, no hash collision, findings
 python3 test_planner.py  # 18 — goal→graph intent detection + engine runs the plan, gated
+python3 test_channel.py  # 7  — realtime-bus append: endpoint, batching, non-fatal
 python3 test_flow.py     # 8  — real multi-step op (resolve→tls_audit→report), gated
 ```
 

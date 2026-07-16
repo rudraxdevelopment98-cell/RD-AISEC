@@ -25,6 +25,10 @@ class Channel:
     def post_progress(self, job_id: str, output: str) -> None:
         raise NotImplementedError
 
+    def post_events(self, job_id: str, events: list) -> None:
+        """Append task-graph step events to the realtime bus (best-effort)."""
+        raise NotImplementedError
+
     def ping(self, full: bool = False) -> Optional[str]:
         """Heartbeat. Returns a one-shot command from the portal (e.g. 'restart')."""
         raise NotImplementedError
@@ -93,6 +97,16 @@ class PollChannel(Channel):
     def post_progress(self, job_id: str, output: str) -> None:
         try:
             self._request("POST", f"/api/runner/job/{job_id}/progress", {"output": output}, timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def post_events(self, job_id: str, events: list) -> None:
+        # Realtime bus append — best-effort and non-fatal: if the bus is down the
+        # job still runs and its final result posts normally via post_result.
+        if not events:
+            return
+        try:
+            self._request("POST", f"/api/runner/job/{job_id}/event", {"events": events}, timeout=10)
         except Exception:  # noqa: BLE001
             pass
 

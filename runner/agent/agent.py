@@ -24,6 +24,7 @@ import modules
 import crypto
 import web
 import wifi
+import forensics
 from adapt import job_to_task, result_from_report
 from tasks import run_task
 from channel import PollChannel
@@ -115,6 +116,7 @@ class Agent:
         crypto.register(self.reg)
         web.register(self.reg)
         wifi.register(self.reg)
+        forensics.register(self.reg)
         self.tools: dict = {}
         self.stats = Stats()
         self.boot = True
@@ -180,11 +182,19 @@ class Agent:
         job_id = job.get("id")
         try:
             task = job_to_task(job, self.tools)
-            # Stream step events as progress lines back to the portal.
+            # Stream step events two ways: as a human progress line (v1-compatible)
+            # AND onto the realtime bus (v2), so the UI can tail the task graph live.
             def emit(ev):
                 if ev.get("status") in ("running", "done", "error", "refused", "skipped"):
-                    self.channel.post_progress(job_id, f"[{ev.get('step')}] {ev.get('status')}"
-                                               + (f" — {ev['error']}" if ev.get("error") else ""))
+                    line = (f"[{ev.get('step')}] {ev.get('status')}"
+                            + (f" — {ev['error']}" if ev.get("error") else ""))
+                    self.channel.post_progress(job_id, line)
+                    self.channel.post_events(job_id, [{
+                        "kind": "step",
+                        "step": str(ev.get("step") or ""),
+                        "status": str(ev.get("status") or ""),
+                        "message": (ev.get("error") or ev.get("use") or ""),
+                    }])
             report = run_task(task, self.reg, emit)
             result = result_from_report(report)
         except Exception as e:  # noqa: BLE001
