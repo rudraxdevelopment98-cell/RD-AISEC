@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
@@ -7,7 +8,7 @@ import { EnrollCodeForm } from "@/components/runner-enroll";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
-import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall, installAllTools } from "@/lib/runners";
+import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall, installAllTools, revokeEnrollCode } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
   RUNNER_VERSION,
@@ -52,7 +53,10 @@ export default async function RunnersPage({
     },
   });
 
-  const [runners, missingFromJobs] = await Promise.all([
+  const session = await auth();
+  const ownerEmail = session?.user?.email ?? "";
+
+  const [runners, missingFromJobs, enrollCodes] = await Promise.all([
     prisma.runner.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -74,6 +78,15 @@ export default async function RunnersPage({
       take: 40,
       include: { runner: { select: { id: true, name: true } } },
     }),
+    // This owner's live enrollment codes (not revoked, not expired) for the
+    // management list. Hash is never selected; the plaintext is long gone.
+    ownerEmail
+      ? prisma.enrollCode.findMany({
+          where: { ownerEmail, revoked: false, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : Promise.resolve([]),
   ]);
 
   // Build a deduped list of (runner, tool) install suggestions from failures,
@@ -259,6 +272,56 @@ python3 rdaisec_runner.py`}
       )}
 
       <EnrollCodeForm />
+
+      {enrollCodes.length > 0 && (
+        <div className="card mt-4">
+          <h2 className="text-sm font-semibold text-brand">
+            <Icon name="lock" className="mr-1 inline h-4 w-4" />
+            Active enrollment codes
+          </h2>
+          <p className="mt-1 text-xs text-gray-400">
+            Machines can still enroll with these. The code itself is never shown
+            again — revoke one to stop any new enrollments using it (already-enrolled
+            machines keep their tokens).
+          </p>
+          <div className="mt-3 divide-y divide-surface-border">
+            {enrollCodes.map((c) => {
+              const atLimit = c.usedCount >= c.maxUses;
+              return (
+                <div
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <span className="font-medium text-white">
+                      {c.label || "Unlabeled code"}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      code …{c.id.slice(-6)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                    <span title="Enrollments used / allowed" className={atLimit ? "text-sev-med" : ""}>
+                      {c.usedCount}/{c.maxUses} used
+                    </span>
+                    <span>expires {new Date(c.expiresAt).toLocaleDateString()}</span>
+                    {c.lastUsedAt && (
+                      <span>last used {new Date(c.lastUsedAt).toLocaleDateString()}</span>
+                    )}
+                    <form action={revokeEnrollCode}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <button className="btn-ghost px-2 py-1 text-xs text-sev-crit">
+                        Revoke
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <CreateRunnerForm />
 
       {/* Registered runners */}
