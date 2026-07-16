@@ -51,10 +51,12 @@ chmod 600 ~/.config/rdaisec/runner.env`
 
   return (
     <div className="card mt-6">
-      <h2 className="font-semibold text-brand">+ Register a runner</h2>
+      <h2 className="font-semibold text-brand">Create a one-off token</h2>
       <p className="mt-1 text-sm text-gray-400">
-        Create a runner for the machine that will execute tools (e.g. your Kali VM
-        in UTM). You&apos;ll get a token — copy it now, it&apos;s shown only once.
+        The manual way: create a runner and get a single token to paste on the
+        machine. Prefer <strong>Add a machine</strong> above — it self-heals if the
+        token is ever lost. Use this only if you specifically want a fixed token.
+        Copy it now, it&apos;s shown only once.
       </p>
 
       <form action={formAction} className="mt-4 flex flex-col gap-3 sm:flex-row">

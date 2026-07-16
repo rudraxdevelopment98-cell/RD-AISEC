@@ -141,8 +141,8 @@ export default async function RunnersPage({
       />
 
       <HelpBanner>
-        <p>• Create a runner to get a token, then run the Python runner on your machine with it.</p>
-        <p>• A green dot = online (polled recently). Install missing tools right from a runner&apos;s card.</p>
+        <p>• <strong>Add a machine</strong> below → generate an enrollment code → run the one command on your machine. It comes online and stays online (self-heals a lost token).</p>
+        <p>• A green dot = online (polled recently). Install missing tools right from a machine&apos;s card.</p>
         <p>• Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</p>
       </HelpBanner>
 
@@ -197,62 +197,49 @@ export default async function RunnersPage({
           </p>
 
           <div>
-            <p className="font-semibold text-white">1. Register a runner</p>
+            <p className="font-semibold text-white">1. Add a machine (get a code)</p>
             <p className="text-gray-400">
-              Use the form below, name it, and <strong>copy the token</strong> —
-              it&apos;s shown only once.
+              In <strong>Add a machine</strong> below, click{" "}
+              <em>Generate enrollment code</em> and <strong>copy the one command</strong>{" "}
+              it shows. That command does everything on the machine — no token to
+              paste, and it self-heals if the token is ever lost.
             </p>
           </div>
 
           <div>
-            <p className="font-semibold text-white">2. Get the agent onto Kali</p>
+            <p className="font-semibold text-white">2. Run that one command on Kali</p>
+            <p className="text-gray-400">
+              Paste it into a terminal on your machine (UTM/Parallels VM, a laptop,
+              bare metal, or a cloud box). It clones the runner, installs it as a
+              service that starts on boot, and enrolls it. The runner makes only{" "}
+              <strong>outbound HTTPS</strong> calls — no ports to open, nothing to{" "}
+              <code className="font-mono">pip install</code> (Python 3 stdlib only).
+            </p>
             <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`# clone the repo…
-git clone https://github.com/rudraxdevelopment98-cell/rd-aisec.git
-cd rd-aisec/runner
-
-# …or just grab the single file
-curl -O https://raw.githubusercontent.com/rudraxdevelopment98-cell/rd-aisec/main/runner/rdaisec_runner.py`}
+{`# looks like this (the card fills in your code + portal URL):
+RUNNER_ENROLL_CODE=rde_… PORTAL_URL=https://rd-aisec.vercel.app \\
+  sudo -E bash install-runner.sh`}
             </pre>
           </div>
 
           <div>
-            <p className="font-semibold text-white">3. Install the tools</p>
-            <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`sudo apt update && sudo apt install -y nmap whois dnsutils`}
-            </pre>
-            <p className="mt-1 text-gray-400">
-              Or skip this — once the machine is online you can install every tool{" "}
-              <strong>one-click</strong> from its card below (apt, or{" "}
-              <code className="font-mono">go install</code> for tools like httpx).
-            </p>
-          </div>
-
-          <div>
-            <p className="font-semibold text-white">
-              4. Point it at the portal and run
-            </p>
+            <p className="font-semibold text-white">3. Verify &amp; test</p>
             <p className="text-gray-400">
-              Nothing to <code className="font-mono">pip install</code> — it uses
-              the Python 3 standard library.
-            </p>
-            <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`export PORTAL_URL="https://rd-aisec.vercel.app"
-export RUNNER_TOKEN="rdr_...."   # the token from step 1
-python3 rdaisec_runner.py`}
-            </pre>
-          </div>
-
-          <div>
-            <p className="font-semibold text-white">5. Verify &amp; test</p>
-            <p className="text-gray-400">
-              The runner flips to <span className="text-brand">online</span>{" "}
-              below. Queue an <code className="font-mono">nmap</code> →{" "}
+              The machine flips to <span className="text-brand">online</span>{" "}
+              below within seconds. Install any missing tool <strong>one-click</strong>{" "}
+              from its card, then queue an <code className="font-mono">nmap</code> →{" "}
               <em>Quick</em> against{" "}
-              <code className="font-mono">scanme.nmap.org</code>, watch it run,
-              then <strong>Import to findings</strong>.
+              <code className="font-mono">scanme.nmap.org</code>, watch it run, and{" "}
+              <strong>Import to findings</strong>.
             </p>
           </div>
+
+          <p className="text-xs text-gray-500">
+            Prefer a fixed token instead of self-healing enrollment? Use{" "}
+            <strong>Advanced — create a one-off token</strong> under{" "}
+            <strong>Add a machine</strong>, then set{" "}
+            <code className="font-mono">RUNNER_TOKEN</code> when you run the installer.
+          </p>
 
           <p className="rounded-lg border border-sev-low/30 bg-sev-low/10 px-3 py-2 text-xs text-sev-low">
             💡 Running the portal locally instead of Vercel? Set{" "}
@@ -322,7 +309,12 @@ python3 rdaisec_runner.py`}
         </div>
       )}
 
-      <CreateRunnerForm />
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-200">
+          Advanced — create a one-off token manually (no self-heal)
+        </summary>
+        <CreateRunnerForm />
+      </details>
 
       {/* Registered runners */}
       {runners.length > 0 && (
