@@ -57,10 +57,28 @@ discover() {
 
 PORTAL_URL="$(discover PORTAL_URL)"
 RUNNER_TOKEN="$(discover RUNNER_TOKEN)"
+RUNNER_ENROLL_CODE="$(discover RUNNER_ENROLL_CODE)"
 
 [ -n "$PORTAL_URL" ] && say "found portal: $PORTAL_URL" || { read -rp "Portal URL (https://…): " PORTAL_URL; }
-[ -n "$RUNNER_TOKEN" ] && say "found runner token (…${RUNNER_TOKEN: -4})" || { read -rp "Runner token (rdr_…): " RUNNER_TOKEN; }
-[ -n "$PORTAL_URL" ] && [ -n "$RUNNER_TOKEN" ] || die "Need PORTAL_URL and RUNNER_TOKEN (token is on the portal → Machines)."
+# Two ways to authenticate: a runner token, OR an enrollment code (portal →
+# Runners) that lets the machine self-register — and self-heal if its token is
+# ever rotated/wiped, with no more hand-editing systemd. Prefer whichever we have.
+if [ -n "$RUNNER_TOKEN" ]; then
+  say "found runner token (…${RUNNER_TOKEN: -4})"
+elif [ -n "$RUNNER_ENROLL_CODE" ]; then
+  say "found enrollment code (…${RUNNER_ENROLL_CODE: -4}) — the machine will self-enroll"
+else
+  echo "Authenticate this machine with EITHER:"
+  echo "  • a runner token  (portal → Runners → create a machine), or"
+  echo "  • an enrollment code (portal → Runners → enrollment code) — recommended, self-healing"
+  read -rp "Runner token or enrollment code (rdr_… / rde_…): " ANS
+  case "$ANS" in
+    rde_*) RUNNER_ENROLL_CODE="$ANS" ;;
+    *)     RUNNER_TOKEN="$ANS" ;;
+  esac
+fi
+[ -n "$PORTAL_URL" ] || die "Need PORTAL_URL."
+[ -n "$RUNNER_TOKEN" ] || [ -n "$RUNNER_ENROLL_CODE" ] || die "Need a runner token or an enrollment code."
 
 # ── 2. Stop every existing runner (systemd + stray processes) ──
 say "stopping any running / duplicate runners…"
@@ -80,12 +98,22 @@ if [ -f "$HERE/rdaisec_runner.py" ]; then
   cp "$HERE/rdaisec_runner.py" "$DEST"
   say "installed runner from $HERE/rdaisec_runner.py"
 elif [ ! -f "$DEST" ]; then
+  # Downloading the script needs a token; enrollment happens at runtime, so in
+  # enroll-only mode we need the local file (clone the repo) — or a token to fetch it.
+  [ -n "$RUNNER_TOKEN" ] || die "No local rdaisec_runner.py and no token to fetch it. Clone the repo (so $HERE/rdaisec_runner.py exists) or install with a runner token."
   say "fetching runner from the portal…"
   curl -fsSL -H "Authorization: Bearer $RUNNER_TOKEN" "$PORTAL_URL/api/runner/script" -o "$DEST" \
     || die "couldn't download the runner from $PORTAL_URL/api/runner/script — check the URL/token."
 fi
 
-printf 'PORTAL_URL=%s\nRUNNER_TOKEN=%s\n' "$PORTAL_URL" "$RUNNER_TOKEN" > "$CFG"
+# Persisted config. In enroll mode we deliberately DON'T write a RUNNER_TOKEN — the
+# runner enrolls, then saves the issued token here itself, so it survives restarts
+# and a rotation re-enrolls in place (never a manual systemd edit).
+{
+  printf 'PORTAL_URL=%s\n' "$PORTAL_URL"
+  [ -n "$RUNNER_TOKEN" ] && printf 'RUNNER_TOKEN=%s\n' "$RUNNER_TOKEN"
+  [ -n "$RUNNER_ENROLL_CODE" ] && printf 'RUNNER_ENROLL_CODE=%s\n' "$RUNNER_ENROLL_CODE"
+} > "$CFG"
 chmod 600 "$CFG"
 
 # ── 4. Install as a systemd service (single instance, boot start, auto-restart) ──
@@ -107,7 +135,8 @@ Environment=GOPATH=$HOME/go
 # dalfox/naabu…) can't be found → they show "uninstalled" and their jobs fail.
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/go/bin:$HOME/.local/bin:/snap/bin
 Environment=PORTAL_URL=$PORTAL_URL
-Environment=RUNNER_TOKEN=$RUNNER_TOKEN
+$( [ -n "$RUNNER_TOKEN" ] && printf 'Environment=RUNNER_TOKEN=%s' "$RUNNER_TOKEN" )
+$( [ -n "$RUNNER_ENROLL_CODE" ] && printf 'Environment=RUNNER_ENROLL_CODE=%s' "$RUNNER_ENROLL_CODE" )
 ExecStart=$PYTHON $DEST
 Restart=always
 RestartSec=5

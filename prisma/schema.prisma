@@ -175,11 +175,35 @@ model ControlResult {
 // The portal queues Jobs; the runner polls over HTTPS, executes them locally,
 // and posts results back. The token is stored hashed; the plaintext is shown
 // to the user exactly once at creation.
+// A reusable enrollment code so a machine can self-register for a runner token
+// instead of a token being hand-pasted into systemd. Owner-scoped, expiring, and
+// revocable. Only its hash is stored; the plaintext code is shown once. A machine
+// that loses/rotates its token re-enrolls with this code automatically — so token
+// loss stops meaning "SSH in and edit the unit file".
+model EnrollCode {
+  id         String    @id @default(cuid())
+  codeHash   String    @unique
+  ownerEmail String
+  label      String    @default("")     // optional name hint applied to enrolled runners
+  expiresAt  DateTime
+  usedCount  Int       @default(0)
+  maxUses    Int       @default(50)      // generous but bounded; revoke to disable
+  lastUsedAt DateTime?
+  revoked    Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([ownerEmail])
+}
+
 model Runner {
   id         String    @id @default(cuid())
   name       String
   tokenHash  String    @unique
   ownerEmail String    @default("")
+  // Stable machine id (e.g. /etc/machine-id hash) set at enrollment. Lets a
+  // machine that re-enrolls (token rotated/wiped) reclaim its SAME runner row and
+  // rotate the token in place, instead of spawning a duplicate. "" for hand-made runners.
+  fingerprint String   @default("")
   lastSeenAt DateTime?
   version    String    @default("") // runner script version it reports
   toolCount  Int       @default(0)  // number of tools the runner has loaded
@@ -223,6 +247,8 @@ model Runner {
   createdAt  DateTime  @default(now())
   jobs       Job[]
   installs   Install[]
+
+  @@index([fingerprint])
 }
 
 // A request to install a tool's package on a runner (authorized by the user).

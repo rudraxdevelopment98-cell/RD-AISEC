@@ -66,6 +66,52 @@ export async function createRunner(
   return { token, name };
 }
 
+type EnrollState = { code?: string; error?: string; expiresAt?: string };
+
+/**
+ * Mint a reusable enrollment code (shown ONCE) that a machine uses to self-register
+ * for a runner token — so token loss/rotation no longer means SSHing in to edit
+ * systemd. Owner-scoped, expiring, revocable; only its hash is stored.
+ */
+export async function createEnrollCode(
+  _prev: EnrollState,
+  formData: FormData,
+): Promise<EnrollState> {
+  const session = await auth();
+  if (!session?.user?.email) return { error: "Not signed in." };
+
+  const label = String(formData.get("label") ?? "").trim().slice(0, 80);
+  const days = Math.min(365, Math.max(1, Number(formData.get("days") ?? 90) || 90));
+  const code = "rde_" + randomBytes(18).toString("hex");
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+  await prisma.enrollCode.create({
+    data: {
+      codeHash: createHash("sha256").update(code).digest("hex"),
+      ownerEmail: session.user.email,
+      label,
+      expiresAt,
+    },
+  });
+  await logAudit({ type: "enroll_code.create", actor: session.user.email,
+    summary: `Created a runner enrollment code${label ? ` (${label})` : ""}`, meta: { days } });
+  revalidatePath("/dashboard/runners");
+  return { code, expiresAt: expiresAt.toISOString() };
+}
+
+/** Revoke an enrollment code so no further machines can enroll with it. */
+export async function revokeEnrollCode(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/login");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.enrollCode.updateMany({
+    where: { id, ownerEmail: session.user.email },
+    data: { revoked: true },
+  });
+  revalidatePath("/dashboard/runners");
+}
+
 /**
  * Request installing a missing tool on a runner. Requires explicit authorization
  * ("proof") — the user must confirm they may install software on that machine.

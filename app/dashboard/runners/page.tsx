@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { CreateRunnerForm } from "@/components/runner-create";
+import { EnrollCodeForm } from "@/components/runner-enroll";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
@@ -257,6 +258,7 @@ python3 rdaisec_runner.py`}
         </div>
       )}
 
+      <EnrollCodeForm />
       <CreateRunnerForm />
 
       {/* Registered runners */}

@@ -20,6 +20,7 @@ For authorized security testing and education only.
 """
 
 import base64
+import hashlib
 import json
 import ipaddress
 import os
@@ -51,7 +52,13 @@ import urllib.request
 #      blip in a VM no longer triggers a network-restart storm.
 #   3. Every subsystem stays fully isolated: nothing a background loop does can
 #      take the runner offline or kill the core poll→run→post loop.
-RUNNER_VERSION = "57"
+#
+# v58 — self-healing enrollment. A machine can carry a reusable RUNNER_ENROLL_CODE
+# (portal → Runners) instead of a hand-pasted token: with no token, or when its
+# token is rotated/wiped (HTTP 401), it fetches a fresh one from /api/runner/enroll
+# and saves it — so token loss no longer means SSHing in to edit systemd. A stable
+# machine fingerprint lets a re-enroll reclaim the same runner row in place.
+RUNNER_VERSION = "58"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -270,6 +277,13 @@ _load_env_files()
 
 PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")
 RUNNER_TOKEN = os.environ.get("RUNNER_TOKEN", "")
+# Optional self-enrollment: with a reusable code (portal → Runners) a machine that
+# has no token — or whose token was rotated/wiped — fetches a fresh one itself,
+# instead of a human editing systemd. See enroll().
+ENROLL_CODE = os.environ.get("RUNNER_ENROLL_CODE", "").strip()
+# Where an enrolled token is persisted so restarts don't re-enroll (this path is
+# also one of the config files _load_env_files reads at startup).
+TOKEN_STORE = os.path.expanduser("~/.config/rdaisec/runner.env")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
 JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # default per job
 # Per-tool timeout overrides (seconds). Thorough scanners (nmap -p-, full nuclei,
@@ -2514,7 +2528,81 @@ def worker(job):
             ACTIVE_WORKERS -= 1
 
 
-def preflight() -> bool:
+# ── Self-enrollment (token self-heal) ────────────────────────────────────────
+def machine_fingerprint() -> str:
+    """A stable, non-reversible id for this machine so a re-enroll reclaims the
+    SAME runner row (rotate token in place) instead of spawning a duplicate."""
+    for path in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+        try:
+            with open(path) as f:
+                mid = f.read().strip()
+            if mid:
+                return hashlib.sha256(("rdaisec:" + mid).encode()).hexdigest()[:32]
+        except Exception:  # noqa: BLE001
+            pass
+    return hashlib.sha256(("rdaisec:" + socket.gethostname()).encode()).hexdigest()[:32]
+
+
+def _persist_token(token: str) -> None:
+    """Save the enrolled token to the config file so restarts skip enrollment.
+    Merges with any existing keys; 0600 so it's owner-readable only."""
+    try:
+        os.makedirs(os.path.dirname(TOKEN_STORE), exist_ok=True)
+        kv = {}
+        if os.path.exists(TOKEN_STORE):
+            with open(TOKEN_STORE) as f:
+                for ln in f:
+                    s = ln.strip()
+                    if s and not s.startswith("#") and "=" in s:
+                        k, _, v = s.partition("=")
+                        kv[k.strip()] = v
+        kv["RUNNER_TOKEN"] = token
+        if PORTAL_URL:
+            kv.setdefault("PORTAL_URL", PORTAL_URL)
+        with open(TOKEN_STORE, "w") as f:
+            for k, v in kv.items():
+                f.write(f"{k}={v}\n")
+        os.chmod(TOKEN_STORE, 0o600)
+    except Exception as e:  # noqa: BLE001
+        print(f"  (couldn't persist token to {TOKEN_STORE}: {e})")
+
+
+def enroll() -> bool:
+    """Exchange the enrollment code for a fresh runner token, set it live and
+    persist it. Returns True on success. Never raises."""
+    global RUNNER_TOKEN
+    if not ENROLL_CODE or not PORTAL_URL:
+        return False
+    payload = json.dumps({
+        "code": ENROLL_CODE,
+        "name": socket.gethostname(),
+        "fingerprint": machine_fingerprint(),
+    }).encode()
+    req = urllib.request.Request(f"{PORTAL_URL}/api/runner/enroll", data=payload, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode())
+        tok = data.get("token")
+        if tok:
+            RUNNER_TOKEN = tok
+            _persist_token(tok)
+            print(f"✓ Enrolled with the portal — got a runner token (…{tok[-4:]}) and saved it.")
+            return True
+        print("✗ Enrollment returned no token.")
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = json.loads(e.read().decode()).get("error", "")
+        except Exception:  # noqa: BLE001
+            pass
+        print(f"✗ Enrollment failed (HTTP {e.code}){': ' + detail if detail else ''}.")
+    except Exception as e:  # noqa: BLE001
+        print(f"✗ Enrollment couldn't reach the portal: {e}")
+    return False
+
+
+def preflight(_allow_reenroll: bool = True) -> bool:
     """Test portal connectivity once at startup and print a plain diagnosis. Never
     raises. Returns True if the portal answered."""
     try:
@@ -2524,9 +2612,16 @@ def preflight() -> bool:
         return True
     except urllib.error.HTTPError as e:
         if e.code == 401:
+            # Token rejected — if we have an enrollment code, self-heal: fetch a
+            # fresh token and re-check once. This is the whole point of enrollment.
+            if _allow_reenroll and ENROLL_CODE:
+                print("• Token rejected (401) — re-enrolling with the portal…")
+                if enroll():
+                    return preflight(_allow_reenroll=False)
             print("✗ The portal REJECTED this runner's token (HTTP 401).")
             print("  → RUNNER_TOKEN doesn't match a machine on the portal. Recreate the machine")
-            print("    on the Machines page and copy the new token, or fix RUNNER_TOKEN.")
+            print("    on the Machines page and copy the new token, or set RUNNER_ENROLL_CODE")
+            print("    (portal → Runners → enrollment code) so it can self-enroll.")
         else:
             print(f"✗ The portal is reachable but returned HTTP {e.code}. It may be waking up — retrying shortly.")
         return False
@@ -2564,8 +2659,16 @@ def ensure_tool_path():
 
 def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
+    # No token yet but we have an enrollment code → self-register for one. This is
+    # how a fresh machine comes online without a token ever being hand-pasted.
+    if PORTAL_URL and not RUNNER_TOKEN and ENROLL_CODE:
+        print("No runner token yet — enrolling with the portal…")
+        enroll()
     if not PORTAL_URL or not RUNNER_TOKEN:
-        sys.exit("Set PORTAL_URL and RUNNER_TOKEN environment variables first.")
+        if PORTAL_URL and ENROLL_CODE:
+            sys.exit("Enrollment produced no token. Check the enrollment code on the "
+                     "portal (Runners) — it may be expired, revoked, or at its use limit.")
+        sys.exit("Set PORTAL_URL and RUNNER_TOKEN (or RUNNER_ENROLL_CODE) first.")
     # Repair PATH before anything probes for tools, so a service/cron launch finds
     # the same tools an interactive shell would.
     ensure_tool_path()
