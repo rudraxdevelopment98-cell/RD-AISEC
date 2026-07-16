@@ -216,9 +216,8 @@ export default async function RunnersPage({
               <code className="font-mono">pip install</code> (Python 3 stdlib only).
             </p>
             <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`# looks like this (the card fills in your code + portal URL):
-RUNNER_ENROLL_CODE=rde_… PORTAL_URL=https://rd-aisec.vercel.app \\
-  sudo -E bash install-runner.sh`}
+{`# one line (the card fills in your code + portal URL):
+rm -rf rd-aisec && git clone --depth 1 https://github.com/rudraxdevelopment98-cell/rd-aisec.git && cd rd-aisec/runner && RUNNER_ENROLL_CODE=rde_… PORTAL_URL=https://rd-aisec.vercel.app bash install-runner.sh`}
             </pre>
           </div>
 
