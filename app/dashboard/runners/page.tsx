@@ -319,8 +319,15 @@ rm -rf rd-aisec && git clone --depth 1 https://github.com/rudraxdevelopment98-ce
       {runners.length > 0 && (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {runners.map((r) => {
-            const online =
-              r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
+            const lastSeenMs = r.lastSeenAt
+              ? now - new Date(r.lastSeenAt).getTime()
+              : Infinity;
+            const online = lastSeenMs < RUNNER_ONLINE_WINDOW_MS;
+            // Seen very recently but just outside the window → a transient blip
+            // (a missed heartbeat / brief DB hiccup), not a dead machine. Show
+            // "reconnecting" instead of a stark offline so a healthy box that
+            // skipped one beat doesn't look gone.
+            const reconnecting = !online && lastSeenMs < RUNNER_ONLINE_WINDOW_MS * 4;
             const installedSet = new Set(
               (r.installed ?? "").split(",").map((s) => s.trim()).filter(Boolean),
             );
@@ -347,12 +354,25 @@ rm -rf rd-aisec && git clone --depth 1 https://github.com/rudraxdevelopment98-ce
                     )}
                   </div>
                   <span
-                    className={`tag shrink-0 ${online ? "ring-emerald accent-emerald" : "border-gray-500/40 text-gray-400"}`}
+                    className={`tag shrink-0 ${
+                      online
+                        ? "ring-emerald accent-emerald"
+                        : reconnecting
+                          ? "border-amber-500/40 text-amber-400"
+                          : "border-gray-500/40 text-gray-400"
+                    }`}
+                    title={
+                      r.lastSeenAt
+                        ? `Last heartbeat ${ago(r.lastSeenAt, now)}`
+                        : "Never connected"
+                    }
                   >
                     <span
-                      className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-gray-500"}`}
+                      className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${
+                        online ? "bg-emerald-400" : reconnecting ? "bg-amber-400" : "bg-gray-500"
+                      }`}
                     />
-                    {online ? "online" : "offline"}
+                    {online ? "online" : reconnecting ? "reconnecting" : "offline"}
                   </span>
                 </div>
 

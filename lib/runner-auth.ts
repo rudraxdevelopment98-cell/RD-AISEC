@@ -9,6 +9,26 @@ export function hashToken(token: string): string {
 }
 
 /**
+ * Stamp a runner update, retrying a couple of times on a transient DB blip. The
+ * heartbeat's lastSeenAt write is what keeps a machine "online"; on Vercel+Neon a
+ * single pooled-connection hiccup (or a free-tier cold start) used to silently
+ * drop that write — the runner still got its 204 and thought it was fine, while
+ * the portal flipped it offline for no visible reason. A short retry absorbs those
+ * blips so a healthy machine stops flapping. Never throws.
+ */
+async function stampRunner(id: string, data: Record<string, unknown>): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await prisma.runner.update({ where: { id }, data });
+      return true;
+    } catch {
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 120 * (attempt + 1)));
+    }
+  }
+  return false;
+}
+
+/**
  * Read "Authorization: Bearer <token>" from the request, resolve the runner,
  * and stamp lastSeenAt. Returns the runner or null if the token is missing/bad.
  */
@@ -43,12 +63,11 @@ export async function authenticateRunner(req: Request, opts?: { light?: boolean 
   // contends with job-result writes and can time out — never flaps "offline". The
   // full machine stats ride on the job-poll and result requests instead.
   if (opts?.light) {
-    await prisma.runner
-      .update({
-        where: { id: runner.id },
-        data: { lastSeenAt: new Date(), ...(version ? { version } : {}), ...maintData },
-      })
-      .catch(() => {});
+    await stampRunner(runner.id, {
+      lastSeenAt: new Date(),
+      ...(version ? { version } : {}),
+      ...maintData,
+    });
     return runner;
   }
 
@@ -139,6 +158,11 @@ export async function authenticateRunner(req: Request, opts?: { light?: boolean 
         ...(charging !== undefined ? { charging } : {}),
       },
     })
-    .catch(() => {});
+    .catch(async () => {
+      // The heavy ~20-field stats write can contend/time out under load or a Neon
+      // blip. If it fails, still keep the machine ONLINE with a minimal lastSeenAt
+      // stamp — a slow stats write must never be what flips a healthy box offline.
+      await stampRunner(runner.id, { lastSeenAt: new Date() });
+    });
   return runner;
 }
