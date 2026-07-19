@@ -2092,7 +2092,7 @@ def ensure_installed(tool):
         print(f"  ⬇ '{tool}' not installed — auto-installing ({pkg})…")
         subprocess.run(
             sudo + ["apt-get", "install", "-y", pkg],
-            stdin=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT,
+            input=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT,
         )
         if shutil.which(bin_name):
             return f"[runner] auto-installed missing tool '{tool}'.\n\n"
@@ -2175,7 +2175,7 @@ def resolve_wordlist(argv):
                     sudo, stdin_in = _sudo_prefix()
                     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
                     subprocess.run(sudo + ["apt-get", "install", "-y", "dirb", "seclists"],
-                                   stdin=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT)
+                                   input=stdin_in, env=env, capture_output=True, text=True, timeout=INSTALL_TIMEOUT)
                 except Exception:  # noqa: BLE001
                     pass
                 chosen = next((p for p in WORDLIST_CANDIDATES if os.path.exists(p)), None)

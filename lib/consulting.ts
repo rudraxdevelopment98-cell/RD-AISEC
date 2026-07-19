@@ -48,16 +48,27 @@ export async function setControl(formData: FormData): Promise<void> {
     ? String(formData.get("status"))
     : undefined;
   const maturity = Math.max(0, Math.min(5, parseInt(String(formData.get("maturity") ?? ""), 10) || 0));
-  await prisma.controlResult.update({
-    where: { id },
-    data: {
-      ...(status ? { status } : {}),
-      maturity,
-      notes: String(formData.get("notes") ?? ""),
-      recommendation: String(formData.get("recommendation") ?? ""),
-    },
-  }).catch(() => {});
+  // Surface a real save failure instead of silently redirecting as success — the
+  // engagement page renders ?error=. (redirect() throws internally, so it must run
+  // outside the try/catch.)
+  let saveFailed = false;
+  try {
+    await prisma.controlResult.update({
+      where: { id },
+      data: {
+        ...(status ? { status } : {}),
+        maturity,
+        notes: String(formData.get("notes") ?? ""),
+        recommendation: String(formData.get("recommendation") ?? ""),
+      },
+    });
+  } catch {
+    saveFailed = true;
+  }
   revalidatePath(engPath(engagementId));
+  if (saveFailed) {
+    redirect(`${engPath(engagementId)}?error=${encodeURIComponent("Couldn't save the control — please try again.")}#assessment`);
+  }
   redirect(`${engPath(engagementId)}#assessment`);
 }
 

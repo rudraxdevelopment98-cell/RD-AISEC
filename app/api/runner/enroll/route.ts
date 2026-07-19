@@ -36,9 +36,6 @@ export async function POST(req: Request) {
   if (ec.expiresAt.getTime() < Date.now()) {
     return NextResponse.json({ error: "Enrollment code has expired" }, { status: 401 });
   }
-  if (ec.usedCount >= ec.maxUses) {
-    return NextResponse.json({ error: "Enrollment code has reached its use limit" }, { status: 429 });
-  }
 
   const token = "rdr_" + randomBytes(24).toString("hex");
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -46,7 +43,9 @@ export async function POST(req: Request) {
   const name =
     String(body.name ?? "").trim().slice(0, 80) || ec.label || "Enrolled machine";
 
-  // Re-enroll of a known machine → rotate its token in place. New machine → create.
+  // Re-enroll of a known machine → rotate its token in place. This does NOT consume
+  // a use slot (a machine self-healing its token must not exhaust the code), and is
+  // not blocked by the use limit — it's an existing machine, not a new one.
   let runnerId: string | null = null;
   if (fingerprint) {
     const existing = await prisma.runner.findFirst({
@@ -55,21 +54,27 @@ export async function POST(req: Request) {
     });
     if (existing) {
       await prisma.runner.update({ where: { id: existing.id }, data: { tokenHash, name } });
+      await prisma.enrollCode.update({ where: { id: ec.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
       runnerId = existing.id;
     }
   }
   if (!runnerId) {
+    // New machine → atomically claim a use slot. The guarded updateMany makes the
+    // limit check + increment a single write, so two concurrent enrolls of a
+    // maxUses:1 code can't both pass (TOCTOU).
+    const claimed = await prisma.enrollCode.updateMany({
+      where: { id: ec.id, revoked: false, usedCount: { lt: ec.maxUses }, expiresAt: { gt: new Date() } },
+      data: { usedCount: { increment: 1 }, lastUsedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      return NextResponse.json({ error: "Enrollment code has reached its use limit" }, { status: 429 });
+    }
     const created = await prisma.runner.create({
       data: { name, tokenHash, ownerEmail: ec.ownerEmail, fingerprint },
       select: { id: true },
     });
     runnerId = created.id;
   }
-
-  await prisma.enrollCode.update({
-    where: { id: ec.id },
-    data: { usedCount: { increment: 1 }, lastUsedAt: new Date() },
-  });
   await logAudit({
     type: "runner.enroll",
     actor: ec.ownerEmail,

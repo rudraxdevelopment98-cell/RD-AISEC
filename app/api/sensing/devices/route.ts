@@ -53,9 +53,11 @@ export async function GET(req: Request) {
 
   const job = await prisma.job.findUnique({
     where: { id },
-    select: { status: true, output: true, tool: true },
+    select: { status: true, output: true, tool: true, queuedBy: true },
   });
-  if (!job || job.tool !== "nmap") return NextResponse.json({ error: "Not found." }, { status: 404 });
+  // Owner check: only the user who queued this scan may read its LAN device list.
+  if (!job || job.tool !== "nmap" || job.queuedBy !== session.user.email)
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   if (job.status === "done") {
     const devices = parseDevices(job.output ?? "");

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { execSync } from "child_process";
 import { promises as dns } from "dns";
 import { createConnection } from "net";
 
@@ -23,6 +22,17 @@ function extractDomain(target: string): string {
     // assume it's already a domain or IP
     return target.split("/")[0];
   }
+}
+
+/**
+ * A hostname/IP reduced to only valid host characters. Returns "" if the input
+ * isn't a clean host — used to keep untrusted targets out of any outbound request
+ * (and, historically, out of a shell). Rejects shell metacharacters, whitespace,
+ * schemes, paths, and anything that isn't a bare host label.
+ */
+function sanitizeHost(h: string): string {
+  const s = (h || "").trim().toLowerCase();
+  return /^[a-z0-9.-]{1,253}$/.test(s) && !s.includes("..") ? s : "";
 }
 
 /**
@@ -258,12 +268,23 @@ export async function osintGathering(target: string): Promise<ReconResult> {
   const domain = extractDomain(target);
   const osintData: Record<string, unknown> = {};
 
-  // Try crt.sh (SSL certificate transparency) via curl
-  try {
-    const curlCmd = `curl -s "https://crt.sh/?q=${domain}&output=json" | jq length 2>/dev/null || echo "0"`;
-    const result = execSync(curlCmd).toString().trim();
-    osintData.certCount = parseInt(result) || 0;
-  } catch {
+  // crt.sh (certificate transparency) via a plain HTTPS fetch — NO shell, so a
+  // malicious target string cannot inject commands (this path was previously an
+  // execSync of `curl … | jq`, which was a command-injection sink). The host is
+  // additionally validated to bare host characters as defence in depth.
+  const host = sanitizeHost(domain);
+  if (host) {
+    try {
+      const resp = await fetch(
+        `https://crt.sh/?q=${encodeURIComponent(host)}&output=json`,
+        { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "rd-aisec-recon" } },
+      );
+      const rows = resp.ok ? await resp.json() : null;
+      osintData.certCount = Array.isArray(rows) ? rows.length : 0;
+    } catch {
+      osintData.certCount = "unavailable";
+    }
+  } else {
     osintData.certCount = "unavailable";
   }
 
