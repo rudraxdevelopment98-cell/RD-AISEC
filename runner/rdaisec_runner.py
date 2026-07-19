@@ -804,6 +804,9 @@ def post_with_retry(path: str, body, what: str) -> bool:
             request("POST", path, body, timeout=60)
             return True
         except Exception as e:  # noqa: BLE001
+            if attempt == 3:  # last try — don't sleep before giving up
+                print(f"  posting {what} failed (try 4/4): {e}")
+                break
             wait = 2 ** attempt
             print(f"  posting {what} failed (try {attempt + 1}/4): {e} — retrying in {wait}s")
             time.sleep(wait)

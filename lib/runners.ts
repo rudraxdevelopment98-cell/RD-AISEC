@@ -14,6 +14,7 @@ import {
   installableTools,
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
+import { parseScopeTargets } from "@/lib/bugbounty-core";
 import { parseJobFindings } from "@/lib/job-parser";
 import { gateFindings } from "@/lib/finding-gate";
 import { loadRules, recordSuppressions } from "@/lib/suppression";
@@ -284,7 +285,7 @@ export async function restartRunner(formData: FormData) {
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await prisma.runner.update({ where: { id }, data: { restartRequested: true } }).catch(() => {});
+    await prisma.runner.update({ where: { id }, data: { restartRequested: true } });
   }
   revalidatePath(`/dashboard/runners/${id}`);
   redirect(
@@ -300,7 +301,7 @@ export async function setRunnerWorkers(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const n = Math.min(16, Math.max(1, parseInt(String(formData.get("workers") ?? ""), 10) || 1));
   if (id) {
-    await prisma.runner.update({ where: { id }, data: { maxWorkers: n } }).catch(() => {});
+    await prisma.runner.update({ where: { id }, data: { maxWorkers: n } });
   }
   revalidatePath("/dashboard/runners");
 }
@@ -321,16 +322,14 @@ export async function setRunnerMaintenance(formData: FormData) {
   };
   const back = String(formData.get("back") ?? "/dashboard/runners");
   if (id) {
-    await prisma.runner
-      .update({
-        where: { id },
-        data: {
-          maintEnabled: enabled,
-          maintStartHour: hour("startHour", 6),
-          maintEndHour: hour("endHour", 8),
-        },
-      })
-      .catch(() => {});
+    await prisma.runner.update({
+      where: { id },
+      data: {
+        maintEnabled: enabled,
+        maintStartHour: hour("startHour", 6),
+        maintEndHour: hour("endHour", 8),
+      },
+    });
   }
   revalidatePath("/dashboard/runners");
   revalidatePath(back);
@@ -345,7 +344,7 @@ export async function renameRunner(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   const back = String(formData.get("back") ?? "/dashboard/runners");
   if (id && name) {
-    await prisma.runner.update({ where: { id }, data: { name } }).catch(() => {});
+    await prisma.runner.update({ where: { id }, data: { name } });
   }
   revalidatePath("/dashboard/runners");
   revalidatePath(back);
@@ -411,10 +410,14 @@ export async function queueJob(formData: FormData) {
     );
   }
 
-  // Soft scope gate: if a scope is recorded, the target host must appear in it.
-  const scope = (engagement!.scope ?? "").toLowerCase();
+  // Scope gate: if a scope is recorded, the target host must match an in-scope
+  // entry exactly OR be a subdomain of one (a host-boundary match, not a raw
+  // substring — so scope "notexample.com" no longer admits "example.com", and
+  // "ample.co" no longer sneaks in under "example.com").
+  const scopeHosts = parseScopeTargets(engagement!.scope ?? "").map((h) => h.toLowerCase());
   const host = targetHost(finalTarget);
-  if (scope.trim() && host && !scope.includes(host)) {
+  const inScope = scopeHosts.some((e) => host === e || host.endsWith("." + e));
+  if (scopeHosts.length > 0 && host && !inScope) {
     redirect(
       `${back}?error=${encodeURIComponent(
         `"${host}" is not in this engagement's scope. Add it to the scope first.`,

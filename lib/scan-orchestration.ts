@@ -230,26 +230,3 @@ export async function getScanResult(scanId: string) {
     result: JSON.parse(scan.result),
   };
 }
-
-/**
- * List all scans for an engagement.
- */
-export async function listEngagementScans(engagementId: string) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return [];
-  }
-
-  const engagement = await prisma.engagement.findUnique({
-    where: { id: engagementId },
-  });
-
-  if (!engagement || engagement.ownerEmail !== session.user.email) {
-    return [];
-  }
-
-  return await prisma.scanRun.findMany({
-    where: { engagementId },
-    orderBy: { createdAt: "desc" },
-  });
-}
