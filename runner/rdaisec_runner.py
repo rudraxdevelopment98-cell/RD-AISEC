@@ -58,7 +58,13 @@ import urllib.request
 # token is rotated/wiped (HTTP 401), it fetches a fresh one from /api/runner/enroll
 # and saves it — so token loss no longer means SSHing in to edit systemd. A stable
 # machine fingerprint lets a re-enroll reclaim the same runner row in place.
-RUNNER_VERSION = "58"
+#
+# v59 — live command stream (push). The runner holds one Server-Sent-Events
+# connection to /api/runner/stream: the portal pushes "wake" (queued work → claim
+# now, no 5s wait), "cancel", and "restart", and the open connection itself marks
+# the machine online (presence). Pure accelerator layered on the existing poll +
+# heartbeat — if the stream can't connect, everything works exactly as before.
+RUNNER_VERSION = "59"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -104,6 +110,12 @@ MAINT_LOCK = threading.Lock()
 MAX_WORKERS = max(1, int(os.environ.get("MAX_WORKERS", "3")))
 ACTIVE_WORKERS = 0
 WORKERS_LOCK = threading.Lock()
+
+# Set by the live command stream when the portal pushes a "wake" (there's queued
+# work). The main loop waits on this instead of a fixed sleep, so a job runs the
+# instant it's queued rather than up to POLL_SECONDS later. If the stream never
+# connects, the loop just falls back to its POLL_SECONDS tick — pure accelerator.
+WAKE = threading.Event()
 
 # True until our first successful job poll. While set, requests carry
 # X-Runner-Boot so the portal requeues any jobs left "running" under us by a
@@ -285,6 +297,10 @@ ENROLL_CODE = os.environ.get("RUNNER_ENROLL_CODE", "").strip()
 # also one of the config files _load_env_files reads at startup).
 TOKEN_STORE = os.path.expanduser("~/.config/rdaisec/runner.env")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
+# Read timeout for the live command stream. The endpoint keeps a connection ~25s
+# and pings every ~2.5s, so a stall longer than this means the link is dead →
+# reconnect. Longer than the stream's own lifetime so a healthy stream never trips it.
+STREAM_TIMEOUT = int(os.environ.get("STREAM_TIMEOUT", "40"))
 JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "900"))  # default per job
 # Per-tool timeout overrides (seconds). Thorough scanners (nmap -p-, full nuclei,
 # nikto, sqlmap) routinely need more than 15 min — without this they get killed
@@ -1115,6 +1131,71 @@ def heartbeat_loop():
                 print(f"✗ can't reach the portal — machine will show OFFLINE. ({e})")
             PING_FAILS += 1
         time.sleep(PING_SECONDS)
+
+
+def _handle_stream_event(event, data):
+    """React to one Server-Sent Event from the portal command stream."""
+    if event == "wake":
+        WAKE.set()                       # queued work — poll now, don't wait
+    elif event == "restart":
+        restart_self()                   # does not return
+    elif event == "cancel":
+        try:
+            check_cancellations()        # kill any portal-canceled jobs
+        except Exception:  # noqa: BLE001
+            pass
+        WAKE.set()
+    # "hello" / "ping": presence is handled server-side; nothing to do.
+
+
+def stream_loop():
+    """Hold a live Server-Sent Events connection to the portal (the PUSH half of
+    the channel). While it's open the portal both marks this machine online
+    (presence) and pushes commands — 'wake' (claim queued work now), 'cancel',
+    'restart'. This makes job pickup instant instead of waiting for the poll tick.
+
+    Pure accelerator + presence: if the stream can't connect (older portal, a
+    proxy that strips SSE), this loop just keeps retrying while the normal poll +
+    heartbeat carry on unchanged. Never dies. Stdlib only — we iterate the response
+    line by line as bytes arrive."""
+    backoff = 2
+    while True:
+        try:
+            resp = request("GET", "/api/runner/stream", timeout=STREAM_TIMEOUT)
+            backoff = 2  # connected — reset backoff
+            event = None
+            for raw in resp:  # HTTPResponse yields lines as they arrive
+                try:
+                    line = raw.decode("utf-8", "replace").rstrip("\r\n")
+                except Exception:  # noqa: BLE001
+                    continue
+                if line.startswith("event:"):
+                    event = line[6:].strip()
+                elif line.startswith("data:"):
+                    payload = line[5:].strip()
+                    try:
+                        data = json.loads(payload) if payload else {}
+                    except Exception:  # noqa: BLE001
+                        data = {}
+                    _handle_stream_event(event, data)
+                    event = None
+                elif line == "":
+                    event = None
+            # Clean end-of-stream (the endpoint closes after ~25s) → reconnect now.
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                # Token/enrollment problem — the poll/heartbeat path reports it
+                # clearly; back off here so we don't spin.
+                time.sleep(30)
+            elif e.code == 404:
+                # Portal doesn't have the stream yet — fall back quietly to poll.
+                time.sleep(60)
+            else:
+                time.sleep(backoff)
+                backoff = min(30, backoff * 2)
+        except Exception:  # noqa: BLE001 — stream must never kill the runner
+            time.sleep(backoff)
+            backoff = min(30, backoff * 2)
 
 
 # Nuclei templates must be present (and current) for nuclei to find anything.
@@ -2728,6 +2809,10 @@ def main():
     hb = threading.Thread(target=heartbeat_loop, daemon=True)
     hb.start()
 
+    # Live command stream (SSE): instant job wake-ups + connection-based presence.
+    # Pure accelerator — if it can't connect, the poll + heartbeat above carry on.
+    threading.Thread(target=stream_loop, daemon=True).start()
+
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()
     threading.Thread(target=threat_intel_loop, daemon=True).start()
@@ -2811,7 +2896,11 @@ def main():
                     last_update_check = time.monotonic()
                     maybe_self_update()  # re-execs if a newer version is available
 
-            time.sleep(POLL_SECONDS)
+            # Wait up to POLL_SECONDS, but wake IMMEDIATELY if the live stream
+            # pushed a "wake" (queued work) — instant job pickup when streaming,
+            # graceful POLL_SECONDS fallback when it isn't.
+            WAKE.wait(POLL_SECONDS)
+            WAKE.clear()
         except Exception as e:  # noqa: BLE001 — the main loop must NEVER die
             print(f"  main loop error (continuing): {e}")
             time.sleep(POLL_SECONDS)
