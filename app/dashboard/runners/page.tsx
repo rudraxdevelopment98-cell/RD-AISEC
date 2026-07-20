@@ -210,14 +210,15 @@ export default async function RunnersPage({
             <p className="font-semibold text-white">2. Run that one command on Kali</p>
             <p className="text-gray-400">
               Paste it into a terminal on your machine (UTM/Parallels VM, a laptop,
-              bare metal, or a cloud box). It clones the runner, installs it as a
-              service that starts on boot, and enrolls it. The runner makes only{" "}
-              <strong>outbound HTTPS</strong> calls — no ports to open, nothing to{" "}
-              <code className="font-mono">pip install</code> (Python 3 stdlib only).
+              bare metal, or a cloud box). It downloads the runner, installs it as a
+              service that starts on boot, and enrolls it — no git, no repo, no
+              config. The runner makes only <strong>outbound HTTPS</strong> calls —
+              no ports to open, nothing to <code className="font-mono">pip install</code>{" "}
+              (Python 3 stdlib only).
             </p>
             <pre className="mt-1 overflow-x-auto rounded-lg border border-surface-border bg-black/50 p-3 font-mono text-xs text-gray-300">
-{`# one line (the card fills in your code + portal URL):
-rm -rf rd-aisec && git clone --depth 1 https://github.com/rudraxdevelopment98-cell/rd-aisec.git && cd rd-aisec/runner && RUNNER_ENROLL_CODE=rde_… PORTAL_URL=https://rd-aisec.vercel.app bash install-runner.sh`}
+{`# one command — the card fills in your code:
+curl -fsSL "https://rd-aisec.vercel.app/api/runner/bootstrap?code=rde_…" | sudo bash`}
             </pre>
           </div>
 

@@ -42,12 +42,12 @@ export function EnrollCodeForm() {
   // One command installs the runner as a self-healing service: it self-enrolls for
   // a token, saves it, and re-enrolls automatically if the token is ever rotated —
   // no editing systemd, ever.
-  // ONE line on purpose — multi-line commands with backslash-continuations get
-  // mangled when copied through chat apps / paste, so we keep it a single robust
-  // chain: clean any old clone, shallow-clone, then run the installer with the
-  // enrollment code passed straight through sudo (no token needed).
+  // One command, nothing else. The portal serves a self-contained installer with
+  // the code baked in — no git, no repo, no env vars, no multi-line paste. `sudo`
+  // is needed to install the service; sudo reads its password from the terminal
+  // (/dev/tty), so this works even when piped from curl.
   const cmd = state.code
-    ? `rm -rf rd-aisec && git clone --depth 1 https://github.com/rudraxdevelopment98-cell/rd-aisec.git && cd rd-aisec/runner && RUNNER_ENROLL_CODE=${state.code} PORTAL_URL=${origin} bash install-runner.sh`
+    ? `curl -fsSL "${origin}/api/runner/bootstrap?code=${state.code}" | sudo bash`
     : "";
 
   const expires = state.expiresAt ? new Date(state.expiresAt).toLocaleDateString() : "";
