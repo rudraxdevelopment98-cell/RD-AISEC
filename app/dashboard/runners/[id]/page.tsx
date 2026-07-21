@@ -6,6 +6,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { MachineConsole } from "@/components/machine-console";
+import { MachineControlPanel } from "@/components/machine-control-panel";
+import { unlockFullControl, lockFullControl } from "@/lib/control";
 import { MachineStats } from "@/components/machine-stats";
 import { MaintenanceIndicator } from "@/components/maintenance-indicator";
 import { turboWorkers } from "@/lib/stats-format";
@@ -58,6 +60,7 @@ export default async function MachinePage({
 
   const now = Date.now();
   const online = !!r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
+  const unlocked = !!r.fullControlUntil && new Date(r.fullControlUntil).getTime() > now;
   const installedSet = new Set(
     (r.installed ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   );
@@ -409,6 +412,46 @@ export default async function MachinePage({
       </p>
       <div className="card mt-3">
         <MachineConsole runnerId={r.id} online={online} />
+      </div>
+
+      {/* ── Full control (interactive terminal / files / services / install) ── */}
+      <h2 className="mt-8 flex items-center gap-2 text-lg font-semibold">
+        <Icon name="server" className="h-4 w-4 text-brand" /> Full control
+        {unlocked ? (
+          <span className="tag ring-emerald accent-emerald text-xs">unlocked</span>
+        ) : (
+          <span className="tag border-gray-500/40 text-xs text-gray-400">🔒 locked</span>
+        )}
+      </h2>
+      <p className="mt-1 text-sm text-gray-400">
+        A live terminal to this machine — plus files, processes, services, and
+        install-anything. This is remote code execution, so it&apos;s time-boxed:
+        unlock it, and it auto-locks after {""}
+        {unlocked ? "the window ends" : "45 minutes"}.
+      </p>
+      <div className="card mt-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {unlocked ? (
+            <>
+              <span className="text-xs text-emerald-400">
+                Unlocked{r.fullControlBy ? ` by ${r.fullControlBy}` : ""} · expires{" "}
+                {r.fullControlUntil ? new Date(r.fullControlUntil).toLocaleTimeString() : ""}
+              </span>
+              <form action={lockFullControl}>
+                <input type="hidden" name="runnerId" value={r.id} />
+                <button className="btn-ghost px-2 py-1 text-xs text-sev-crit">Lock now</button>
+              </form>
+            </>
+          ) : (
+            <form action={unlockFullControl}>
+              <input type="hidden" name="runnerId" value={r.id} />
+              <button className="btn-primary text-xs" disabled={!online} title={online ? "" : "Machine is offline"}>
+                Unlock full control (45 min)
+              </button>
+            </form>
+          )}
+        </div>
+        <MachineControlPanel runnerId={r.id} unlocked={unlocked} />
       </div>
 
       {/* ── Tools ────────────────────────────────────────── */}
