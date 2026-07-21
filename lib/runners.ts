@@ -14,6 +14,7 @@ import {
   installableTools,
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
+import { hashToken } from "@/lib/runner-auth";
 import { parseScopeTargets } from "@/lib/bugbounty-core";
 import { parseJobFindings } from "@/lib/job-parser";
 import { gateFindings } from "@/lib/finding-gate";
@@ -23,11 +24,6 @@ import { dedupFindings } from "@/lib/dedup-core";
 import { logAudit } from "@/lib/audit";
 import { tagFindings } from "@/lib/finding-map";
 import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
-
-/** Hash a runner token for storage/lookup (never store the plaintext). */
-export async function hashToken(token: string): Promise<string> {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 /** Pull the host out of a target so we can check it against engagement scope. */
 function targetHost(target: string): string {
@@ -58,7 +54,7 @@ export async function createRunner(
   await prisma.runner.create({
     data: {
       name,
-      tokenHash: await hashToken(token),
+      tokenHash: hashToken(token),
       ownerEmail: session.user.email ?? "",
     },
   });

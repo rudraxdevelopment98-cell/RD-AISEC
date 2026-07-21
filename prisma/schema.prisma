@@ -305,29 +305,9 @@ model Job {
   createdAt    DateTime   @default(now())
   startedAt    DateTime?
   finishedAt   DateTime?
-  taskEvents   TaskEvent[]
 
   // Serves the runner's claim query (per runner, queued, by priority then age).
   @@index([runnerId, status, priority(sort: Desc), createdAt])
-}
-
-// Realtime bus (Runner v2) — a durable, append-only event log for a job's
-// task-graph run. Vercel functions are stateless and can't hold a WebSocket, so
-// the "bus" is this table: the runner APPENDS step events as they happen, and the
-// UI long-polls for rows after a cursor (`seq`). Survives across regions/function
-// invocations, and doubles as the per-run audit trail. Cascades with its Job.
-model TaskEvent {
-  seq       Int      @id @default(autoincrement()) // monotonic cursor for live tail
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  jobId     String
-  // progress | step | status | log — what kind of event this is.
-  kind      String   @default("progress")
-  step      String   @default("") // task-graph step id this event belongs to
-  status    String   @default("") // running | done | error | refused | skipped
-  message   String   @default("") // human line (already truncated by the writer)
-  createdAt DateTime @default(now())
-
-  @@index([jobId, seq])
 }
 
 // A single issue discovered during an engagement.
