@@ -50,6 +50,21 @@ export async function GET(req: Request) {
       let tick = 0;
       let lastWake = 0;
 
+      // Control input cursor. The runner passes ?controlAfter=<last seq it applied>
+      // so a reconnect never replays keystrokes it already ran. Absent (older
+      // runner) → start at the current tip so we never flood with history.
+      let controlCursor = Number(new URL(req.url).searchParams.get("controlAfter") ?? -1);
+      if (!Number.isFinite(controlCursor) || controlCursor < 0) {
+        const last = await prisma.controlMessage
+          .findFirst({
+            where: { dir: "in", session: { runnerId } },
+            orderBy: { seq: "desc" },
+            select: { seq: true },
+          })
+          .catch(() => null);
+        controlCursor = last?.seq ?? 0;
+      }
+
       try {
         while (!closed && Date.now() - started < STREAM_MS) {
           tick++;
@@ -106,8 +121,30 @@ export async function GET(req: Request) {
             .catch(() => [] as { id: string }[]);
           if (canceled.length) send("cancel", { ids: canceled.map((c) => c.id) });
 
+          // Deliver pending control input (PTY keystrokes, resize, file/proc/svc/
+          // install commands) for this runner's sessions, in seq order.
+          const inMsgs = await prisma.controlMessage
+            .findMany({
+              where: { dir: "in", seq: { gt: controlCursor }, session: { runnerId } },
+              orderBy: { seq: "asc" },
+              take: 200,
+            })
+            .catch(() => [] as { seq: number; sessionId: string; kind: string; data: string }[]);
+          for (const m of inMsgs) {
+            send("control", { sessionId: m.sessionId, seq: m.seq, kind: m.kind, data: m.data });
+            controlCursor = m.seq;
+          }
+
+          // Adaptive cadence: while a control session is live, tick fast (~250ms)
+          // so typing feels responsive; otherwise stay cheap (2.5s) on Neon.
+          const openSess =
+            inMsgs.length > 0 ||
+            !!(await prisma.controlSession
+              .findFirst({ where: { runnerId, status: { in: ["opening", "open"] } }, select: { id: true } })
+              .catch(() => null));
+
           send("ping", { t: Date.now(), tick });
-          await new Promise((res) => setTimeout(res, TICK_MS));
+          await new Promise((res) => setTimeout(res, openSess ? 250 : TICK_MS));
         }
       } catch {
         // client disconnected or a write failed — fall through to close

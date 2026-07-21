@@ -245,10 +245,54 @@ model Runner {
   tempC      Int?      // last reported CPU temperature °C
   loadAvg    String    @default("") // reported "1m 5m 15m" load averages
   createdAt  DateTime  @default(now())
+  // Full-control (interactive terminal / files / services / install-anything) is
+  // remote code execution, so it's gated behind a time-boxed, owner-granted unlock
+  // window. Null/past = locked; the runner refuses control actions unless unlocked.
+  fullControlUntil DateTime?
+  fullControlBy    String    @default("") // who last unlocked it
   jobs       Job[]
   installs   Install[]
+  controlSessions ControlSession[]
 
   @@index([fingerprint])
+}
+
+// One interactive control session on a machine: a PTY terminal, a file transfer, a
+// process/service query, or an ad-hoc install. Bytes flow as ControlMessage rows
+// over the unified stream (down) + control POST (up). Cascades with its Runner.
+model ControlSession {
+  id             String   @id @default(cuid())
+  runner         Runner   @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  runnerId       String
+  ownerEmail     String                        // who opened it
+  kind           String   @default("pty")      // pty | file | proc | service | install
+  status         String   @default("opening")  // opening | open | closed | error
+  cols           Int      @default(80)
+  rows           Int      @default(24)
+  asRoot         Boolean  @default(false)       // opened rooted via machine-side sudo
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  closedAt       DateTime?
+  messages       ControlMessage[]
+
+  @@index([runnerId, status])
+}
+
+// One framed message in a control session. `seq` is a global monotonic cursor both
+// the runner and the browser tail independently, so a 25s SSE reconnect resumes
+// with no lost bytes (rows persist). `data` is base64 for PTY bytes, JSON for
+// control frames (resize/ls/proc/…). Cascades with its session.
+model ControlMessage {
+  seq       Int            @id @default(autoincrement())
+  session   ControlSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+  dir       String  // "in" = portal->runner ; "out" = runner->portal
+  kind      String  // data | resize | signal | open | close | exit | error
+                    //   | file-open | file-chunk | file-eof | ls | proc | svc | install
+  data      String  @default("")
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, dir, seq])
 }
 
 // A request to install a tool's package on a runner (authorized by the user).
