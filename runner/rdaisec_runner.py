@@ -20,16 +20,21 @@ For authorized security testing and education only.
 """
 
 import base64
+import fcntl
 import hashlib
 import json
 import ipaddress
 import os
+import pty
 import re
+import select
 import shlex
 import shutil
 import socket
+import struct
 import subprocess
 import sys
+import termios
 import threading
 import time
 import urllib.error
@@ -64,7 +69,12 @@ import urllib.request
 # now, no 5s wait), "cancel", and "restart", and the open connection itself marks
 # the machine online (presence). Pure accelerator layered on the existing poll +
 # heartbeat — if the stream can't connect, everything works exactly as before.
-RUNNER_VERSION = "59"
+#
+# v60 — full interactive control over the SAME stream. The portal (behind an
+# owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
+# list processes, control services, and install any package — delivered as
+# "control" frames on the stream and streamed back via /api/runner/control/msg.
+RUNNER_VERSION = "60"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1145,6 +1155,12 @@ def _handle_stream_event(event, data):
         except Exception:  # noqa: BLE001
             pass
         WAKE.set()
+    elif event == "control":
+        # Interactive control frame (PTY keystroke/resize, file/proc/svc/install).
+        try:
+            handle_control(data)
+        except Exception:  # noqa: BLE001 — one bad frame must not kill the stream
+            pass
     # "hello" / "ping": presence is handled server-side; nothing to do.
 
 
@@ -1161,7 +1177,10 @@ def stream_loop():
     backoff = 2
     while True:
         try:
-            resp = request("GET", "/api/runner/stream", timeout=STREAM_TIMEOUT)
+            # Pass the last control-input seq we applied so a reconnect never
+            # replays keystrokes we already ran.
+            resp = request("GET", f"/api/runner/stream?controlAfter={CONTROL_SEQ}",
+                           timeout=STREAM_TIMEOUT)
             backoff = 2  # connected — reset backoff
             event = None
             for raw in resp:  # HTTPResponse yields lines as they arrive
@@ -1196,6 +1215,277 @@ def stream_loop():
         except Exception:  # noqa: BLE001 — stream must never kill the runner
             time.sleep(backoff)
             backoff = min(30, backoff * 2)
+
+
+# ── Interactive control: PTY terminal, files, processes, services, install ───
+# The portal streams us "control" frames (dir=in); we run them and stream output
+# back via POST /api/runner/control/msg (dir=out). This is full remote control —
+# gated on the PORTAL side by an owner-granted, time-boxed unlock. Stdlib only.
+CONTROL_SEQ = 0                    # last control-input seq we've applied (sent as ?controlAfter)
+CONTROL_LOCK = threading.Lock()
+CONTROL_SESSIONS = {}             # sessionId -> {"fd","pid","alive"}
+UPLOAD_BUFS = {}                  # sessionId -> {"path", "chunks":[...]}
+MAX_PTY_SESSIONS = 4
+
+
+def _cjson(s):
+    """Parse a control-frame data payload (JSON string or dict) → dict."""
+    if isinstance(s, dict):
+        return s
+    try:
+        return json.loads(s) if s else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def control_post(session_id, messages):
+    """POST output frames for a session to the portal (best-effort)."""
+    if not messages:
+        return
+    try:
+        request("POST", "/api/runner/control/msg",
+                {"sessionId": session_id, "messages": messages}, timeout=15)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _control_out(session_id, kind, data=""):
+    control_post(session_id, [{"kind": kind, "data": data}])
+
+
+def _set_winsize(fd, rows, cols):
+    try:
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _pty_reader(session_id, master_fd):
+    """Stream PTY output back, coalescing ~40ms bursts so keystroke echoes don't
+    each become a request."""
+    while True:
+        try:
+            r, _, _ = select.select([master_fd], [], [], 0.3)
+            if master_fd not in r:
+                sess = CONTROL_SESSIONS.get(session_id)
+                if not sess or not sess.get("alive"):
+                    break
+                continue
+            chunk = os.read(master_fd, 65536)
+            if not chunk:
+                break
+            parts = [chunk]
+            deadline = time.monotonic() + 0.04
+            while time.monotonic() < deadline:
+                r2, _, _ = select.select([master_fd], [], [], 0.01)
+                if master_fd not in r2:
+                    break
+                more = os.read(master_fd, 65536)
+                if not more:
+                    break
+                parts.append(more)
+            _control_out(session_id, "data", base64.b64encode(b"".join(parts)).decode())
+        except (OSError, ValueError):
+            break
+        except Exception:  # noqa: BLE001
+            break
+    _pty_cleanup(session_id, notify=True)
+
+
+def _pty_open(session_id, cols, rows, as_root):
+    with CONTROL_LOCK:
+        if session_id in CONTROL_SESSIONS:
+            return  # already open
+        if sum(1 for s in CONTROL_SESSIONS.values() if s.get("alive")) >= MAX_PTY_SESSIONS:
+            _control_out(session_id, "error", "too many open terminals on this machine")
+            return
+    try:
+        pid, master_fd = pty.fork()
+    except Exception as e:  # noqa: BLE001
+        _control_out(session_id, "error", f"pty failed: {e}")
+        return
+    if pid == 0:  # child — becomes the shell
+        os.environ["TERM"] = "xterm-256color"
+        if as_root and os.geteuid() != 0:
+            os.execvp("sudo", ["sudo", "-S", "-i"])
+        else:
+            shell = os.environ.get("SHELL") or "/bin/bash"
+            try:
+                os.execvp(shell, [shell, "-il"])
+            except Exception:  # noqa: BLE001
+                os.execvp("/bin/sh", ["/bin/sh", "-i"])
+        os._exit(1)
+    # parent
+    _set_winsize(master_fd, rows, cols)
+    CONTROL_SESSIONS[session_id] = {"fd": master_fd, "pid": pid, "alive": True}
+    # Rooting via `sudo -S`: feed the machine-side password once (never leaves the box).
+    if as_root and os.geteuid() != 0:
+        sp = os.environ.get("RUNNER_SUDO_PASS", "")
+        if sp:
+            try:
+                os.write(master_fd, (sp + "\n").encode())
+            except Exception:  # noqa: BLE001
+                pass
+    _control_out(session_id, "open", "")
+    threading.Thread(target=_pty_reader, args=(session_id, master_fd), daemon=True).start()
+
+
+def _pty_write(session_id, data_b64):
+    sess = CONTROL_SESSIONS.get(session_id)
+    if not sess or not sess.get("alive"):
+        return
+    try:
+        os.write(sess["fd"], base64.b64decode(data_b64))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _pty_cleanup(session_id, notify=False):
+    sess = CONTROL_SESSIONS.pop(session_id, None)
+    UPLOAD_BUFS.pop(session_id, None)
+    if not sess:
+        return
+    sess["alive"] = False
+    code = None
+    try:
+        os.close(sess["fd"])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        _, status = os.waitpid(sess["pid"], os.WNOHANG)
+        code = os.WEXITSTATUS(status) if os.WIFEXITED(status) else None
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        os.kill(sess["pid"], 9)
+    except Exception:  # noqa: BLE001
+        pass
+    if notify:
+        _control_out(session_id, "exit", "" if code is None else str(code))
+
+
+def _do_proc(sid):
+    try:
+        p = subprocess.run(["ps", "-eo", "pid,ppid,user,pcpu,pmem,etime,comm", "--sort=-pcpu"],
+                           capture_output=True, text=True, timeout=15)
+        _control_out(sid, "proc", base64.b64encode((p.stdout or "").encode()).decode())
+    except Exception as e:  # noqa: BLE001
+        _control_out(sid, "error", str(e))
+
+
+def _do_ls(sid, path):
+    try:
+        path = path or os.path.expanduser("~")
+        entries = []
+        with os.scandir(path) as it:
+            for e in it:
+                try:
+                    st = e.stat(follow_symlinks=False)
+                    entries.append({"name": e.name, "dir": e.is_dir(), "size": st.st_size,
+                                    "mtime": int(st.st_mtime)})
+                except Exception:  # noqa: BLE001
+                    entries.append({"name": e.name, "dir": False})
+        entries.sort(key=lambda x: (not x["dir"], x["name"].lower()))
+        _control_out(sid, "ls", json.dumps({"path": os.path.abspath(path), "entries": entries[:3000]}))
+    except Exception as e:  # noqa: BLE001
+        _control_out(sid, "error", f"ls: {e}")
+
+
+def _do_download(sid, path):
+    try:
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(48000)
+                if not chunk:
+                    break
+                _control_out(sid, "file-chunk", base64.b64encode(chunk).decode())
+        _control_out(sid, "file-eof", os.path.basename(path))
+    except Exception as e:  # noqa: BLE001
+        _control_out(sid, "error", f"download: {e}")
+
+
+def _do_service(sid, action, unit):
+    if action not in ("start", "stop", "restart", "status") or not re.match(r"^[A-Za-z0-9_.@:-]+$", unit or ""):
+        _control_out(sid, "error", "bad service request")
+        return
+    sudo, stdin_in = _sudo_prefix()
+    try:
+        p = subprocess.run(sudo + ["systemctl", action, unit], input=stdin_in,
+                           capture_output=True, text=True, timeout=30)
+        _control_out(sid, "svc", base64.b64encode(((p.stdout or "") + (p.stderr or "")).encode()).decode())
+    except Exception as e:  # noqa: BLE001
+        _control_out(sid, "error", f"service: {e}")
+
+
+def _do_install_pkg(sid, pkg):
+    if not re.match(r"^[a-z0-9][a-z0-9+._-]*$", pkg or ""):
+        _control_out(sid, "error", "invalid package name")
+        return
+    sudo, stdin_in = _sudo_prefix()
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    try:
+        p = subprocess.run(sudo + ["apt-get", "install", "-y", pkg], input=stdin_in, env=env,
+                           capture_output=True, text=True, timeout=INSTALL_TIMEOUT)
+        _control_out(sid, "install", base64.b64encode(((p.stdout or "") + (p.stderr or "")).encode()).decode())
+    except Exception as e:  # noqa: BLE001
+        _control_out(sid, "error", f"install: {e}")
+
+
+def handle_control(frame):
+    """Apply one control frame from the portal (runs on the stream thread; spawns
+    a worker for anything that could block)."""
+    global CONTROL_SEQ
+    seq = frame.get("seq")
+    if isinstance(seq, int) and seq > CONTROL_SEQ:
+        CONTROL_SEQ = seq
+    sid = frame.get("sessionId") or ""
+    kind = frame.get("kind") or ""
+    data = frame.get("data", "")
+    if not sid:
+        return
+    if kind == "open":
+        d = _cjson(data)
+        _pty_open(sid, int(d.get("cols", 80)), int(d.get("rows", 24)), bool(d.get("asRoot")))
+    elif kind == "data":
+        _pty_write(sid, data)
+    elif kind == "resize":
+        d = _cjson(data)
+        sess = CONTROL_SESSIONS.get(sid)
+        if sess:
+            _set_winsize(sess["fd"], int(d.get("rows", 24)), int(d.get("cols", 80)))
+    elif kind == "signal":
+        _pty_write(sid, base64.b64encode(b"\x03").decode())  # Ctrl-C
+    elif kind == "close":
+        _pty_cleanup(sid, notify=True)
+    elif kind == "proc":
+        threading.Thread(target=_do_proc, args=(sid,), daemon=True).start()
+    elif kind == "ls":
+        threading.Thread(target=_do_ls, args=(sid, _cjson(data).get("path", "")), daemon=True).start()
+    elif kind == "download":
+        threading.Thread(target=_do_download, args=(sid, _cjson(data).get("path", "")), daemon=True).start()
+    elif kind == "svc":
+        d = _cjson(data)
+        threading.Thread(target=_do_service, args=(sid, d.get("action", ""), d.get("unit", "")), daemon=True).start()
+    elif kind == "install":
+        threading.Thread(target=_do_install_pkg, args=(sid, _cjson(data).get("pkg", "")), daemon=True).start()
+    elif kind == "file-open":          # upload: begin buffering
+        UPLOAD_BUFS[sid] = {"path": _cjson(data).get("path", ""), "chunks": []}
+    elif kind == "file-chunk":         # upload: append
+        buf = UPLOAD_BUFS.get(sid)
+        if buf is not None:
+            try:
+                buf["chunks"].append(base64.b64decode(data))
+            except Exception:  # noqa: BLE001
+                pass
+    elif kind == "file-eof":           # upload: flush to disk
+        buf = UPLOAD_BUFS.pop(sid, None)
+        if buf and buf.get("path"):
+            try:
+                with open(buf["path"], "wb") as f:
+                    f.write(b"".join(buf["chunks"]))
+                _control_out(sid, "file-eof", os.path.basename(buf["path"]))
+            except Exception as e:  # noqa: BLE001
+                _control_out(sid, "error", f"upload: {e}")
 
 
 # Nuclei templates must be present (and current) for nuclei to find anything.

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const MAX_BATCH = 100;
 const MAX_DATA = 32_768;
 const IN_KINDS = new Set([
-  "data", "resize", "signal", "close",
+  "data", "resize", "signal", "close", "download",
   "file-open", "file-chunk", "file-eof", "ls", "proc", "svc", "install",
 ]);
 

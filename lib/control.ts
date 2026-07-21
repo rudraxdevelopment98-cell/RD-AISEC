@@ -87,17 +87,22 @@ export async function openControlSession(opts: {
   if (PRIVILEGED_KINDS.has(kind) && !(await isUnlocked(opts.runnerId))) {
     throw new Error("Machine is locked. Unlock full control first.");
   }
+  const cols = Math.max(20, Math.min(500, opts.cols ?? 80));
+  const rows = Math.max(5, Math.min(200, opts.rows ?? 24));
+  const asRoot = !!opts.asRoot;
   const s = await prisma.controlSession.create({
-    data: {
-      runnerId: opts.runnerId,
-      ownerEmail: email,
-      kind,
-      cols: Math.max(20, Math.min(500, opts.cols ?? 80)),
-      rows: Math.max(5, Math.min(200, opts.rows ?? 24)),
-      asRoot: !!opts.asRoot,
-    },
+    data: { runnerId: opts.runnerId, ownerEmail: email, kind, cols, rows, asRoot },
     select: { id: true },
   });
+  // Seed the "open" frame so the runner spins up the PTY as soon as the stream
+  // delivers it — the browser doesn't need to send anything to start the terminal.
+  if (kind === "pty") {
+    await prisma.controlMessage
+      .create({
+        data: { sessionId: s.id, dir: "in", kind: "open", data: JSON.stringify({ cols, rows, asRoot }) },
+      })
+      .catch(() => {});
+  }
   await logAudit({
     type: "control.session.open",
     actor: email,
