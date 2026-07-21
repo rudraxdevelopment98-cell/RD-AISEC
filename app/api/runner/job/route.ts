@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { authenticateRunner } from "@/lib/runner-auth";
+import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { decryptSecret } from "@/lib/crypto";
 import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
@@ -23,6 +23,9 @@ export async function GET(req: Request) {
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
+  // The poll is the primary telemetry channel — record the full machine stats
+  // (and stamp lastSeenAt) here rather than as an auth side-effect.
+  await recordTelemetry(runner, req);
 
   // Tell the runner its desired anonymity + parallelism on every poll (idle or
   // not), so changing them in the portal takes effect without restarting it.

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { authenticateRunner } from "@/lib/runner-auth";
+import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
 import { tagFindings } from "@/lib/finding-map";
@@ -29,6 +29,7 @@ export async function POST(
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
+  await recordTelemetry(runner, req);
 
   let body: { output?: unknown; exitCode?: unknown; status?: unknown };
   try {

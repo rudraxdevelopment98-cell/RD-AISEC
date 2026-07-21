@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
-import { authenticateRunner } from "@/lib/runner-auth";
+import { authenticateRunner, touchPresence, recordTelemetry } from "@/lib/runner-auth";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Heartbeat. The runner pings this on a background thread so it stays "online"
- * even while it's busy executing a long job or install (when it isn't polling
- * for new work). authenticateRunner stamps lastSeenAt.
+ * Heartbeat + fallback presence. The runner pings this on a background thread so it
+ * stays "online" even while busy on a long job (when it isn't polling for work).
+ * A light lastSeenAt stamp by default; ?full=1 records the full machine stats too
+ * so the resource monitor stays fresh without a heavy write every beat.
  */
 export async function GET(req: Request) {
-  // Light auth by default: a cheap lastSeenAt-only write so the heartbeat keeps
-  // the machine "online" even under heavy load, when the full stats write would
-  // contend and time out. The heartbeat asks for a full stats write occasionally
-  // (?full=1) so the resource monitor stays fresh without a heavy write every beat.
   const full = new URL(req.url).searchParams.get("full") === "1";
-  const runner = await authenticateRunner(req, { light: !full });
+  const runner = await authenticateRunner(req);
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }
+  await (full ? recordTelemetry(runner, req) : touchPresence(runner, req));
   // Deliver a portal-requested restart once, then clear the flag.
   if (runner.restartRequested) {
     await prisma.runner

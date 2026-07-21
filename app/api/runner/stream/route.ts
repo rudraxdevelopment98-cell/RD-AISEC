@@ -26,7 +26,7 @@ const TICK_MS = 2_500;
  * wake), so this endpoint never races the claim logic — it only notifies.
  */
 export async function GET(req: Request) {
-  const runner = await authenticateRunner(req, { light: true });
+  const runner = await authenticateRunner(req);
   if (!runner) {
     return NextResponse.json({ error: "Invalid runner token" }, { status: 401 });
   }

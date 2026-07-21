@@ -28,49 +28,58 @@ async function stampRunner(id: string, data: Record<string, unknown>): Promise<b
   return false;
 }
 
+type Runner = NonNullable<Awaited<ReturnType<typeof prisma.runner.findUnique>>>;
+
 /**
- * Read "Authorization: Bearer <token>" from the request, resolve the runner,
- * and stamp lastSeenAt. Returns the runner or null if the token is missing/bad.
+ * Resolve "Authorization: Bearer <token>" to a Runner. READ-ONLY — this used to
+ * also do a ~20-column telemetry write on every request, which coupled auth to a
+ * heavy DB write and was the root cause of machines flapping "offline" when that
+ * write contended or hit a Neon blip. Presence and telemetry are now separate,
+ * explicit calls (touchPresence / recordTelemetry). Returns the runner or null.
  */
-export async function authenticateRunner(req: Request, opts?: { light?: boolean }) {
+export async function authenticateRunner(req: Request) {
   const header = req.headers.get("authorization") ?? "";
   const m = /^Bearer\s+(.+)$/i.exec(header.trim());
   if (!m) return null;
   const token = m[1].trim();
   if (!token) return null;
+  return prisma.runner.findUnique({ where: { tokenHash: hashToken(token) } });
+}
 
-  const runner = await prisma.runner.findUnique({
-    where: { tokenHash: hashToken(token) },
-  });
-  if (!runner) return null;
-
-  // Version + maintenance stage are cheap and worth keeping fresh on every request
-  // (including light heartbeat pings).
+/** Parse the cheap version + maintenance-stage headers into an update patch. */
+function versionMaintPatch(req: Request, runner: Runner): Record<string, unknown> {
   const version = (req.headers.get("x-runner-version") ?? "").slice(0, 20);
+  const patch: Record<string, unknown> = version ? { version } : {};
   const maint = parseMaintHeader(req.headers.get("x-runner-maint"));
-  const maintData: Record<string, unknown> = {};
   if (maint) {
-    maintData.maintStage = maint.stage;
-    maintData.maintNote = maint.note;
-    maintData.maintPct = maint.pct;
-    maintData.maintUpdatedAt = new Date();
+    patch.maintStage = maint.stage;
+    patch.maintNote = maint.note;
+    patch.maintPct = maint.pct;
+    patch.maintUpdatedAt = new Date();
     const wasActive = isActiveStage((runner.maintStage as never) ?? "idle");
-    if (isActiveStage(maint.stage) && !wasActive) maintData.maintStartedAt = new Date();
+    if (isActiveStage(maint.stage) && !wasActive) patch.maintStartedAt = new Date();
   }
+  return patch;
+}
 
-  // LIGHT heartbeat path: a minimal write (lastSeenAt only, plus the cheap
-  // version/maintenance) so a busy machine — where the full ~20-field stats write
-  // contends with job-result writes and can time out — never flaps "offline". The
-  // full machine stats ride on the job-poll and result requests instead.
-  if (opts?.light) {
-    await stampRunner(runner.id, {
-      lastSeenAt: new Date(),
-      ...(version ? { version } : {}),
-      ...maintData,
-    });
-    return runner;
-  }
+/**
+ * LIGHT presence stamp — lastSeenAt (+ cheap version/maint). This is what keeps a
+ * machine "online" while it's busy on a long job (via the heartbeat ping) and at
+ * the head of the SSE stream. Retried against transient Neon blips; never throws.
+ */
+export async function touchPresence(runner: Runner, req: Request): Promise<void> {
+  await stampRunner(runner.id, { lastSeenAt: new Date(), ...versionMaintPatch(req, runner) });
+}
 
+/**
+ * FULL telemetry write — lastSeenAt + the ~20 machine-stat columns from X-Runner-*
+ * headers. Called explicitly by the endpoints that actually carry telemetry (the
+ * job poll, the job result, and ping?full=1), NOT on every authenticated request.
+ * Best-effort: on a heavy-write failure it still stamps a minimal lastSeenAt so a
+ * slow stats write can never flip a healthy machine offline.
+ */
+export async function recordTelemetry(runner: Runner, req: Request): Promise<void> {
+  const maintData = versionMaintPatch(req, runner);
   // The runner reports its loaded-tool count via headers on each poll.
   const toolsHeader = req.headers.get("x-runner-tools") ?? "";
   const toolCount = toolsHeader
@@ -128,7 +137,6 @@ export async function authenticateRunner(req: Request, opts?: { light?: boolean 
       data: {
         lastSeenAt: new Date(),
         ...maintData,
-        ...(version ? { version } : {}),
         toolCount,
         ...(runner.anonymity ? { exitIp } : {}),
         ...(anonStatus ? { anonStatus } : {}),
@@ -164,5 +172,4 @@ export async function authenticateRunner(req: Request, opts?: { light?: boolean 
       // stamp — a slow stats write must never be what flips a healthy box offline.
       await stampRunner(runner.id, { lastSeenAt: new Date() });
     });
-  return runner;
 }
