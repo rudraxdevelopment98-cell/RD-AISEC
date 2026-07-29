@@ -39,6 +39,8 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import collections
+import http.server
 
 # Bump when this script changes meaningfully; the portal flags older runners.
 #
@@ -74,7 +76,7 @@ import urllib.request
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "60"
+RUNNER_VERSION = "60.1"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -120,6 +122,46 @@ MAINT_LOCK = threading.Lock()
 MAX_WORKERS = max(1, int(os.environ.get("MAX_WORKERS", "3")))
 ACTIVE_WORKERS = 0
 WORKERS_LOCK = threading.Lock()
+
+# ── Local status dashboard (on the machine itself) ───────────────────────────
+# A small read-only web page served on 127.0.0.1 so you can SEE the runner's
+# health right on the box — connected/offline, current jobs, recent events, and
+# any error — without opening the portal. Bound to loopback only (never exposed).
+STATUS_PORT = int(os.environ.get("RDAISEC_STATUS_PORT", "8787"))
+STATUS_ENABLED = os.environ.get("RDAISEC_STATUS", "1") not in ("0", "false", "no")
+DESKTOP_NOTIFY = os.environ.get("RDAISEC_NOTIFY", "1") not in ("0", "false", "no")
+_STARTED_AT = time.time()
+_STATUS = {"connected": False, "last_ok": 0.0, "last_error": ""}
+_LOG_RING: "collections.deque" = collections.deque(maxlen=250)
+_STATUS_LOCK = threading.Lock()
+# job_id -> {"tool","target","at"} for whatever is running right now.
+RUNNING_JOBS: dict = {}
+
+
+def note(msg: str, err: bool = False) -> None:
+    """Print a line AND keep it in a ring buffer the local status page shows.
+    `err=True` also records it as the current error."""
+    line = f"{time.strftime('%H:%M:%S')}  {msg}"
+    with _STATUS_LOCK:
+        _LOG_RING.append(line)
+        if err:
+            _STATUS["last_error"] = msg
+    try:
+        print(("✗ " if err else "") + msg, flush=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _notify(title: str, body: str) -> None:
+    """Best-effort desktop notification (notify-send), so a disconnect is visible
+    on the machine even if nobody's watching the terminal. Never raises."""
+    if not DESKTOP_NOTIFY or not shutil.which("notify-send"):
+        return
+    try:
+        subprocess.run(["notify-send", "-a", "RD-AISEC runner", title, body],
+                       capture_output=True, timeout=5)
+    except Exception:  # noqa: BLE001
+        pass
 
 # Set by the live command stream when the portal pushes a "wake" (there's queued
 # work). The main loop waits on this instead of a fixed sleep, so a job runs the
@@ -1122,7 +1164,12 @@ def heartbeat_loop():
             # Log the transition back to reachable so the console makes the state
             # obvious (it only prints on CHANGE, not every beat).
             if PING_FAILS > 0:
-                print(f"✓ portal reachable again after {PING_FAILS} failed ping(s) — machine online")
+                note(f"portal reachable again after {PING_FAILS} failed ping(s) — machine online")
+                _notify("Runner reconnected", "The machine is back online.")
+            with _STATUS_LOCK:
+                _STATUS["connected"] = True
+                _STATUS["last_ok"] = time.time()
+                _STATUS["last_error"] = ""
             PING_FAILS = 0
             # Honor a portal-requested restart (Machines page → Restart). Re-exec
             # picks up the latest script via self-update on startup.
@@ -1138,7 +1185,10 @@ def heartbeat_loop():
             # local-network recovery (it probes + escalates continuously), so the
             # heartbeat stays a pure, lightweight pinger and the two never fight.
             if PING_FAILS == 0:
-                print(f"✗ can't reach the portal — machine will show OFFLINE. ({e})")
+                note(f"can't reach the portal — machine will show OFFLINE. ({e})", err=True)
+                _notify("Runner offline", "Lost connection to the portal — trying to reconnect.")
+            with _STATUS_LOCK:
+                _STATUS["connected"] = False
             PING_FAILS += 1
         time.sleep(PING_SECONDS)
 
@@ -2601,9 +2651,11 @@ def run_job(job):
     except FileNotFoundError:
         return install_note + f"'{argv[0]}' is not installed on this runner.", 127
 
-    # Register so a portal cancellation can find & kill this process.
+    # Register so a portal cancellation can find & kill this process (and so the
+    # local status page can show what's running).
     with PROCS_LOCK:
         RUNNING_PROCS[job_id] = proc
+        RUNNING_JOBS[job_id] = {"tool": job.get("tool", ""), "target": job.get("target", ""), "at": time.time()}
 
     # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
@@ -2653,6 +2705,7 @@ def run_job(job):
         timer.cancel()
         with PROCS_LOCK:
             RUNNING_PROCS.pop(job_id, None)
+            RUNNING_JOBS.pop(job_id, None)
 
     out = (install_note + "".join(buf))[:MAX_OUTPUT]
     with PROCS_LOCK:
@@ -3031,6 +3084,132 @@ def ensure_tool_path():
     os.environ["PATH"] = os.pathsep.join(cur)
 
 
+# ── Local status dashboard server ────────────────────────────────────────────
+def _status_snapshot() -> dict:
+    """Everything the local dashboard shows, read from live runner state."""
+    now = time.time()
+    with _STATUS_LOCK:
+        connected = _STATUS["connected"] and (now - _STATUS["last_ok"] < 90)
+        last_ok = _STATUS["last_ok"]
+        last_error = _STATUS["last_error"]
+        log = list(_LOG_RING)[-60:]
+    with PROCS_LOCK:
+        jobs = [dict(v) for v in RUNNING_JOBS.values()]
+    return {
+        "version": RUNNER_VERSION,
+        "portal": PORTAL_URL,
+        "connected": connected,
+        "pingFails": PING_FAILS,
+        "lastOkAgo": int(now - last_ok) if last_ok else None,
+        "lastError": last_error,
+        "uptimeSec": int(now - _STARTED_AT),
+        "activeWorkers": ACTIVE_WORKERS,
+        "maxWorkers": MAX_WORKERS,
+        "jobs": jobs,
+        "wifi": list(WIFI_IFACES),
+        "wifiDetail": list(WIFI_DETAIL),
+        "maint": MAINT,
+        "log": log,
+    }
+
+
+_STATUS_PAGE = """<!doctype html><html><head><meta charset=utf-8>
+<title>RD-AISEC runner</title><meta name=viewport content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark}body{margin:0;background:#0b0f16;color:#e5e9f0;font:14px/1.5 system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:18px}
+h1{font-size:18px;margin:0 0 2px}.sub{color:#7c89a8;font-size:12px;margin-bottom:16px}
+.card{background:#111826;border:1px solid #1e2a3d;border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px}.row>.card{flex:1;min-width:150px;margin:0}
+.big{font-size:22px;font-weight:700}.mut{color:#7c89a8;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.on{background:#34d399}.off{background:#f87171}
+.pill{display:inline-block;border:1px solid #1e2a3d;border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 4px 2px 0}
+pre{background:#080c13;border:1px solid #1e2a3d;border-radius:8px;padding:10px;max-height:280px;overflow:auto;font:12px/1.5 ui-monospace,monospace;color:#a9b5d1;white-space:pre-wrap}
+button{background:#1d64f2;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer}
+.err{color:#fca5a5}
+</style></head><body><div class=wrap>
+<h1>RD-AISEC runner</h1><div class=sub id=portal></div>
+<div class=row>
+ <div class=card><div class=mut>Status</div><div class=big id=state>…</div><div class=mut id=lastok></div></div>
+ <div class=card><div class=mut>Jobs running</div><div class=big id=jobs>–</div><div class=mut id=workers></div></div>
+ <div class=card><div class=mut>Uptime</div><div class=big id=uptime>–</div><div class=mut>v<span id=ver></span></div></div>
+</div>
+<div class=card><div class=mut>Wi-Fi interfaces</div><div id=wifi>–</div></div>
+<div class=card id=errcard style=display:none><div class=mut>Last error</div><div class=err id=err></div></div>
+<div class=card><div style=display:flex;justify-content:space-between;align-items:center>
+ <div class=mut>Recent activity</div><button onclick=reconnect()>Reconnect now</button></div>
+ <pre id=log></pre></div>
+<div class=sub>Auto-refreshes every 2s · served locally on this machine only</div>
+</div><script>
+function fmtDur(s){if(s==null)return '–';var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
+return d?d+'d '+h+'h':h?h+'h '+m+'m':m?m+'m':s+'s'}
+async function tick(){try{var r=await fetch('/api/status');var s=await r.json();
+document.getElementById('portal').textContent=s.portal||'(portal not set)';
+var st=document.getElementById('state');st.innerHTML='<span class="dot '+(s.connected?'on':'off')+'"></span>'+(s.connected?'Online':'Offline');
+document.getElementById('lastok').textContent=s.connected?'last check '+fmtDur(s.lastOkAgo)+' ago':(s.pingFails+' failed ping(s)');
+document.getElementById('jobs').textContent=s.jobs.length;
+document.getElementById('workers').textContent=s.activeWorkers+' / '+s.maxWorkers+' workers';
+document.getElementById('uptime').textContent=fmtDur(s.uptimeSec);document.getElementById('ver').textContent=s.version;
+document.getElementById('wifi').innerHTML=(s.wifi&&s.wifi.length)?s.wifi.map(function(w){return '<span class=pill>'+w+'</span>'}).join(''):'<span class=mut>none detected</span>';
+var ec=document.getElementById('errcard');if(s.lastError){ec.style.display='';document.getElementById('err').textContent=s.lastError}else ec.style.display='none';
+var jl=s.jobs.map(function(j){return '▸ '+j.tool+'  '+(j.target||'')}).join('\\n');
+document.getElementById('log').textContent=(jl?jl+'\\n\\n':'')+(s.log||[]).join('\\n');
+}catch(e){document.getElementById('state').textContent='status server…'}}
+async function reconnect(){try{await fetch('/reconnect',{method:'POST'})}catch(e){}tick()}
+tick();setInterval(tick,2000);
+</script></body></html>"""
+
+
+class _StatusHandler(http.server.BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="text/html; charset=utf-8"):
+        data = body.encode() if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def do_GET(self):
+        if self.path.startswith("/api/status"):
+            self._send(200, json.dumps(_status_snapshot()), "application/json")
+        elif self.path == "/" or self.path.startswith("/?"):
+            self._send(200, _STATUS_PAGE)
+        else:
+            self._send(404, "not found")
+
+    def do_POST(self):
+        if self.path.startswith("/reconnect"):
+            WAKE.set()
+            note("reconnect requested from local dashboard")
+            self._send(200, json.dumps({"ok": True}), "application/json")
+        else:
+            self._send(404, "not found")
+
+    def log_message(self, *a):  # silence default request logging
+        return
+
+
+def local_status_server():
+    """Serve the local status dashboard on 127.0.0.1 (loopback only). Never
+    crashes the runner — if the port is taken it just logs and gives up."""
+    if not STATUS_ENABLED:
+        return
+    try:
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", STATUS_PORT), _StatusHandler)
+    except Exception as exc:  # noqa: BLE001
+        note(f"local status page disabled: {exc}")
+        return
+    note(f"local status page: http://127.0.0.1:{STATUS_PORT}")
+    try:
+        httpd.serve_forever(poll_interval=1.0)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
     # No token yet but we have an enrollment code → self-register for one. This is
@@ -3112,6 +3291,8 @@ def main():
     threading.Thread(target=cleanup_loop, daemon=True).start()
     # Connection guardian — keep the runner reachable in the hardest situations.
     threading.Thread(target=connection_guardian, daemon=True).start()
+    # Local status dashboard — see health/errors on the machine itself (loopback).
+    threading.Thread(target=local_status_server, daemon=True).start()
 
     print(f"Concurrency: up to {MAX_WORKERS} job(s) at once (portal-controlled).\n")
 
