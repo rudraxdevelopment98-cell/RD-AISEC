@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { classifyFinding } from "@/lib/finding-map";
-import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
+import { recomputeEngagementIntel } from "@/lib/engine/finding-intel";
 
 /**
  * One-time (re-runnable) backfill: tag any finding that has no framework tags
@@ -48,22 +48,15 @@ export async function rescoreFindingsIntel(formData?: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const findings = await prisma.finding.findMany({
-    select: {
-      id: true, title: true, description: true, severity: true,
-      confirmed: true, status: true, category: true,
-      kev: true, epss: true, risk: true,
-    },
+  // Recompute per engagement so attack-chain correlation (which is per-asset
+  // within an engagement) is applied alongside the KEV/EPSS/risk refresh.
+  const engagements = await prisma.finding.findMany({
+    distinct: ["engagementId"],
+    select: { engagementId: true },
   });
-  const enriched = await enrichFindingsIntel(findings);
   let updated = 0;
-  for (const f of enriched) {
-    const orig = findings.find((x) => x.id === f.id)!;
-    if (orig.kev === f.kev && orig.epss === f.epss && orig.risk === f.risk) continue;
-    await prisma.finding
-      .update({ where: { id: f.id }, data: { kev: f.kev, epss: f.epss, risk: f.risk } })
-      .catch(() => {});
-    updated += 1;
+  for (const e of engagements) {
+    updated += await recomputeEngagementIntel(e.engagementId);
   }
 
   const back = String(formData?.get("back") ?? "/dashboard/findings");

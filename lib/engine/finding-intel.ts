@@ -1,7 +1,9 @@
 import "server-only";
 
+import { prisma } from "@/lib/db";
 import { getKevSet, getEpssMap } from "@/lib/threat-intel";
 import { scoreFinding } from "@/lib/engine/risk-core";
+import { correlateChains, type ChainFinding } from "@/lib/engine/chain-core";
 
 const CVE_RE = /\bCVE-\d{4}-\d{3,7}\b/gi;
 
@@ -60,6 +62,47 @@ export async function enrichFindingsIntel<T extends Enrichable>(
     }).score;
     return { ...f, kev, epss, risk };
   });
+}
+
+/**
+ * Recompute + persist full intel for one engagement's findings: base risk (KEV/
+ * EPSS/exposure/proof) PLUS attack-chain boosts, so two lows that chain into a
+ * real path rise in triage. Idempotent — always recomputes risk from scratch
+ * (base + chain boost, capped 100), so re-running never double-counts. Only writes
+ * rows whose kev/epss/risk/chain actually changed. Returns the number updated.
+ */
+export async function recomputeEngagementIntel(engagementId: string): Promise<number> {
+  const findings = await prisma.finding.findMany({
+    where: { engagementId },
+    select: {
+      id: true, title: true, description: true, severity: true,
+      confirmed: true, status: true, category: true,
+      kev: true, epss: true, risk: true, chain: true,
+    },
+  });
+  if (findings.length === 0) return 0;
+
+  const base = await enrichFindingsIntel(findings);
+  const chains = correlateChains(
+    findings.map((f): ChainFinding => ({
+      id: f.id, title: f.title, description: f.description ?? "", severity: f.severity,
+    })),
+  );
+  const chainById = new Map(chains.map((c) => [c.id, c]));
+
+  let updated = 0;
+  for (const f of base) {
+    const orig = findings.find((x) => x.id === f.id)!;
+    const ch = chainById.get(f.id);
+    const risk = Math.min(100, f.risk + (ch?.boost ?? 0));
+    const chain = ch?.label ?? "";
+    if (orig.kev === f.kev && orig.epss === f.epss && orig.risk === risk && orig.chain === chain) continue;
+    await prisma.finding
+      .update({ where: { id: f.id }, data: { kev: f.kev, epss: f.epss, risk, chain } })
+      .catch(() => {});
+    updated += 1;
+  }
+  return updated;
 }
 
 export const _test = { cvesIn };

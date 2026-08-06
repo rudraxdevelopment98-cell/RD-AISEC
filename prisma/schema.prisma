@@ -397,6 +397,10 @@ model Finding {
   kev            Boolean    @default(false)
   epss           Float?
   risk           Int?
+  // Attack-chain correlation (lib/engine/chain-core.ts): when this finding forms
+  // a real attack path with others on the same asset (e.g. SSRF + exposed secret),
+  // its risk is boosted and this holds the short chain label. "" = not in a chain.
+  chain          String     @default("")
   createdAt      DateTime   @default(now())
 
   // Rank the findings list by real risk, worst first.

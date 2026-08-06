@@ -475,6 +475,7 @@ export default async function FindingsPage({
             retestNote: f.retestNote,
             kev: f.kev,
             risk: f.risk,
+            chain: f.chain,
             engagementId: f.engagementId,
             engagementName: f.engagement?.name ?? null,
           }))}

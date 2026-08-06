@@ -13,7 +13,7 @@ import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipelin
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
 import { selfHealFailedJob } from "@/lib/self-heal";
 import { notifyFindings } from "@/lib/notify";
-import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
+import { enrichFindingsIntel, recomputeEngagementIntel } from "@/lib/engine/finding-intel";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +129,9 @@ export async function POST(
             await queueExploitJobs(job.engagementId, job.runnerId, fresh, job.queuedBy);
           }
         }
+        // Recompute risk across the whole engagement so attack chains (e.g. this
+        // new finding + an existing one on the same asset) elevate risk in triage.
+        await recomputeEngagementIntel(job.engagementId).catch(() => {});
       }
     }
   }

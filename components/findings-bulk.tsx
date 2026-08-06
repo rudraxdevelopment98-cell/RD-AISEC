@@ -26,6 +26,7 @@ export type FindingRow = {
   retestNote?: string;
   kev?: boolean;
   risk?: number | null;
+  chain?: string;
   engagementId: string;
   engagementName: string | null;
 };
@@ -146,6 +147,14 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                       title="A CVE in this finding is in CISA's Known Exploited Vulnerabilities catalog — actively exploited in the wild."
                     >
                       🔥 KEV · exploited
+                    </span>
+                  )}
+                  {f.chain && (
+                    <span
+                      className="tag border-sev-high/50 bg-sev-high/15 text-sev-high"
+                      title={`Attack chain — risk boosted: ${f.chain}`}
+                    >
+                      ⛓ {f.chain}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
