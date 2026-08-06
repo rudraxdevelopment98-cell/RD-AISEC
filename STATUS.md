@@ -100,20 +100,28 @@ results back; the portal parses them into findings.
   Access-aware routing; pure intent parser is unit-tested. Bottom-left FAB.
 
 ## Runner
-- **v2 "Operations Agent" (in progress, `runner/agent/`).** A from-scratch rebuild:
-  instead of one allowlisted command per job, it runs **task graphs** (multi-step
-  ops that chain, pass data, branch, and pass an authorization gate) built from
-  **capability modules**. Design: `docs/runner-v2-architecture.md`. Status: Phase 0
-  foundation done (task engine + adapter + channel + agent loop, v1 drop-in);
-  Phases 4 & 5 have first cuts. Capabilities: `core.shell/tool/findings`,
-  `recon.resolve`, `crypto.tls_audit`, `crypto.hash_audit`, `web.security_headers`,
-  `wifi.survey`, plus a rule-based **planner** (goal→graph). 121 test assertions
-  green (`runner/agent/test_*.py`, stdlib-only). Next: Phase 1 realtime bus
-  (portal pub/sub + `BusChannel`) + Phase 2 interactive sessions — both pair with
-  portal/UI work. v1 (`rdaisec_runner.py`) stays the shipping runner until v2 lands.
-- Current version: **57** (`lib/runner-constants.ts` RUNNER_VERSION must match
+- **One runner, one unified pipeline.** `runner/rdaisec_runner.py` (single-file,
+  stdlib) is THE runner — the old `runner/agent/` v2 agent + `TaskEvent` bus were
+  removed. Architecture (source of truth): **`docs/runner-architecture.md`**. One
+  mechanism per concern: SSE stream = presence + push (wake/cancel/restart/control);
+  `/api/runner/job` = the only atomic claim path; `authenticateRunner` is read-only
+  (telemetry/presence are separate explicit calls — this killed the offline-flapping).
+- **Full control (v60):** owner-unlockable, time-boxed interactive PTY terminal +
+  file browser + process list + service control + install-anything, over the same
+  stream (`ControlSession`/`ControlMessage`, `/api/control/*`, `/api/runner/control/msg`).
+  UI: fleet matrix + capability-aware picker + per-machine terminal/files/procs.
+- Current version: **60.1** (`lib/runner-constants.ts` RUNNER_VERSION must match
   `runner/rdaisec_runner.py`). Self-updates from v25+, so runners pull new
-  versions automatically. Highlights since v30:
+  versions automatically. Highlights:
+  - **v60** full interactive control (PTY/files/procs/services/install); **v60.1**
+    on-machine local status dashboard (127.0.0.1:8787) + desktop offline/online alerts.
+  - **v59** live SSE command stream (instant job pickup + connection-based presence).
+  - **v58** self-healing enrollment (reusable code; re-enrolls a lost token in place).
+  - **v53–57** reliability rebuild — the runner kept going "offline"/stuck: moved
+    telemetry off the heartbeat hot path, non-destructive networking, job reclaim
+    (offline runner → requeue) + boot-requeue, PATH self-heal (systemd's minimal
+    PATH hid `~/go/bin`), don't wipe tools on an empty header. One-command systemd
+    install/uninstall (`runner/install-runner.sh`, `uninstall-runner.sh`).
   - **v53–57** reliability rebuild — the runner kept going "offline"/stuck: moved
     telemetry off the heartbeat hot path, non-destructive networking, job reclaim
     (offline runner → requeue) + boot-requeue, PATH self-heal (systemd's minimal
