@@ -56,7 +56,7 @@ export default async function RunnersPage({
   const session = await auth();
   const ownerEmail = session?.user?.email ?? "";
 
-  const [runners, missingFromJobs, enrollCodes] = await Promise.all([
+  const [runners, missingFromJobs, enrollCodes, activeJobs] = await Promise.all([
     prisma.runner.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -87,7 +87,22 @@ export default async function RunnersPage({
           take: 20,
         })
       : Promise.resolve([]),
+    // What every machine is running right now — for the fleet matrix.
+    prisma.job.findMany({
+      where: { status: "running", runnerId: { not: null } },
+      select: { runnerId: true, tool: true, target: true },
+      take: 200,
+    }),
   ]);
+
+  // Group running jobs by machine for the "what's running now" column.
+  const runningByRunner = new Map<string, { tool: string; target: string }[]>();
+  for (const j of activeJobs) {
+    if (!j.runnerId) continue;
+    const list = runningByRunner.get(j.runnerId) ?? [];
+    list.push({ tool: j.tool, target: j.target });
+    runningByRunner.set(j.runnerId, list);
+  }
 
   // Build a deduped list of (runner, tool) install suggestions from failures,
   // limited to tools we can install via apt and not already queued/installed.
@@ -145,6 +160,78 @@ export default async function RunnersPage({
         <p>• A green dot = online (polled recently). Install missing tools right from a machine&apos;s card.</p>
         <p>• Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</p>
       </HelpBanner>
+
+      {/* Fleet matrix — every machine at a glance: status, resources, tools, and
+          what each is running right now. One place to see the whole fleet. */}
+      {runners.length > 0 && (
+        <div className="mt-4 overflow-x-auto rounded-lg border border-surface-border">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="border-b border-surface-border text-left text-xs text-gray-500">
+                <th className="px-3 py-2 font-medium">Machine</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">CPU / RAM</th>
+                <th className="px-3 py-2 font-medium">Tools</th>
+                <th className="px-3 py-2 font-medium">Running now</th>
+                <th className="px-3 py-2 font-medium">Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runners.map((r) => {
+                const seenMs = r.lastSeenAt ? now - new Date(r.lastSeenAt).getTime() : Infinity;
+                const isOnline = seenMs < RUNNER_ONLINE_WINDOW_MS;
+                const isRecon = !isOnline && seenMs < RUNNER_ONLINE_WINDOW_MS * 4;
+                const toolN = (r.installed ?? "").split(",").map((s) => s.trim()).filter(Boolean).length;
+                const running = runningByRunner.get(r.id) ?? [];
+                const unlockedRow = !!r.fullControlUntil && new Date(r.fullControlUntil).getTime() > now;
+                return (
+                  <tr key={r.id} className="border-b border-surface-border/50 last:border-0 hover:bg-white/[0.02]">
+                    <td className="px-3 py-2">
+                      <Link href={`/dashboard/runners/${r.id}`} className="font-medium text-white hover:text-brand">
+                        {r.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={isOnline ? "text-emerald-400" : isRecon ? "text-amber-400" : "text-gray-500"}>
+                        ● {isOnline ? "online" : isRecon ? "reconnecting" : "offline"}
+                      </span>
+                      {r.lastSeenAt && !isOnline && (
+                        <span className="ml-1 text-xs text-gray-600">{ago(r.lastSeenAt, now)}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs tabular-nums text-gray-400">
+                      {isOnline && (r.cpuPct != null || r.memPct != null)
+                        ? `${r.cpuPct ?? "–"}% / ${r.memPct ?? "–"}%`
+                        : "–"}
+                    </td>
+                    <td className="px-3 py-2 text-gray-400">{toolN}</td>
+                    <td className="px-3 py-2">
+                      {running.length === 0 ? (
+                        <span className="text-gray-600">idle</span>
+                      ) : (
+                        <span className="text-sky-400">
+                          {running.length} job{running.length > 1 ? "s" : ""}
+                          <span className="ml-1 text-xs text-gray-500">
+                            ({running.slice(0, 3).map((j) => j.tool).join(", ")}
+                            {running.length > 3 ? "…" : ""})
+                          </span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {unlockedRow ? (
+                        <span className="text-xs text-emerald-400">🔓 unlocked</span>
+                      ) : (
+                        <span className="text-xs text-gray-500">🔒 locked</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Installations — tools that jobs need but the machine is missing */}
       {suggestions.length > 0 && (
