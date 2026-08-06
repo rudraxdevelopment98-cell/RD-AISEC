@@ -6,7 +6,7 @@ import { RUNNER_TOOLS } from "@/lib/runner-constants";
 import { parseScopeTargets } from "@/lib/bugbounty-core";
 
 type Eng = { id: string; name: string; scope?: string };
-type Opt = { id: string; name: string };
+type Opt = { id: string; name: string; installed?: string; online?: boolean };
 
 export function QueueJobForm({
   engagements,
@@ -20,7 +20,15 @@ export function QueueJobForm({
   const [formOpen, setFormOpen] = useState(false);
   const [toolId, setToolId] = useState(RUNNER_TOOLS[0].id);
   const [engId, setEngId] = useState(defaultEngagementId ?? engagements[0]?.id ?? "");
+  const [runnerId, setRunnerId] = useState(runners[0]?.id ?? "");
   const [target, setTarget] = useState("");
+
+  // Capability awareness: does a machine have the selected tool installed?
+  const hasTool = (r: Opt) =>
+    (r.installed ?? "").split(",").map((s) => s.trim()).includes(toolId);
+  const selected = runners.find((r) => r.id === runnerId);
+  const missingTool = !!selected && selected.installed !== undefined && !hasTool(selected);
+  const offline = !!selected && selected.online === false;
 
   const presets = useMemo(
     () => RUNNER_TOOLS.find((t) => t.id === toolId)?.presets ?? [],
@@ -86,17 +94,31 @@ export function QueueJobForm({
           ))}
         </select>
 
-        <select
-          name="runnerId"
-          defaultValue={runners[0]?.id}
-          className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-        >
-          {runners.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-1">
+          <select
+            name="runnerId"
+            value={runnerId}
+            onChange={(e) => setRunnerId(e.target.value)}
+            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          >
+            {runners.map((r) => {
+              const on = r.online !== false;
+              const has = r.installed === undefined || hasTool(r);
+              return (
+                <option key={r.id} value={r.id}>
+                  {on ? "🟢" : "⚪"} {r.name}
+                  {r.installed !== undefined ? (has ? " ✓" : ` — no ${toolId}`) : ""}
+                </option>
+              );
+            })}
+          </select>
+          {(missingTool || offline) && (
+            <span className="text-xs text-amber-400">
+              {offline && "This machine is offline. "}
+              {missingTool && `${selected?.name} doesn't have ${toolId} installed — install it from the machine page, or pick another.`}
+            </span>
+          )}
+        </div>
 
         <select
           name="tool"

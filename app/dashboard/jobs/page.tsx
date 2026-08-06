@@ -169,7 +169,12 @@ export default async function JobsPage({
           <TabPanel id="create">
             <QueueJobForm
               engagements={engagements}
-              runners={runners.map((r) => ({ id: r.id, name: r.name }))}
+              runners={runners.map((r) => ({
+                id: r.id,
+                name: r.name,
+                installed: r.installed,
+                online: !!r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
+              }))}
               defaultEngagementId={searchParams.engagement}
             />
             <CustomJobForm
