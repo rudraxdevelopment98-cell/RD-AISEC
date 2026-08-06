@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { MachineOps } from "@/components/machine-ops";
 
 // xterm needs the DOM — load it client-only, scoped to this panel so its weight
 // never hits other pages.
@@ -52,6 +53,9 @@ export function MachineControlPanel({ runnerId, unlocked }: { runnerId: string; 
           </button>
         </div>
       )}
+
+      {/* Files + processes, always available while unlocked. */}
+      <MachineOps runnerId={runnerId} />
     </div>
   );
 }
