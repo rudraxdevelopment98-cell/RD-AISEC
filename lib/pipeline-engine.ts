@@ -14,8 +14,7 @@ import { playbookFor } from "@/data/exploit-playbook";
 import { assessFinding, groupForReport } from "@/lib/bb-engine";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
 import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
-import { prioritizeHosts } from "@/lib/engine/target-priority";
-import { deriveHostSignals, scanToolSet } from "@/lib/engine/scan-plan";
+import { reconSteps, scanDefaultSteps, planScanSteps, prioritizeHosts } from "@/lib/engine/strategy";
 
 const TERMINAL = ["done", "failed", "canceled"];
 
@@ -37,61 +36,13 @@ function bareHost(v: string): string {
 // versions to match exploits against); scan runs the high-signal vuln tools.
 // `deep` trades runtime for coverage: all TCP ports + vuln NSE scripts, a bigger
 // content-discovery wordlist, and a fuller nuclei pass.
+// All tool/step definitions now live in one place — lib/engine/strategy.ts — so
+// they can't drift between this pipeline and the bug-bounty one.
 type Step = { tool: string; args: string; mode: "url" | "host" };
 function stageSteps(stage: string, deep: boolean): Step[] {
-  if (stage === "recon") {
-    return [
-      { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
-      { tool: "whatweb", args: "-a 3", mode: "host" },
-      // gau pulls historically-known URLs (Wayback/CommonCrawl/OTX) so scan/
-      // exploit have real endpoints to work with. Skipped silently if not installed.
-      { tool: "gau", args: "--subs", mode: "host" },
-    ];
-  }
-  if (stage === "scan") {
-    // The default full battery. Result-driven selection (below) narrows or extends
-    // this per host from what recon found; with no signal it falls back to this.
-    return SCAN_DEFAULT.map((t) => scanStepFor(t, deep)).filter((s): s is Step => !!s);
-  }
+  if (stage === "recon") return reconSteps();
+  if (stage === "scan") return scanDefaultSteps(deep);
   return [];
-}
-
-// The default scan tools (used when recon gave no signal for a host).
-const SCAN_DEFAULT = ["nuclei", "nmap", "gobuster", "nikto", "sslscan"];
-
-/** The Step (tool + args + mode) for a scan tool. One source of args, and it also
- *  covers the extra signal-driven tools (wpscan for WordPress, enum4linux for SMB). */
-function scanStepFor(tool: string, deep: boolean): Step | null {
-  switch (tool) {
-    case "nuclei":
-      return { tool, args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" };
-    case "nmap":
-      return {
-        tool,
-        args: deep
-          ? "-Pn -sV -T4 -p- --script vuln --host-timeout 30m --min-rate 800 --max-retries 2"
-          : "-Pn -sV -T4 --top-ports 200 --host-timeout 15m --max-retries 2",
-        mode: "host",
-      };
-    case "gobuster":
-      return {
-        tool,
-        args: deep
-          ? "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
-          : "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
-        mode: "url",
-      };
-    case "nikto":
-      return { tool, args: "-maxtime 1200", mode: "url" };
-    case "sslscan":
-      return { tool, args: "", mode: "host" };
-    case "wpscan":
-      return { tool, args: "--no-banner --random-user-agent --enumerate vp", mode: "url" };
-    case "enum4linux":
-      return { tool, args: "-A", mode: "host" };
-    default:
-      return null;
-  }
 }
 
 /**
@@ -182,12 +133,8 @@ export async function queueStageJobs(
         select: { title: true, description: true },
       });
       const texts = recon.map((f) => `${f.title}\n${f.description ?? ""}`);
-      stepsForHost = (bare) => {
-        const hostTexts = texts.filter((t) => t.toLowerCase().includes(bare.toLowerCase()));
-        if (hostTexts.length === 0) return steps; // no recon signal → full default
-        const tools = scanToolSet(deriveHostSignals(hostTexts));
-        return [...tools].map((t) => scanStepFor(t, deep)).filter((s): s is Step => !!s);
-      };
+      stepsForHost = (bare) =>
+        planScanSteps(texts.filter((t) => t.toLowerCase().includes(bare.toLowerCase())), deep);
     }
 
     for (const host of hosts) {

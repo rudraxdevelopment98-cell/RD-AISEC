@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { parseScopeEntries, platformLabel } from "@/lib/bugbounty-core";
-import { prioritizeHosts } from "@/lib/engine/target-priority";
+import { bugPipelineSteps, prioritizeHosts } from "@/lib/engine/strategy";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
@@ -27,44 +27,11 @@ export const RECON_TOOLS = new Set([
 // Tools run per in-scope target. `mode` controls the target form: "url" gets an
 // http:// prefix (httpx/nuclei/gobuster), "host" gets a bare host (nmap).
 // Results auto-import to findings.
+// Tool/step definitions live in the one strategy module (lib/engine/strategy.ts)
+// so this pipeline and the staged pipeline can't drift.
 type Step = { tool: string; args: string; mode: "url" | "host" };
-const PIPELINE: Step[] = [
-  { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" }, // alive + tech
-  { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" }, // bounded vuln templates
-  { tool: "nmap", args: "-Pn -F -T4 --host-timeout 10m", mode: "host" }, // top-100 ports + services, bounded
-  {
-    tool: "gobuster",
-    args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
-    mode: "url",
-  }, // content discovery
-  { tool: "katana", args: "-silent -d 2 -jc -rl 150", mode: "url" }, // crawl endpoints + JS (feeds secret/endpoint detection)
-];
-
-// Deep variant: maximum coverage (all TCP ports + vuln NSE, bigger wordlist,
-// plus web-server and TLS scanners). Slower; used by "Deep scan now". Every tool
-// is self-bounded (--host-timeout / -maxtime / rate limits) so it returns in time.
-const PIPELINE_DEEP: Step[] = [
-  { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
-  { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
-  { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4 --host-timeout 30m --min-rate 800 --max-retries 2", mode: "host" },
-  // common.txt (~4.6k) ships with the `dirb` pkg and finishes in time; the huge
-  // directory-list-2.3-medium (~220k) both times out and is often missing. The
-  // runner swaps in an existing wordlist (or a built-in fallback) if this one is
-  // absent, so gobuster no longer dies with "wordlist file does not exist".
-  { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
-  // Crawl endpoints + JS (feeds endpoint/secret detection and widens the surface
-  // that the injection passes below have to work with).
-  { tool: "katana", args: "-silent -d 3 -jc -kf all -rl 150", mode: "url" },
-  // Power pass — nuclei DAST fuzzing: mutates parameters to surface the HARD
-  // bugs signature templates miss (SSRF, SQLi, reflected/blind XSS, LFI, open
-  // redirect, SSTI, CRLF). Rate-limited so it stays in time and polite.
-  { tool: "nuclei", args: "-dast -rl 100 -timeout 8 -retries 1 -c 40", mode: "url" },
-  // Dedicated reflected/DOM XSS with context-aware payloads (dalfox confirms a
-  // real firing PoC, not just a reflection).
-  { tool: "dalfox", args: "--skip-bav --worker 30 --timeout 10 --silence", mode: "url" },
-  { tool: "nikto", args: "-maxtime 1200", mode: "url" },
-  { tool: "sslscan", args: "", mode: "host" },
-];
+const PIPELINE: Step[] = bugPipelineSteps(false);
+const PIPELINE_DEEP: Step[] = bugPipelineSteps(true);
 
 /** Bare host from any host/URL value. */
 function bareHost(v: string): string {
