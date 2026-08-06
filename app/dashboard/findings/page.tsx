@@ -10,6 +10,7 @@ import { MITRE_TACTICS, OWASP_TOP10 } from "@/data/frameworks";
 import { SEVERITY_ORDER } from "@/lib/report";
 import { importFindingsCsv } from "@/lib/finding-actions";
 import { deleteSuppression } from "@/lib/suppression";
+import { rescoreFindingsIntel } from "@/lib/finding-backfill";
 import { classifyConfidence } from "@/lib/exploit-confidence";
 import { bySignalDesc } from "@/lib/finding-signal";
 
@@ -38,6 +39,7 @@ const SEV_RANK: Record<string, number> = {
   info: 4,
 };
 const SORT_OPTIONS = [
+  { value: "risk", label: "Risk (threat-intel — KEV/EPSS)" },
   { value: "signal", label: "Priority (smart triage)" },
   { value: "severity", label: "Severity (high→low)" },
   { value: "recent", label: "Most recent" },
@@ -156,6 +158,15 @@ export default async function FindingsPage({
 
   // Sort the loaded set. Default is smart-triage "signal" so real, actionable
   // bugs surface above the noise; other sorts stay available.
+  // Risk sort = real-world danger first: the persisted risk score already folds
+  // in CISA KEV (actively exploited) + EPSS (exploit probability) + exposure, so
+  // KEV criticals pin to the top. Nulls (un-scored / legacy) fall to severity.
+  const byRiskDesc = (a: (typeof findings)[number], b: (typeof findings)[number]) => {
+    const ra = a.risk ?? -1, rb = b.risk ?? -1;
+    if (rb !== ra) return rb - ra;
+    if (a.kev !== b.kev) return a.kev ? -1 : 1;
+    return (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
+  };
   const sorted =
     sp.sort === "recent"
       ? findings
@@ -165,7 +176,9 @@ export default async function FindingsPage({
           ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
           : sp.sort === "status"
             ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
-            : [...findings].sort(bySignalDesc);
+            : sp.sort === "signal"
+              ? [...findings].sort(bySignalDesc)
+              : [...findings].sort(byRiskDesc);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -174,6 +187,15 @@ export default async function FindingsPage({
         subtitle="Every finding across all engagements. Filter by framework, severity, or status to triage."
         actions={
           <>
+          {findings.length > 0 && (
+            <form action={rescoreFindingsIntel}>
+              <input type="hidden" name="back" value="/dashboard/findings" />
+              <button className="btn-ghost text-sm" title="Re-rank every finding with the latest CISA KEV + EPSS threat intel">
+                <Icon name="bolt" className="mr-1 inline h-4 w-4" />
+                Re-score threat intel
+              </button>
+            </form>
+          )}
           {findings.length > 0 && (
             <a href={exportHref} className="btn-ghost text-sm" download>
               <Icon name="copy" className="mr-1 inline h-4 w-4" />
@@ -451,6 +473,8 @@ export default async function FindingsPage({
             sources: f.sources,
             retest: f.retest,
             retestNote: f.retestNote,
+            kev: f.kev,
+            risk: f.risk,
             engagementId: f.engagementId,
             engagementName: f.engagement?.name ?? null,
           }))}

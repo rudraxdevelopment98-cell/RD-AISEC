@@ -24,6 +24,8 @@ export type FindingRow = {
   sources?: string;
   retest?: string;
   retestNote?: string;
+  kev?: boolean;
+  risk?: number | null;
   engagementId: string;
   engagementName: string | null;
 };
@@ -138,8 +140,24 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
                     </span>
                   )}
                   {f.category && <span className="tag">{f.category}</span>}
+                  {f.kev && (
+                    <span
+                      className="tag border-sev-crit/50 bg-sev-crit/15 text-sev-crit"
+                      title="A CVE in this finding is in CISA's Known Exploited Vulnerabilities catalog — actively exploited in the wild."
+                    >
+                      🔥 KEV · exploited
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
                     <span className="text-[10px] uppercase tracking-wide text-gray-500">Risk</span>
+                    {typeof f.risk === "number" && (
+                      <span
+                        className="font-mono text-xs font-semibold tabular-nums text-gray-200"
+                        title="Engine risk score 0–100 (CVSS + proof + KEV + EPSS + exposure)"
+                      >
+                        {f.risk}
+                      </span>
+                    )}
                     <SeverityBadge value={f.severity} />
                   </span>
                   <FindingStatusBadge value={f.status} />

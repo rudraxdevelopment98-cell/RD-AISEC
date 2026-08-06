@@ -13,6 +13,7 @@ import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipelin
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
 import { selfHealFailedJob } from "@/lib/self-heal";
 import { notifyFindings } from "@/lib/notify";
+import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
 
 export const dynamic = "force-dynamic";
 
@@ -108,8 +109,11 @@ export async function POST(
           await prisma.finding.update({ where: { id: m.id }, data: { sources: m.sources } }).catch(() => {});
         }
         if (fresh.length > 0) {
+          // Stamp real threat intel (KEV/EPSS) + a risk score so triage ranks by
+          // real-world danger, not just static severity.
+          const enriched = await enrichFindingsIntel(fresh);
           await prisma.finding.createMany({
-            data: fresh.map((f) => ({ ...f, engagementId: job.engagementId! })),
+            data: enriched.map((f) => ({ ...f, engagementId: job.engagementId! })),
           });
           const eng = await prisma.engagement.update({
             where: { id: job.engagementId },

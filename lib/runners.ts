@@ -21,6 +21,7 @@ import { gateFindings } from "@/lib/finding-gate";
 import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
+import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
 import { logAudit } from "@/lib/audit";
 import { tagFindings } from "@/lib/finding-map";
 import { REQUIRED_TOOL_IDS } from "@/lib/diagnostics";
@@ -768,7 +769,8 @@ export async function importJobFindings(formData: FormData) {
     });
     const { fresh, merges } = dedupFindings(findings, existing, job.tool, host);
     if (fresh.length > 0) {
-      await prisma.finding.createMany({ data: fresh.map((f) => ({ ...f, engagementId })) });
+      const enriched = await enrichFindingsIntel(fresh);
+      await prisma.finding.createMany({ data: enriched.map((f) => ({ ...f, engagementId })) });
     }
     for (const m of merges) {
       await prisma.finding.update({ where: { id: m.id }, data: { sources: m.sources } }).catch(() => {});

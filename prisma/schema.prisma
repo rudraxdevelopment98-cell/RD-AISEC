@@ -388,7 +388,19 @@ model Finding {
   retest         String     @default("")
   retestNote     String     @default("")
   retestedAt     DateTime?
+  // Threat-intel triage (stamped at import from real feeds; see lib/engine/
+  // finding-intel.ts). kev = a CVE here is in CISA's Known-Exploited catalog
+  // (actively exploited in the wild); epss = 0..1 predicted-exploitation
+  // probability (max across the finding's CVEs); risk = the 0..100 engine risk
+  // score. These drive the findings-list ranking so what's genuinely dangerous
+  // rises to the top of triage — not just the render-time engine view.
+  kev            Boolean    @default(false)
+  epss           Float?
+  risk           Int?
   createdAt      DateTime   @default(now())
+
+  // Rank the findings list by real risk, worst first.
+  @@index([engagementId, risk(sort: Desc)])
 }
 
 // A single reconnaissance/security scan run. Tracks scan execution history,
