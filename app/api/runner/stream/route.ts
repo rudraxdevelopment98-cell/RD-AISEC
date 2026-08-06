@@ -144,7 +144,9 @@ export async function GET(req: Request) {
               .catch(() => null));
 
           send("ping", { t: Date.now(), tick });
-          await new Promise((res) => setTimeout(res, openSess ? 250 : TICK_MS));
+          // Tight cadence while a control session is live (snappy keystroke
+          // delivery); cheap 2.5s when the machine is just idling.
+          await new Promise((res) => setTimeout(res, openSess ? 130 : TICK_MS));
         }
       } catch {
         // client disconnected or a write failed — fall through to close

@@ -1335,6 +1335,9 @@ def _pty_reader(session_id, master_fd):
                     break
                 parts.append(more)
             _control_out(session_id, "data", base64.b64encode(b"".join(parts)).decode())
+            sess = CONTROL_SESSIONS.get(session_id)
+            if sess:
+                sess["ts"] = time.monotonic()
         except (OSError, ValueError):
             break
         except Exception:  # noqa: BLE001
@@ -1367,7 +1370,8 @@ def _pty_open(session_id, cols, rows, as_root):
         os._exit(1)
     # parent
     _set_winsize(master_fd, rows, cols)
-    CONTROL_SESSIONS[session_id] = {"fd": master_fd, "pid": pid, "alive": True}
+    CONTROL_SESSIONS[session_id] = {"fd": master_fd, "pid": pid, "alive": True,
+                                    "ts": time.monotonic()}
     # Rooting via `sudo -S`: feed the machine-side password once (never leaves the box).
     if as_root and os.geteuid() != 0:
         sp = os.environ.get("RUNNER_SUDO_PASS", "")
@@ -1386,6 +1390,7 @@ def _pty_write(session_id, data_b64):
         return
     try:
         os.write(sess["fd"], base64.b64decode(data_b64))
+        sess["ts"] = time.monotonic()  # activity — keeps the idle reaper away
     except Exception:  # noqa: BLE001
         pass
 
@@ -1536,6 +1541,24 @@ def handle_control(frame):
                 _control_out(sid, "file-eof", os.path.basename(buf["path"]))
             except Exception as e:  # noqa: BLE001
                 _control_out(sid, "error", f"upload: {e}")
+
+
+CONTROL_IDLE_SECONDS = int(os.environ.get("CONTROL_IDLE_SECONDS", "1200"))  # 20 min
+
+
+def control_reaper():
+    """Close interactive sessions idle too long — so a crashed/closed browser tab
+    never leaves a shell running forever on the machine. Never dies."""
+    while True:
+        try:
+            now = time.monotonic()
+            stale = [sid for sid, s in list(CONTROL_SESSIONS.items())
+                     if now - s.get("ts", now) > CONTROL_IDLE_SECONDS]
+            for sid in stale:
+                _pty_cleanup(sid, notify=True)
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(60)
 
 
 # Nuclei templates must be present (and current) for nuclei to find anything.
@@ -3281,6 +3304,9 @@ def main():
     # Live command stream (SSE): instant job wake-ups + connection-based presence.
     # Pure accelerator — if it can't connect, the poll + heartbeat above carry on.
     threading.Thread(target=stream_loop, daemon=True).start()
+    # Reap idle interactive control sessions so a closed browser tab can't leave a
+    # shell running on the machine.
+    threading.Thread(target=control_reaper, daemon=True).start()
 
     # Keep nuclei templates current (startup + daily) so scans actually match.
     threading.Thread(target=nuclei_template_loop, daemon=True).start()

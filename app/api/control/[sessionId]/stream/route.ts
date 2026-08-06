@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const STREAM_MS = 25_000;
-const TICK_MS = 300; // browser-side tail is snappy while a terminal is open
+const TICK_MS = 120; // browser-side tail — tight so terminal echo feels instant
 
 /**
  * Browser output stream for a control session (SSE). Streams the runner's

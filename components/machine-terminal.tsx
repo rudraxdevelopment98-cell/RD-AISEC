@@ -94,7 +94,17 @@ export function MachineTerminal({ runnerId, asRoot = false }: Props) {
       disposed = true;
       try { ro?.disconnect(); } catch { /* ignore */ }
       try { es?.close(); } catch { /* ignore */ }
-      if (sessionId) closeControlSession(sessionId).catch(() => {});
+      if (sessionId) {
+        // Tell the runner to tear down the PTY now (keepalive so it sends during
+        // unload); the idle reaper is the backstop if this never lands.
+        fetch(`/api/control/${sessionId}/input`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "close", data: "" }),
+          keepalive: true,
+        }).catch(() => {});
+        closeControlSession(sessionId).catch(() => {});
+      }
       try { term?.dispose(); } catch { /* ignore */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
