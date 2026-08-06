@@ -14,6 +14,8 @@ import { playbookFor } from "@/data/exploit-playbook";
 import { assessFinding, groupForReport } from "@/lib/bb-engine";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
 import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
+import { prioritizeHosts } from "@/lib/engine/target-priority";
+import { deriveHostSignals, scanToolSet } from "@/lib/engine/scan-plan";
 
 const TERMINAL = ["done", "failed", "canceled"];
 
@@ -47,30 +49,49 @@ function stageSteps(stage: string, deep: boolean): Step[] {
     ];
   }
   if (stage === "scan") {
-    return [
-      // Rate-limited + bounded so a full template run completes in the window.
-      { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
-      {
-        tool: "nmap",
-        // --host-timeout caps per-host time so a CDN/filtered host can't hang the
-        // whole job; deep adds all ports + vuln NSE but stays bounded.
+    // The default full battery. Result-driven selection (below) narrows or extends
+    // this per host from what recon found; with no signal it falls back to this.
+    return SCAN_DEFAULT.map((t) => scanStepFor(t, deep)).filter((s): s is Step => !!s);
+  }
+  return [];
+}
+
+// The default scan tools (used when recon gave no signal for a host).
+const SCAN_DEFAULT = ["nuclei", "nmap", "gobuster", "nikto", "sslscan"];
+
+/** The Step (tool + args + mode) for a scan tool. One source of args, and it also
+ *  covers the extra signal-driven tools (wpscan for WordPress, enum4linux for SMB). */
+function scanStepFor(tool: string, deep: boolean): Step | null {
+  switch (tool) {
+    case "nuclei":
+      return { tool, args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" };
+    case "nmap":
+      return {
+        tool,
         args: deep
           ? "-Pn -sV -T4 -p- --script vuln --host-timeout 30m --min-rate 800 --max-retries 2"
           : "-Pn -sV -T4 --top-ports 200 --host-timeout 15m --max-retries 2",
         mode: "host",
-      },
-      {
-        tool: "gobuster",
+      };
+    case "gobuster":
+      return {
+        tool,
         args: deep
           ? "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
           : "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt",
         mode: "url",
-      },
-      { tool: "nikto", args: "-maxtime 1200", mode: "url" },
-      { tool: "sslscan", args: "", mode: "host" },
-    ];
+      };
+    case "nikto":
+      return { tool, args: "-maxtime 1200", mode: "url" };
+    case "sslscan":
+      return { tool, args: "", mode: "host" };
+    case "wpscan":
+      return { tool, args: "--no-banner --random-user-agent --enumerate vp", mode: "url" };
+    case "enum4linux":
+      return { tool, args: "-A", mode: "host" };
+    default:
+      return null;
   }
-  return [];
 }
 
 /**
@@ -137,7 +158,9 @@ export async function queueStageJobs(
     const steps = stageSteps(stage, deep);
     const entries = parseScopeEntries(eng.scope);
     const wildcards = entries.filter((e) => e.wildcard).map((e) => e.host).slice(0, 5);
-    const hosts = entries.map((e) => e.host).slice(0, 15);
+    // Prioritize promising hosts (admin/api/staging/…) BEFORE the cap, so the
+    // budget scans the juicy targets first instead of scope order.
+    const hosts = prioritizeHosts(entries.map((e) => e.host)).slice(0, 15);
 
     // Recon also enumerates subdomains for wildcard scopes.
     if (stage === "recon") {
@@ -147,10 +170,30 @@ export async function queueStageJobs(
         }
       }
     }
+
+    // Result-driven scan planning: for the SCAN stage, pick each host's tools from
+    // what RECON found (WordPress→wpscan, TLS→sslscan, SMB→enum4linux, no web→skip
+    // web tools). Falls back to the full default battery when a host has no signal,
+    // so this never scans less than before by accident.
+    let stepsForHost: (bare: string) => Step[] = () => steps;
+    if (stage === "scan") {
+      const recon = await prisma.finding.findMany({
+        where: { engagementId },
+        select: { title: true, description: true },
+      });
+      const texts = recon.map((f) => `${f.title}\n${f.description ?? ""}`);
+      stepsForHost = (bare) => {
+        const hostTexts = texts.filter((t) => t.toLowerCase().includes(bare.toLowerCase()));
+        if (hostTexts.length === 0) return steps; // no recon signal → full default
+        const tools = scanToolSet(deriveHostSignals(hostTexts));
+        return [...tools].map((t) => scanStepFor(t, deep)).filter((s): s is Step => !!s);
+      };
+    }
+
     for (const host of hosts) {
       const bare = bareHost(host);
       if (!bare) continue;
-      for (const step of steps) {
+      for (const step of stepsForHost(bare)) {
         const t = step.mode === "url" ? `http://${bare}` : bare;
         const target = normalizeTarget(step.tool, t);
         if (!validateTarget(step.tool, target) || pendingKey.has(`${step.tool}|${target}`)) continue;

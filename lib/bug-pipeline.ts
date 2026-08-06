@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { parseScopeEntries, platformLabel } from "@/lib/bugbounty-core";
+import { prioritizeHosts } from "@/lib/engine/target-priority";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
@@ -140,7 +141,8 @@ export async function queueProgramPipeline(
   // scanned when amass finishes (chained in the runner result route). Plain
   // hosts are scanned directly.
   const wildcards = entries.filter((e) => e.wildcard).map((e) => e.host).slice(0, 5);
-  const directHosts = entries.filter((e) => !e.wildcard).map((e) => e.host).slice(0, cap);
+  // Prioritize promising hosts before the cap (admin/api/staging first).
+  const directHosts = prioritizeHosts(entries.filter((e) => !e.wildcard).map((e) => e.host)).slice(0, cap);
 
   const pending = await prisma.job.findMany({
     where: { engagementId, status: { in: ["queued", "running"] } },
@@ -188,7 +190,7 @@ export async function queueHostScans(
   cap = 15,
   deep = false,
 ): Promise<number> {
-  const picked = hosts.map(bareHost).filter(Boolean).slice(0, cap);
+  const picked = prioritizeHosts(hosts.map(bareHost).filter(Boolean) as string[]).slice(0, cap);
   if (picked.length === 0) return 0;
 
   const pending = await prisma.job.findMany({
