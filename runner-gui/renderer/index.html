@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Locked-down CSP: no remote anything; the app is fully self-contained. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self';"
+    />
+    <title>RD-AISEC Runner</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">RD</span>
+        <div>
+          <div class="brand-name">RD-AISEC Runner</div>
+          <div class="brand-sub" id="portalLabel">not connected</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="statuspill" id="statePill">
+          <span class="dot off" id="stateDot"></span>
+          <span id="stateText">Checking…</span>
+        </span>
+        <span class="ver" id="verLabel"></span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- Connect card -->
+      <section class="card" id="connectCard">
+        <h2>Connect this machine</h2>
+        <p class="hint">
+          Paste your portal URL and an <b>enroll code</b> from
+          <span class="mono">Dashboard → Runners</span>. The runner earns its own
+          token — you never paste a token by hand.
+        </p>
+        <label>Portal URL</label>
+        <input id="portalUrl" type="text" placeholder="https://your-portal.vercel.app" />
+        <label>Enroll code <span class="muted">(recommended)</span></label>
+        <input id="enrollCode" type="text" placeholder="RDAISEC-XXXX-XXXX" />
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <label>Runner token <span class="muted">(only if you have one)</span></label>
+          <input id="token" type="password" placeholder="paste an existing token" />
+          <label>Max parallel jobs</label>
+          <input id="maxWorkers" type="number" min="1" max="16" value="3" />
+        </details>
+        <div class="btnrow">
+          <button class="primary" id="connectBtn">Connect &amp; start</button>
+          <span class="tokenchip" id="tokenChip"></span>
+        </div>
+        <div class="msg" id="connectMsg"></div>
+      </section>
+
+      <!-- Controls card -->
+      <section class="card" id="controlCard">
+        <h2>Runner control</h2>
+        <div class="statgrid">
+          <div class="stat">
+            <div class="stat-k">Status</div>
+            <div class="stat-v" id="cState">–</div>
+            <div class="stat-s" id="cLastOk"></div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Jobs running</div>
+            <div class="stat-v" id="cJobs">–</div>
+            <div class="stat-s" id="cWorkers"></div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Uptime</div>
+            <div class="stat-v" id="cUptime">–</div>
+            <div class="stat-s" id="cVer"></div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Wi-Fi</div>
+            <div class="stat-v" id="cWifi">–</div>
+            <div class="stat-s">interfaces</div>
+          </div>
+        </div>
+        <div class="btnrow wrap">
+          <button id="startBtn">Start</button>
+          <button id="stopBtn" class="danger">Stop</button>
+          <button id="restartBtn">Restart</button>
+          <button id="reconnectBtn">Reconnect now</button>
+          <button id="statusPageBtn" class="ghost">Open local page</button>
+        </div>
+        <div class="msg" id="controlMsg"></div>
+      </section>
+
+      <!-- Running jobs -->
+      <section class="card" id="jobsCard">
+        <h2>Running now</h2>
+        <div id="jobsList" class="jobs"><span class="muted">nothing running</span></div>
+      </section>
+
+      <!-- Tools / setup -->
+      <section class="card" id="toolsCard">
+        <h2>Machine setup</h2>
+        <p class="hint">
+          Get a bare machine ready (Python 3, nmap, curl). Heavy tool installs
+          happen from the portal once connected.
+        </p>
+        <div class="btnrow wrap">
+          <button id="installBtn">Install essentials</button>
+        </div>
+        <div class="msg" id="toolsMsg"></div>
+        <div class="paths" id="pathsBox"></div>
+      </section>
+
+      <!-- Log -->
+      <section class="card wide" id="logCard">
+        <div class="cardhead">
+          <h2>Activity log</h2>
+          <label class="autoscroll">
+            <input type="checkbox" id="autoscroll" checked /> auto-scroll
+          </label>
+        </div>
+        <pre id="log" class="log"></pre>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

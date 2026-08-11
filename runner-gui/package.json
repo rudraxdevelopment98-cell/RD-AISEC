@@ -1,0 +1,31 @@
+{
+  "name": "rdaisec-runner-gui",
+  "productName": "RD-AISEC Runner",
+  "version": "1.0.0",
+  "description": "Desktop control panel for the RD-AISEC runner — connect a machine, monitor it, and control it from a window.",
+  "main": "main.js",
+  "author": "Kuldeep J.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.rdaisec.runner",
+    "productName": "RD-AISEC Runner",
+    "files": ["main.js", "preload.js", "renderer/**"],
+    "extraResources": [
+      { "from": "../runner/rdaisec_runner.py", "to": "rdaisec_runner.py" }
+    ],
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
+    "win": { "target": ["nsis", "portable"] },
+    "linux": { "target": ["AppImage", "deb"], "category": "Development" }
+  }
+}
