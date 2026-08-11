@@ -5,6 +5,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { CreateRunnerForm } from "@/components/runner-create";
 import { EnrollCodeForm } from "@/components/runner-enroll";
+import { RunnerDownloadCard } from "@/components/runner-download";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { HelpBanner } from "@/components/hint";
@@ -344,6 +345,8 @@ curl -fsSL "https://rd-aisec.vercel.app/api/runner/bootstrap?code=rde_…" | sud
           {searchParams.error}
         </div>
       )}
+
+      <RunnerDownloadCard />
 
       <EnrollCodeForm />
 

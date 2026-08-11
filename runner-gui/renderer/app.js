@@ -53,6 +53,7 @@ async function connect() {
   btn.disabled = true;
   msg($("connectMsg"), "Saving config and starting the runner…");
   const opts = {
+    connectCode: $("connectCode").value.trim(),
     portalUrl: $("portalUrl").value.trim(),
     enrollCode: $("enrollCode").value.trim(),
     token: $("token").value.trim(),
@@ -69,6 +70,7 @@ async function connect() {
       "ok",
     );
     $("token").value = "";
+    $("connectCode").value = "";
     loadConfig();
   } else {
     msg($("connectMsg"), (r && r.error) || "Failed to connect.", "err");

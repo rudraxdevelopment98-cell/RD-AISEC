@@ -1,0 +1,74 @@
+# Build the RD-AISEC Runner desktop app (runner-gui) for macOS, Windows and Linux
+# and attach the installers to a GitHub Release. The portal's "Download the desktop
+# app" card links to /releases/latest, so cutting a release makes the downloads live.
+#
+# Trigger it by pushing a tag like `runner-gui-v1.0.0`, or run it manually
+# (Actions → Build Runner GUI → Run workflow).
+name: Build Runner GUI
+
+on:
+  push:
+    tags:
+      - "runner-gui-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create/attach release assets
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+          - os: windows-latest
+            script: dist:win
+          - os: ubuntu-latest
+            script: dist:linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: runner-gui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: runner-gui/package-lock.json
+
+      # No lockfile committed yet → fall back to a plain install.
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build installers
+        run: npm run ${{ matrix.script }}
+        env:
+          # electron-builder should not try to code-sign in CI (no certs here).
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-gui-${{ matrix.os }}
+          path: |
+            runner-gui/dist/*.exe
+            runner-gui/dist/*.dmg
+            runner-gui/dist/*.zip
+            runner-gui/dist/*.AppImage
+            runner-gui/dist/*.deb
+          if-no-files-found: warn
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            runner-gui/dist/*.exe
+            runner-gui/dist/*.dmg
+            runner-gui/dist/*.zip
+            runner-gui/dist/*.AppImage
+            runner-gui/dist/*.deb

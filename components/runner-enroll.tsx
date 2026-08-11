@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Icon } from "@/components/icons";
 import { createEnrollCode } from "@/lib/runners";
+import { encodeConnectCode } from "@/lib/connect-code";
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -49,6 +50,11 @@ export function EnrollCodeForm() {
   const cmd = state.code
     ? `curl -fsSL "${origin}/api/runner/bootstrap?code=${state.code}" | sudo bash`
     : "";
+
+  // One connection code = portal + enroll code bundled. Paste this single code
+  // into the desktop app (Download the desktop app, above) and the machine
+  // connects — no portal URL, no separate code, no terminal.
+  const connectCode = state.code ? encodeConnectCode(origin, state.code) : "";
 
   const expires = state.expiresAt ? new Date(state.expiresAt).toLocaleDateString() : "";
 
@@ -97,9 +103,25 @@ export function EnrollCodeForm() {
             </code>
             <CopyButton value={state.code} label="Copy code" />
           </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-brand">
+              <Icon name="bolt" className="mr-1 inline h-3.5 w-3.5" />
+              Connection code — paste into the desktop app to connect in one step:
+            </p>
+            <CopyButton value={connectCode} label="Copy connection code" />
+          </div>
+          <code className="mt-1 block overflow-x-auto rounded-md border border-brand/40 bg-black/50 px-3 py-2 font-mono text-[11px] leading-relaxed text-brand">
+            {connectCode}
+          </code>
+          <p className="mt-1 text-xs text-gray-500">
+            This bundles your portal address + the code above, so the app needs a
+            single paste (no URL, no terminal).
+          </p>
+
           <div className="mt-4 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-gray-300">
-              One command on your Kali machine — installs a self-healing service:
+              Or, one command on a Kali machine — installs a self-healing service:
             </p>
             <CopyButton value={cmd} label="Copy command" />
           </div>

@@ -34,17 +34,26 @@
       <section class="card" id="connectCard">
         <h2>Connect this machine</h2>
         <p class="hint">
-          Paste your portal URL and an <b>enroll code</b> from
-          <span class="mono">Dashboard → Runners</span>. The runner earns its own
-          token — you never paste a token by hand.
+          Paste your <b>connection code</b> from
+          <span class="mono">Dashboard → Runners → Add a machine</span>. One code
+          is all you need — it carries the portal address and enrolls the machine
+          for its own token. You never paste a URL or token by hand.
         </p>
-        <label>Portal URL</label>
-        <input id="portalUrl" type="text" placeholder="https://your-portal.vercel.app" />
-        <label>Enroll code <span class="muted">(recommended)</span></label>
-        <input id="enrollCode" type="text" placeholder="RDAISEC-XXXX-XXXX" />
+        <label>Connection code</label>
+        <input
+          id="connectCode"
+          type="text"
+          placeholder="RDC1.…  (paste the code from the portal)"
+          autocomplete="off"
+          spellcheck="false"
+        />
         <details class="advanced">
-          <summary>Advanced</summary>
-          <label>Runner token <span class="muted">(only if you have one)</span></label>
+          <summary>Advanced — enter details manually</summary>
+          <label>Portal URL</label>
+          <input id="portalUrl" type="text" placeholder="https://your-portal.vercel.app" />
+          <label>Enroll code</label>
+          <input id="enrollCode" type="text" placeholder="rde_…" />
+          <label>Runner token <span class="muted">(only if you already have one)</span></label>
           <input id="token" type="password" placeholder="paste an existing token" />
           <label>Max parallel jobs</label>
           <input id="maxWorkers" type="number" min="1" max="16" value="3" />

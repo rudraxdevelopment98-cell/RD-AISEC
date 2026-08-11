@@ -129,6 +129,24 @@ function writeConfig(updates) {
   return cfg;
 }
 
+// ── Connection code ─────────────────────────────────────────────────────────────
+// One connection code = portal origin + enroll code, bundled by the portal so the
+// user makes a SINGLE paste. Format: RDC1.<base64url(JSON{p,c})>. Mirror of
+// lib/connect-code.ts on the portal side.
+function decodeConnectCode(input) {
+  const s = String(input || "").trim();
+  if (!s.startsWith("RDC1.")) return null;
+  try {
+    const b64 = s.slice(5).replace(/-/g, "+").replace(/_/g, "/");
+    const obj = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
+    if (obj && typeof obj.p === "string" && typeof obj.c === "string" && obj.p && obj.c)
+      return { portal: obj.p.replace(/\/+$/, ""), code: obj.c };
+  } catch {
+    /* malformed */
+  }
+  return null;
+}
+
 // ── Python discovery ────────────────────────────────────────────────────────────
 let PYTHON_CACHE = null;
 function findPython() {
@@ -389,14 +407,30 @@ function registerIpc() {
     home: RUN_DIR,
   }));
 
-  // Connect = save config (portal + enroll code) then start the runner.
-  ipcMain.handle("runner:connect", (_e, { portalUrl, enrollCode, token, maxWorkers }) => {
+  // Connect = save config (portal + enroll code) then start the runner. A single
+  // connection code is the happy path; the manual fields are the fallback.
+  ipcMain.handle(
+    "runner:connect",
+    (_e, { connectCode, portalUrl, enrollCode, token, maxWorkers }) => {
     const updates = {};
+    // A connection code carries both the portal and the enroll code — decode first,
+    // then let any explicit manual field override it.
+    if (connectCode) {
+      const dec = decodeConnectCode(connectCode);
+      if (!dec)
+        return {
+          ok: false,
+          error: "That connection code isn't valid — copy it again from the portal.",
+        };
+      updates.PORTAL_URL = dec.portal;
+      updates.RUNNER_ENROLL_CODE = dec.code;
+    }
     if (portalUrl) updates.PORTAL_URL = String(portalUrl).replace(/\/+$/, "");
     if (enrollCode) updates.RUNNER_ENROLL_CODE = String(enrollCode).trim();
     if (token) updates.RUNNER_TOKEN = String(token).trim();
     if (maxWorkers) updates.MAX_WORKERS = String(parseInt(maxWorkers, 10) || 3);
-    if (!updates.PORTAL_URL) return { ok: false, error: "Portal URL is required." };
+    if (!updates.PORTAL_URL)
+      return { ok: false, error: "Paste a connection code (or set the portal URL manually)." };
     if (!updates.RUNNER_ENROLL_CODE && !updates.RUNNER_TOKEN) {
       const cur = readConfig();
       if (!cur.RUNNER_TOKEN && !cur.RUNNER_ENROLL_CODE)
@@ -411,7 +445,8 @@ function registerIpc() {
       return { ok: false, error: "Failed to save config: " + e.message };
     }
     return startRunner();
-  });
+    },
+  );
 }
 
 // ── Window ───────────────────────────────────────────────────────────────────

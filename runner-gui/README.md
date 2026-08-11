@@ -22,8 +22,11 @@ logic; it just:
 
 ## What you see
 
-- **Connect** — portal URL + an *enroll code* from `Dashboard → Runners`. The
-  runner earns its own token via enrollment; you never paste a token by hand.
+- **Connect** — paste a single **connection code** from `Dashboard → Runners →
+  Add a machine`. One code carries the portal address *and* an enroll code, so
+  the machine registers itself for its own token; you never paste a URL or token
+  by hand. (An *Advanced* section still lets you enter portal / code / token
+  manually if you prefer.)
 - **Runner control** — live Online/Offline, jobs running, uptime, worker count,
   Wi-Fi interfaces; Start / Stop / Restart / Reconnect.
 - **Running now** — the tools currently executing on this machine.
@@ -67,6 +70,14 @@ npm run dist:win      # NSIS installer + portable .exe (build on Windows)
 Output lands in `runner-gui/dist/`. The current `rdaisec_runner.py` is bundled
 into the app (`extraResources`), so the installer is self-contained; the runner
 then self-updates from your portal after first connect.
+
+### Publishing downloads for the portal
+
+`.github/workflows/runner-gui-release.yml` builds all three platforms in CI and
+attaches the installers to a GitHub Release. Push a tag like `runner-gui-v1.0.0`
+(or run the workflow manually) and the portal's **Download the desktop app** card
+— which links to `/releases/latest` — starts serving them. Point it elsewhere by
+setting `NEXT_PUBLIC_RUNNER_GUI_RELEASES` on the deploy.
 
 > Note: installers can only be produced on a machine with a desktop toolchain —
 > they cannot be built in a headless CI-less sandbox. The source here is
