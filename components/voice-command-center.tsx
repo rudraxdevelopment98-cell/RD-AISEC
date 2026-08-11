@@ -132,6 +132,29 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
     }
   }, []);
 
+  // A status question — look up live state and speak the real answer. The filler
+  // ("let me check") was already spoken by applyIntent; speechSynthesis queues, so
+  // the answer follows it naturally.
+  const runQuery = useCallback(
+    async (topic: string, said: string) => {
+      try {
+        const res = await fetch(`/api/voice/brief?topic=${encodeURIComponent(topic)}`, {
+          headers: { accept: "application/json" },
+        });
+        const data = (await res.json()) as { speak?: string };
+        const reply =
+          data?.speak || "Sorry, I couldn't get that right now. Please try again.";
+        setLast({ said, reply });
+        speak(reply);
+      } catch {
+        const reply = "Sorry, I couldn't reach the portal just now.";
+        setLast({ said, reply });
+        speak(reply);
+      }
+    },
+    [speak],
+  );
+
   const applyIntent = useCallback(
     (intent: VoiceIntent, said: string) => {
       setLast({ said, reply: intent.speak });
@@ -158,6 +181,9 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
         case "search":
           router.push(intent.href);
           break;
+        case "query":
+          void runQuery(intent.topic, said);
+          break;
         case "back":
           router.back();
           break;
@@ -173,7 +199,7 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
           break;
       }
     },
-    [router, speak],
+    [router, speak, runQuery],
   );
 
   // Handle a finalized transcript.
@@ -341,8 +367,10 @@ export function VoiceCommandCenter({ links }: { links: NavLink[] }) {
             <>
               <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                 Talk to me naturally — <span className="text-gray-300">"{WAKE_WORD}, take me to findings"</span>,{" "}
-                <span className="text-gray-300">"scan example dot com"</span>, or just{" "}
-                <span className="text-gray-300">"hey Shiva"</span> and I'll ask where you'd like to go.
+                <span className="text-gray-300">"scan example dot com"</span>,{" "}
+                <span className="text-gray-300">"what's running?"</span>,{" "}
+                <span className="text-gray-300">"how many critical findings?"</span>, or{" "}
+                <span className="text-gray-300">"brief me"</span> and I'll read you the status.
                 I'll ask if I'm unsure, and you can answer back.
               </p>
 

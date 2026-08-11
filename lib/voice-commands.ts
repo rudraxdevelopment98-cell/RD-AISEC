@@ -14,6 +14,10 @@ export type VoiceIntent =
   | { type: "navigate"; href: string; label: string; speak: string }
   | { type: "scan"; target: string; href: string; speak: string }
   | { type: "search"; query: string; href: string; speak: string }
+  // A spoken status question ("what's running?", "how many critical findings?").
+  // `speak` is a short filler; the component fetches live state and speaks the
+  // real answer when it arrives.
+  | { type: "query"; topic: QueryTopic; speak: string }
   | { type: "back"; speak: string }
   | { type: "help"; speak: string }
   | { type: "stop"; speak: string }
@@ -27,6 +31,9 @@ export type Pending =
   | { kind: "destination" } // "Where would you like to go?"
   | { kind: "scanTarget" } // "What should I scan?"
   | { kind: "confirmScan"; target: string }; // "Shall I start the scan? yes/no"
+
+/** Live-state topics the assistant can look up and read aloud. */
+export type QueryTopic = "summary" | "runners" | "jobs" | "findings" | "critical";
 
 /** Default wake word — ties into the project's "Shiva" identity. */
 export const WAKE_WORD = "shiva";
@@ -128,6 +135,55 @@ function resolveDestination(dest: string, links: NavLink[]): NavLink | null {
 }
 
 /**
+ * Detect a spoken status question and which live topic it's about. Returns null
+ * when the text isn't a status query (so navigation/scan/search still run).
+ * Ordered specific → general so "how many machines" beats the generic summary.
+ */
+export function detectQuery(text: string): QueryTopic | null {
+  const t = normalize(text);
+
+  // Machines / runners status.
+  if (
+    /\b(machines?|runners?|agents?|kali|boxes?)\b/.test(t) &&
+    /\b(online|offline|status|up|down|connected|how many|available|ready|alive|working)\b/.test(t)
+  )
+    return "runners";
+  if (/\b(is|are)\s+(my|the|any)\s+(machine|runner|kali|box|agent)/.test(t)) return "runners";
+
+  // Critical findings specifically.
+  if (/\bcritical\b/.test(t) && /\b(finding|vuln|vulnerabilit|issue|bug|any|how many|open)\b/.test(t))
+    return "critical";
+  if (/\bany\s+critical\b/.test(t)) return "critical";
+
+  // Findings counts.
+  if (/\b(how many|number of|count of|any|open)\b.*\b(finding|vuln|vulnerabilit|issue|bug)s?\b/.test(t))
+    return "findings";
+  if (/\b(finding|vuln|vulnerabilit)s?\b.*\b(count|status|open|total|do i have)\b/.test(t)) return "findings";
+
+  // Jobs / scans running.
+  if (
+    /\bwhat(?:'?s| is)?\s+running\b/.test(t) ||
+    /\b(anything|any (jobs?|scans?))\s+running\b/.test(t) ||
+    /\b(how many|number of)\s+(jobs?|scans?)\b/.test(t) ||
+    /\b(jobs?|scans?)\s+(running|queued|status|left|remaining)\b/.test(t) ||
+    /\b(running|active|queued)\s+(jobs?|scans?)\b/.test(t) ||
+    /\bscan\s+(status|queue)\b/.test(t)
+  )
+    return "jobs";
+
+  // Overall summary / brief. Deliberately excludes bare nav words like "overview".
+  if (
+    /\b(brief( me)?|sitrep|rundown|summary|catch me up|status report|what(?:'?s| is)?\s+(going on|happening)|how (are things|is everything|are we doing)|give me (a|the) (status|rundown|summary))\b/.test(
+      t,
+    ) ||
+    /^status$/.test(t)
+  )
+    return "summary";
+
+  return null;
+}
+
+/**
  * Parse a (wake-word-stripped) command into an intent. `links` is the user's
  * allowed nav so we never route them somewhere they can't access.
  */
@@ -157,6 +213,12 @@ export function parseVoiceCommand(raw: string, links: NavLink[] = []): VoiceInte
   // Go back.
   if (/^(go back|back|previous( page)?|return)\b/.test(text)) {
     return { type: "back", speak: "Sure, going back." };
+  }
+
+  // Status question — the assistant looks up live state and reads it back.
+  const topic = detectQuery(text);
+  if (topic) {
+    return { type: "query", topic, speak: "One moment — let me check." };
   }
 
   // Scan / recon a target.
