@@ -104,24 +104,30 @@ not "it's all broken." Three themes dominate:
 - Deferred (minor): a `guardAction` section gate for defence-in-depth on the few
   remaining aggregate reads; tracked for a later pass.
 
-**Wave 1 — Engine reportability (the "find real bugs" fix)**
-- Fix the open-port dedup bug; guarantee TLS scanning; add detectors: subdomain
-  takeover, `.git`/`.env`/backup exposure, JS-secret harvesting.
-- Persist a canonical "reportable" state; make one grader authoritative.
+**Wave 1 — Engine reportability (mostly DONE ✅)**
+- ✅ Fixed the open-port dedup collapse (+ test); ✅ guaranteed TLS scanning;
+  ✅ cut the nuclei info-flood (medium+ floor); ✅ added the high-yield hunt
+  (exposure/takeover/secret/default-login tags) + the 🎯 Reportable view.
+- Remaining: persist a canonical "reportable" state (queryable); dedicated
+  JS-secret harvest + CORS/open-redirect probes.
 
-**Wave 2 — Clean, professional UI (the "less cluttered" goal)**
-- Calm the visual system (restrained background, consistent tokens, more
-  whitespace); one `<Field>` primitive; `loading.tsx` skeletons everywhere;
-  standardize empty/error/loading; a11y pass (aria-current, system theme).
+**Wave 2 — Clean, professional UI (STARTED ✅, then deprioritized by owner)**
+- ✅ Calmer backdrop (removed neural-net, dimmed wash/grid); ✅ flat primitives
+  (no glow/bounce); ✅ `loading.tsx` skeletons on the heavy routes.
+- Remaining: `<Field>` form primitive + tokenized colors; a11y (aria-current,
+  system theme); the discipline-depth parity.
 
-**Wave 3 — Structure & scale (future-proofing)**
-- Indexes on hot paths; retention for `ControlMessage`/`AuditEvent`; Postgres
-  enums + `jsonb`; real FKs + cursor pagination; consolidate the runner control
-  plane (retire `ping`/`job/canceled`); unify the finding-ingest paths.
+**Wave 3 — Structure & scale (INDEXES + RETENTION DONE ✅)**
+- ✅ Indexes on every hot path + the ownerEmail scoping (additive migration);
+  ✅ retention for `ControlMessage`/audit/archived-jobs (daily cron).
+- Remaining: Postgres enums + `jsonb`; real FKs + cursor pagination; consolidate
+  the runner control plane (retire `ping`/`job/canceled`); unify finding-ingest.
 
-**Wave 4 — Foundation & depth**
-- Portal CI (tsc/lint/build/test) + Vitest; Renovate/Dependabot; collapse docs to
-  one dated STATUS; enrich (or honestly reframe) forensics/consulting.
+**Wave 4 — Foundation & depth (CI + DEPS DONE ✅)**
+- ✅ Portal CI (typecheck + 133 unit tests + build) on push/PR; ✅ security dep
+  bumps.
+- Remaining: migrate the hand-rolled tests to Vitest; Renovate/Dependabot;
+  collapse docs to one dated STATUS; enrich (or reframe) forensics/consulting.
 
 ---
 
