@@ -694,7 +694,9 @@ export const MAX_OUTPUT_CHARS = 200_000;
 const SAFE_VALUE = /^[A-Za-z0-9 ._:/@,+=\-]+$/;
 
 export function isSafeValue(v: string): boolean {
-  return v.length > 0 && v.length <= 512 && SAFE_VALUE.test(v);
+  // Reject a leading "-" so a target can never be read as a tool flag (e.g. an
+  // nmap "--script=…" token) — mirrors the same guard on isSafeUrl.
+  return v.length > 0 && v.length <= 512 && !v.startsWith("-") && SAFE_VALUE.test(v);
 }
 
 /**

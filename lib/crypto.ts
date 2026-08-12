@@ -4,8 +4,16 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
 function key(): Buffer {
-  const secret =
-    process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "rd-aisec-dev-secret";
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    // Fail closed in production: without a real secret, "encrypted" data at rest
+    // (engagement auth cookies, bounty API tokens) would be readable by anyone who
+    // knows the default. Refuse rather than silently protect nothing.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET is required to encrypt secrets at rest.");
+    }
+    return createHash("sha256").update("rd-aisec-dev-secret").digest();
+  }
   return createHash("sha256").update(secret).digest(); // 32 bytes
 }
 

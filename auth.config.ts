@@ -29,7 +29,15 @@ if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
   );
 }
 
-if (process.env.ALLOW_DEV_LOGIN === "true") {
+// Developer login is a password-only bypass of the email allowlist — for local
+// dev ONLY. It fails closed: never in production, and never without an explicitly
+// set DEV_LOGIN_PASSWORD (no hardcoded default that a copied .env could ship).
+if (
+  process.env.ALLOW_DEV_LOGIN === "true" &&
+  process.env.NODE_ENV !== "production" &&
+  process.env.DEV_LOGIN_PASSWORD
+) {
+  const expected = process.env.DEV_LOGIN_PASSWORD;
   providers.push(
     Credentials({
       id: "dev-login",
@@ -41,7 +49,6 @@ if (process.env.ALLOW_DEV_LOGIN === "true") {
       authorize: (creds) => {
         const email = String(creds?.email ?? "").toLowerCase();
         const password = String(creds?.password ?? "");
-        const expected = process.env.DEV_LOGIN_PASSWORD ?? "letmein";
         if (email && password === expected) {
           return { id: email, email, name: email.split("@")[0] };
         }

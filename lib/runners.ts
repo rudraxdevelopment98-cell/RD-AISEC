@@ -15,6 +15,7 @@ import {
   RUNNER_ONLINE_WINDOW_MS,
 } from "@/lib/runner-constants";
 import { hashToken } from "@/lib/runner-auth";
+import { assertRunnerOwner, isUnlocked } from "@/lib/control";
 import { parseScopeTargets } from "@/lib/bugbounty-core";
 import { parseJobFindings } from "@/lib/job-parser";
 import { gateFindings } from "@/lib/finding-gate";
@@ -516,6 +517,25 @@ export async function queueCustomJob(formData: FormData) {
   if (!runnerId || !command) {
     redirect(`${back}?error=${encodeURIComponent("Pick a machine and enter a command.")}`);
   }
+
+  // A custom command is arbitrary code execution on the machine. It must be
+  // owner-controlled AND behind an active full-control unlock — the SAME bar as
+  // the interactive terminal — not merely "any signed-in member". This closes the
+  // path where a member with no runner ownership could run commands (incl. sudo)
+  // on someone else's machine, bypassing the PTY unlock gate.
+  try {
+    await assertRunnerOwner(runnerId);
+  } catch {
+    redirect(`${back}?error=${encodeURIComponent("You don't have control of this machine.")}`);
+  }
+  if (!(await isUnlocked(runnerId))) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        "Unlock full control on this machine (Machines → the machine → Full control) before running commands.",
+      )}`,
+    );
+  }
+
   if (!confirmed) {
     redirect(
       `${back}?error=${encodeURIComponent(
@@ -564,8 +584,9 @@ export async function queueCustomJob(formData: FormData) {
   await logAudit({
     type: "job.queued",
     actor: session.user.email,
-    summary: `Ran custom command: ${program}`,
-    target: program,
+    summary: `Ran custom command on a machine: ${program}`,
+    target: runnerId,
+    meta: { runnerId, command, engagementId: engagementId || null },
   });
 
   revalidatePath("/dashboard/jobs");
