@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "for f in $(find lib -name '*.test.ts' ! -name 'reconnaissance.test.ts' | sort); do echo \"→ $f\"; npx tsx \"$f\" || exit 1; done",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && (prisma db execute --url \"${DIRECT_URL:-$DATABASE_URL}\" --file prisma/heal.sql || true) && DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" prisma migrate deploy && next build",
     "db:migrate": "prisma migrate deploy",

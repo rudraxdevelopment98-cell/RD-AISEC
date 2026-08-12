@@ -1,0 +1,48 @@
+# Portal CI gate — typecheck, unit tests, and a production build on every push/PR.
+# This is the automated quality gate the audit flagged as missing: nothing else
+# guarded the portal before (only the runner-GUI release workflow existed).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Placeholder env so `next build` and Prisma client generation succeed without
+# real infra. No secrets — these are throwaway values for a build-only check.
+env:
+  DATABASE_URL: postgresql://user:pass@localhost:5432/db
+  DIRECT_URL: postgresql://user:pass@localhost:5432/db
+  AUTH_SECRET: ci-placeholder-secret-not-used-in-prod
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Lint is informational for now (the codebase predates a clean lint gate);
+      # surfaced but non-blocking so it doesn't wall off unrelated changes.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true

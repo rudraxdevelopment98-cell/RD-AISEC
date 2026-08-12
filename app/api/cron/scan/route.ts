@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runDueSchedules } from "@/lib/scheduled-core";
 import { runDueHackerOneSyncs, runDueBugPrograms } from "@/lib/bug-pipeline";
 import { sweepStaleJobs } from "@/lib/pipeline-engine";
+import { pruneRetention } from "@/lib/retention";
 
 // Long-running: scanning several targets can take a while.
 export const maxDuration = 300;
@@ -42,5 +43,14 @@ export async function GET(req: Request) {
     /* don't let bug automation break the posture-scan cron */
   }
 
-  return NextResponse.json({ ok: true, swept, ...result, bug });
+  // Data retention: prune aged append-only rows (control-stream bytes, old audit
+  // events, archived jobs) so the DB stays lean. Never blocks the rest of the cron.
+  let pruned = null;
+  try {
+    pruned = await pruneRetention();
+  } catch {
+    /* retention is best-effort */
+  }
+
+  return NextResponse.json({ ok: true, swept, ...result, bug, pruned });
 }

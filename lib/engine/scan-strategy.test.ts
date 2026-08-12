@@ -36,18 +36,18 @@ eq([...scanToolSet(empty)].sort(), ["gobuster", "nikto", "nmap", "nuclei", "ssls
 
 // web host → web tools, no wpscan/enum4linux
 const web = deriveHostSignals(["httpx: https://x.com [200] nginx title: Home"]);
-ok(web.web && web.tls, "web+tls detected");
+ok(!!(web.web && web.tls), "web+tls detected");
 ok(scanToolSet(web).has("nuclei") && scanToolSet(web).has("gobuster") && scanToolSet(web).has("sslscan"), "web → nuclei/gobuster/sslscan");
 ok(!scanToolSet(web).has("wpscan"), "plain web → no wpscan");
 
 // WordPress → wpscan added
 const wp = deriveHostSignals(["Detected WordPress 6.2 at https://blog.x.com/wp-login.php"]);
-ok(wp.wordpress, "wordpress detected");
+ok(!!wp.wordpress, "wordpress detected");
 ok(scanToolSet(wp).has("wpscan"), "wordpress → wpscan");
 
 // SMB host (ports, no web) → enum4linux, nmap; not the web tools
 const smb = deriveHostSignals(["nmap: 445/tcp open microsoft-ds; 139/tcp open netbios-ssn"]);
-ok(smb.smb, "smb detected");
+ok(!!smb.smb, "smb detected");
 ok(scanToolSet(smb).has("enum4linux") && scanToolSet(smb).has("nmap"), "smb → enum4linux+nmap");
 ok(!scanToolSet(smb).has("gobuster"), "smb-only host → no gobuster");
 
