@@ -47,6 +47,9 @@ model Engagement {
   assessments  Assessment[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  // Multi-owner isolation: list/scoped queries filter by owner.
+  @@index([ownerEmail])
 }
 
 // A guided, approval-gated assessment run for one engagement. Stages execute in
@@ -99,6 +102,8 @@ model Resource {
   engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
   engagementId String?
   createdAt    DateTime    @default(now())
+
+  @@index([ownerEmail])
 }
 
 // ── Digital Forensics ────────────────────────────────────────────────────────
@@ -255,6 +260,9 @@ model Runner {
   controlSessions ControlSession[]
 
   @@index([fingerprint])
+  // Multi-owner isolation (list scoping) + liveness/online filtering.
+  @@index([ownerEmail])
+  @@index([lastSeenAt])
 }
 
 // One interactive control session on a machine: a PTY terminal, a file transfer, a
@@ -308,6 +316,8 @@ model Install {
   requestedBy String    @default("")
   createdAt   DateTime  @default(now())
   finishedAt  DateTime?
+
+  @@index([runnerId, status])
 }
 
 // A single tool execution queued by the portal and run by a Runner.
@@ -352,6 +362,10 @@ model Job {
 
   // Serves the runner's claim query (per runner, queued, by priority then age).
   @@index([runnerId, status, priority(sort: Desc), createdAt])
+  // Serves the "adopt orphan / any queued" claim path (status-first, not runner-scoped).
+  @@index([status, priority(sort: Desc), createdAt])
+  // Per-engagement job listing + SetNull cascade lookups.
+  @@index([engagementId])
 }
 
 // A single issue discovered during an engagement.
@@ -405,6 +419,9 @@ model Finding {
 
   // Rank the findings list by real risk, worst first.
   @@index([engagementId, risk(sort: Desc)])
+  // Findings-list filters (status/severity) + the category filter chips.
+  @@index([status, severity])
+  @@index([category])
 }
 
 // A single reconnaissance/security scan run. Tracks scan execution history,
@@ -423,6 +440,8 @@ model ScanRun {
   durationMs     Int        @default(0) // execution time in ms
   createdAt      DateTime   @default(now())
   completedAt    DateTime? // when scan finished
+
+  @@index([engagementId])
 }
 
 // A recurring passive web-posture scan. The Vercel cron hits /api/cron/scan,
@@ -440,6 +459,9 @@ model ScheduledScan {
   lastRunAt    DateTime?
   lastStatus   String      @default("") // human summary of the last run
   createdAt    DateTime    @default(now())
+
+  @@index([engagementId])
+  @@index([enabled])
 }
 
 // A team member who can sign in (by email) once approved by an owner, with
@@ -529,6 +551,10 @@ model BugProgram {
   engagementId String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([ownerEmail])
+  // Cron picks auto-enabled active programs.
+  @@index([auto, status])
 }
 
 // A vulnerability submission to a program — closes the loop from finding →
@@ -550,6 +576,8 @@ model Submission {
   ownerEmail   String      @default("")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([ownerEmail])
 }
 
 // SIEM / audit trail: a security-relevant event recorded for the activity
