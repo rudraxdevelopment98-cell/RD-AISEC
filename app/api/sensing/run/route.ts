@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { ownerScope } from "@/lib/ownership";
 import { parseWifiSense, motionTimeline, analyzeMotion } from "@/lib/wifi-sense-core";
 import { occupancyField } from "@/lib/wifi-fusion-core";
 
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   if (!runnerId || !IFACE_RE.test(iface)) {
     return NextResponse.json({ error: "Pick a machine and a valid interface." }, { status: 400 });
   }
-  const runner = await prisma.runner.findUnique({ where: { id: runnerId }, select: { id: true, lastSeenAt: true } });
+  const runner = await prisma.runner.findFirst({ where: { id: runnerId, ...ownerScope(email ?? "") }, select: { id: true, lastSeenAt: true } });
   if (!runner) return NextResponse.json({ error: "Machine not found." }, { status: 404 });
   const online = runner.lastSeenAt && Date.now() - new Date(runner.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS;
   if (!online) return NextResponse.json({ error: "That machine is offline." }, { status: 409 });

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { parseDevices, deviceSummary } from "@/lib/devices-core";
+import { ownerScope } from "@/lib/ownership";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const runnerId = String(body?.runnerId ?? "");
-  const runner = await prisma.runner.findUnique({
-    where: { id: runnerId },
+  const runner = await prisma.runner.findFirst({
+    where: { id: runnerId, ...ownerScope(email) },
     select: { id: true, lastSeenAt: true, subnets: true },
   });
   if (!runner) return NextResponse.json({ error: "Machine not found." }, { status: 404 });
