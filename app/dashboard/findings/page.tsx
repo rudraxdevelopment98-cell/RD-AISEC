@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { ownerScope, viaEngagementScope } from "@/lib/ownership";
 import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { EmptyState } from "@/components/empty-state";
@@ -101,7 +103,9 @@ export default async function FindingsPage({
   searchParams: SP;
 }) {
   const sp = searchParams;
-  const where: Record<string, unknown> = {};
+  // Multi-owner isolation: members see only findings under their own engagements.
+  const email = (await auth())?.user?.email ?? "";
+  const where: Record<string, unknown> = { ...viaEngagementScope(email) };
   if (sp.attack) where.attack = sp.attack;
   if (sp.owasp) where.owasp = sp.owasp;
   if (sp.severity) where.severity = sp.severity;
@@ -120,9 +124,9 @@ export default async function FindingsPage({
       take: 300,
       include: { engagement: { select: { id: true, name: true } } },
     }),
-    prisma.finding.groupBy({ by: ["attack", "owasp"], _count: true }),
-    prisma.finding.groupBy({ by: ["category"], _count: true }),
-    prisma.engagement.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, name: true } }),
+    prisma.finding.groupBy({ by: ["attack", "owasp"], where: viaEngagementScope(email), _count: true }),
+    prisma.finding.groupBy({ by: ["category"], where: viaEngagementScope(email), _count: true }),
+    prisma.engagement.findMany({ where: ownerScope(email), orderBy: { updatedAt: "desc" }, select: { id: true, name: true } }),
   ]);
 
   // Learned false-positive rules (self-improving accuracy loop).

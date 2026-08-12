@@ -21,3 +21,13 @@ export function ownerScope(email: string): Record<string, unknown> {
 export function viaEngagementScope(email: string): Record<string, unknown> {
   return isOwnerEmail(email) ? {} : { engagement: { ownerEmail: email } };
 }
+
+/**
+ * `where` fragment for a Job: yours if its runner OR its engagement is yours.
+ * (Jobs can be owned through either relation.) Owner-role matches everything.
+ */
+export function jobOwnerScope(email: string): Record<string, unknown> {
+  return isOwnerEmail(email)
+    ? {}
+    : { OR: [{ runner: { ownerEmail: email } }, { engagement: { ownerEmail: email } }] };
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { ownerScope, jobOwnerScope } from "@/lib/ownership";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,13 @@ export async function GET() {
   }
 
   const now = Date.now();
+  // Multi-owner isolation: the status bar only reflects the caller's own fleet/jobs.
+  const email = session.user.email ?? "";
+  const rScope = ownerScope(email);
+  const jScope = jobOwnerScope(email);
   const [runners, running, queued, recent] = await Promise.all([
     prisma.runner.findMany({
+      where: rScope,
       orderBy: { lastSeenAt: "desc" },
       select: {
         name: true,
@@ -34,11 +40,11 @@ export async function GET() {
         loadAvg: true,
       },
     }),
-    prisma.job.count({ where: { status: "running" } }),
-    prisma.job.count({ where: { status: "queued" } }),
+    prisma.job.count({ where: { status: "running", ...jScope } }),
+    prisma.job.count({ where: { status: "queued", ...jScope } }),
     // Recent finished jobs → average duration, for the ETA estimate.
     prisma.job.findMany({
-      where: { status: { in: ["done", "failed"] }, startedAt: { not: null }, finishedAt: { not: null } },
+      where: { status: { in: ["done", "failed"] }, startedAt: { not: null }, finishedAt: { not: null }, ...jScope },
       orderBy: { finishedAt: "desc" },
       take: 30,
       select: { startedAt: true, finishedAt: true },

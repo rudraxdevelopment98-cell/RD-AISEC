@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { ownerScope, jobOwnerScope, viaEngagementScope } from "@/lib/ownership";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,9 @@ function andList(items: string[]): string {
   return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
 }
 
-async function runnersReply(now: number): Promise<string> {
+async function runnersReply(email: string, now: number): Promise<string> {
   const runners = await prisma.runner.findMany({
+    where: ownerScope(email),
     orderBy: { lastSeenAt: "desc" },
     select: { name: true, lastSeenAt: true },
   });
@@ -43,10 +45,11 @@ async function runnersReply(now: number): Promise<string> {
   return `${plural(online.length, "machine")} online — ${names}${extra}.`;
 }
 
-async function jobsReply(): Promise<string> {
+async function jobsReply(email: string): Promise<string> {
+  const j = jobOwnerScope(email);
   const [running, queued] = await Promise.all([
-    prisma.job.count({ where: { status: "running" } }),
-    prisma.job.count({ where: { status: "queued" } }),
+    prisma.job.count({ where: { status: "running", ...j } }),
+    prisma.job.count({ where: { status: "queued", ...j } }),
   ]);
   if (running === 0 && queued === 0) return "Nothing is running right now — the queue is clear.";
   const parts: string[] = [];
@@ -55,10 +58,10 @@ async function jobsReply(): Promise<string> {
   return andList(parts).replace(/^./, (c) => c.toUpperCase()) + ".";
 }
 
-async function findingsReply(): Promise<string> {
+async function findingsReply(email: string): Promise<string> {
   const open = await prisma.finding.groupBy({
     by: ["severity"],
-    where: { status: "open" },
+    where: { status: "open", ...viaEngagementScope(email) },
     _count: { _all: true },
   });
   const bySev: Record<string, number> = {};
@@ -78,11 +81,12 @@ async function findingsReply(): Promise<string> {
   return `You have ${plural(total, "open finding")}: ${andList(parts)}.`;
 }
 
-async function criticalReply(): Promise<string> {
+async function criticalReply(email: string): Promise<string> {
+  const scope = viaEngagementScope(email);
   const [count, latest] = await Promise.all([
-    prisma.finding.count({ where: { status: "open", severity: "critical" } }),
+    prisma.finding.count({ where: { status: "open", severity: "critical", ...scope } }),
     prisma.finding.findFirst({
-      where: { status: "open", severity: "critical" },
+      where: { status: "open", severity: "critical", ...scope },
       orderBy: { createdAt: "desc" },
       select: { title: true },
     }),
@@ -92,13 +96,15 @@ async function criticalReply(): Promise<string> {
   return `You have ${plural(count, "open critical finding")}.${tail}`;
 }
 
-async function summaryReply(now: number): Promise<string> {
+async function summaryReply(email: string, now: number): Promise<string> {
+  const j = jobOwnerScope(email);
+  const f = viaEngagementScope(email);
   const [runners, running, queued, crit, open] = await Promise.all([
-    prisma.runner.findMany({ select: { lastSeenAt: true } }),
-    prisma.job.count({ where: { status: "running" } }),
-    prisma.job.count({ where: { status: "queued" } }),
-    prisma.finding.count({ where: { status: "open", severity: "critical" } }),
-    prisma.finding.count({ where: { status: "open" } }),
+    prisma.runner.findMany({ where: ownerScope(email), select: { lastSeenAt: true } }),
+    prisma.job.count({ where: { status: "running", ...j } }),
+    prisma.job.count({ where: { status: "queued", ...j } }),
+    prisma.finding.count({ where: { status: "open", severity: "critical", ...f } }),
+    prisma.finding.count({ where: { status: "open", ...f } }),
   ]);
   const online = runners.filter(
     (r) => r.lastSeenAt && now - new Date(r.lastSeenAt).getTime() < RUNNER_ONLINE_WINDOW_MS,
@@ -125,24 +131,25 @@ export async function GET(req: Request) {
   const raw = (url.searchParams.get("topic") || "summary").toLowerCase();
   const topic: Topic = (TOPICS as string[]).includes(raw) ? (raw as Topic) : "summary";
   const now = Date.now();
+  const email = session.user.email ?? ""; // multi-owner: brief only your own state
 
   let speak: string;
   try {
     switch (topic) {
       case "runners":
-        speak = await runnersReply(now);
+        speak = await runnersReply(email, now);
         break;
       case "jobs":
-        speak = await jobsReply();
+        speak = await jobsReply(email);
         break;
       case "findings":
-        speak = await findingsReply();
+        speak = await findingsReply(email);
         break;
       case "critical":
-        speak = await criticalReply();
+        speak = await criticalReply(email);
         break;
       default:
-        speak = await summaryReply(now);
+        speak = await summaryReply(email, now);
     }
   } catch {
     speak = "Sorry, I couldn't reach that just now. Please try again in a moment.";

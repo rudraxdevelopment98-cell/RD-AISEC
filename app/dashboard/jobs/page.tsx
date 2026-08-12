@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { ownerScope, jobOwnerScope } from "@/lib/ownership";
 import { Icon } from "@/components/icons";
 import { QueueJobForm } from "@/components/runner-queue";
 import { CustomJobForm } from "@/components/custom-job";
@@ -70,15 +72,17 @@ export default async function JobsPage({
     data: { archived: true },
   });
 
+  // Multi-owner isolation: members see only their own machines, engagements & jobs.
+  const email = (await auth())?.user?.email ?? "";
   const [runners, engagements, jobs] = await Promise.all([
-    prisma.runner.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.runner.findMany({ where: ownerScope(email), orderBy: { createdAt: "desc" } }),
     prisma.engagement.findMany({
-      where: { authorized: true },
+      where: { authorized: true, ...ownerScope(email) },
       orderBy: { updatedAt: "desc" },
       select: { id: true, name: true, scope: true },
     }),
     prisma.job.findMany({
-      where: { archived: archivedView },
+      where: { archived: archivedView, ...jobOwnerScope(email) },
       orderBy: { createdAt: "desc" },
       take: archivedView ? 300 : 80,
       include: {
