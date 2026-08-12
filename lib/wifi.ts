@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { wifiSecurityAdvice, type WifiApInput } from "@/lib/wifi-advice";
 import { classifyFinding } from "@/lib/finding-map";
+import { assertRunnerOwner, isUnlocked } from "@/lib/control";
 
 async function requireUser() {
   const session = await auth();
@@ -379,6 +380,16 @@ export async function runWifiCommand(formData: FormData) {
   }
   if (command.length > 1024 || !/^[\x20-\x7e]+$/.test(command)) {
     redirect(`${BACK}?error=${encodeURIComponent("Invalid command.")}`);
+  }
+  // A WiFi "custom" command is arbitrary code execution on the machine — same bar
+  // as the terminal: you must own the machine and have an active full-control unlock.
+  try {
+    await assertRunnerOwner(runnerId);
+  } catch {
+    redirect(`${BACK}?error=${encodeURIComponent("You don't have control of this machine.")}`);
+  }
+  if (!(await isUnlocked(runnerId))) {
+    redirect(`${BACK}?error=${encodeURIComponent("Unlock full control on this machine before running commands.")}`);
   }
   await prisma.job.create({
     data: {

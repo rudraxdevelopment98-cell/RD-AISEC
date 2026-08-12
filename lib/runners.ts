@@ -16,6 +16,7 @@ import {
 } from "@/lib/runner-constants";
 import { hashToken } from "@/lib/runner-auth";
 import { assertRunnerOwner, isUnlocked } from "@/lib/control";
+import { isOwnerEmail } from "@/lib/members";
 import { parseScopeTargets } from "@/lib/bugbounty-core";
 import { parseJobFindings } from "@/lib/job-parser";
 import { gateFindings } from "@/lib/finding-gate";
@@ -118,6 +119,33 @@ export async function revokeEnrollCode(formData: FormData): Promise<void> {
  * installs that tool via apt or its fixed alt method (e.g. `go install` for
  * httpx) — never an arbitrary command.
  */
+/**
+ * Ownership gate for a machine-scoped form action. Multi-owner isolation: you may
+ * act on a runner only if you own it (or you're an owner-role user). Redirects
+ * with a friendly error rather than throwing an error page. No-op on empty id —
+ * the caller's own "no machine specified" validation handles that.
+ */
+async function gateRunner(runnerId: string, back = "/dashboard/runners"): Promise<void> {
+  if (!runnerId) return;
+  try {
+    await assertRunnerOwner(runnerId);
+  } catch {
+    redirect(`${back}?error=${encodeURIComponent("You don't have control of this machine.")}`);
+  }
+}
+
+/**
+ * Job-ownership where-fragment for multi-owner isolation: a job is yours if its
+ * runner or its engagement is yours. Owner-role users match everything. Merge into
+ * a job updateMany/deleteMany/findFirst `where` so members can't touch other
+ * owners' jobs.
+ */
+function jobScope(email: string): Record<string, unknown> {
+  return isOwnerEmail(email)
+    ? {}
+    : { OR: [{ runner: { ownerEmail: email } }, { engagement: { ownerEmail: email } }] };
+}
+
 export async function requestInstall(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -125,6 +153,7 @@ export async function requestInstall(formData: FormData) {
   const runnerId = String(formData.get("runnerId") ?? "");
   const tool = String(formData.get("tool") ?? "");
   const confirmed = String(formData.get("confirm") ?? "") === "true";
+  await gateRunner(runnerId);
 
   if (!confirmed) {
     redirect(
@@ -161,6 +190,7 @@ export async function installAllTools(formData: FormData) {
   const runnerId = String(formData.get("runnerId") ?? "");
   const back = String(formData.get("back") ?? "/dashboard/runners");
   if (!runnerId) redirect(`${back}?error=${encodeURIComponent("No machine specified.")}`);
+  await gateRunner(runnerId, back);
 
   const runner = await prisma.runner.findUnique({
     where: { id: runnerId },
@@ -199,7 +229,11 @@ export async function installRequiredTools(formData: FormData) {
   const backTo = engagementId ? `/dashboard/engagements/${engagementId}` : "/dashboard/runners";
 
   const now = Date.now();
+  // Multi-owner isolation: only install on machines the caller owns (owner-role
+  // users may target the whole fleet).
+  const email = session.user.email ?? "";
   const runners = await prisma.runner.findMany({
+    where: isOwnerEmail(email) ? {} : { ownerEmail: email },
     select: { id: true, lastSeenAt: true, installed: true },
   });
   const online = runners.filter(
@@ -238,6 +272,7 @@ export async function deleteRunner(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
+  await gateRunner(id);
   if (id) {
     // Cancel its outstanding jobs first — otherwise onDelete:SetNull orphans them
     // (runnerId becomes null and no runner can ever claim them → stuck forever).
@@ -262,6 +297,7 @@ export async function setRunnerAnonymity(formData: FormData) {
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
   const on = String(formData.get("on") ?? "") === "true";
+  await gateRunner(id);
   if (id) {
     await prisma.runner
       .update({
@@ -282,6 +318,7 @@ export async function restartRunner(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
+  await gateRunner(id, `/dashboard/runners/${id}`);
   if (id) {
     await prisma.runner.update({ where: { id }, data: { restartRequested: true } });
   }
@@ -298,6 +335,7 @@ export async function setRunnerWorkers(formData: FormData) {
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
   const n = Math.min(16, Math.max(1, parseInt(String(formData.get("workers") ?? ""), 10) || 1));
+  await gateRunner(id);
   if (id) {
     await prisma.runner.update({ where: { id }, data: { maxWorkers: n } });
   }
@@ -319,6 +357,7 @@ export async function setRunnerMaintenance(formData: FormData) {
     return Number.isFinite(n) ? Math.max(0, Math.min(23, n)) : dflt;
   };
   const back = String(formData.get("back") ?? "/dashboard/runners");
+  await gateRunner(id, back);
   if (id) {
     await prisma.runner.update({
       where: { id },
@@ -341,6 +380,7 @@ export async function renameRunner(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   const back = String(formData.get("back") ?? "/dashboard/runners");
+  await gateRunner(id, back);
   if (id && name) {
     await prisma.runner.update({ where: { id }, data: { name } });
   }
@@ -365,6 +405,7 @@ export async function queueJob(formData: FormData) {
   const target = String(formData.get("target") ?? "").trim().slice(0, 512);
 
   const back = "/dashboard/jobs";
+  await gateRunner(runnerId, back);
 
   if (!engagementId || !runnerId || !toolId || !target) {
     redirect(`${back}?error=${encodeURIComponent("All fields are required.")}`);
@@ -625,6 +666,7 @@ export async function queueLocalScan(formData: FormData) {
   if (!runnerId || !subnet) {
     redirect(`${back}?error=${encodeURIComponent("Pick a runner and a network.")}`);
   }
+  await gateRunner(runnerId, back);
 
   const runner = await prisma.runner.findUnique({ where: { id: runnerId } });
   const reported = (runner?.subnets ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -668,7 +710,7 @@ export async function cancelJob(formData: FormData) {
   if (id) {
     await prisma.job
       .updateMany({
-        where: { id, status: { in: ["queued", "running"] } },
+        where: { id, status: { in: ["queued", "running"] }, ...jobScope(session.user.email ?? "") },
         data: { status: "canceled", finishedAt: new Date() },
       })
       .catch(() => {});
@@ -680,7 +722,8 @@ export async function deleteJob(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
-  if (id) await prisma.job.delete({ where: { id } }).catch(() => {});
+  // deleteMany (not delete) so we can scope by ownership; delete only takes a unique.
+  if (id) await prisma.job.deleteMany({ where: { id, ...jobScope(session.user.email ?? "") } }).catch(() => {});
   revalidatePath("/dashboard/runners");
 }
 
@@ -691,7 +734,7 @@ export async function archiveJobs(formData: FormData) {
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   if (ids.length > 0) {
     await prisma.job.updateMany({
-      where: { id: { in: ids }, status: { notIn: ["queued", "running"] } },
+      where: { id: { in: ids }, status: { notIn: ["queued", "running"] }, ...jobScope(session.user.email ?? "") },
       data: { archived: true },
     });
   }
@@ -704,17 +747,17 @@ export async function unarchiveJobs(formData: FormData) {
   if (!session?.user) redirect("/login");
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   if (ids.length > 0) {
-    await prisma.job.updateMany({ where: { id: { in: ids } }, data: { archived: false } });
+    await prisma.job.updateMany({ where: { id: { in: ids }, ...jobScope(session.user.email ?? "") }, data: { archived: false } });
   }
   revalidatePath("/dashboard/jobs");
 }
 
-/** Bulk: cancel every queued (not-yet-started) job. */
+/** Bulk: cancel every queued (not-yet-started) job you own. */
 export async function cancelQueuedJobs() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   await prisma.job.updateMany({
-    where: { status: "queued" },
+    where: { status: "queued", ...jobScope(session.user.email ?? "") },
     data: { status: "canceled", finishedAt: new Date() },
   });
   revalidatePath("/dashboard/jobs");
@@ -726,7 +769,7 @@ export async function deleteJobs(formData: FormData) {
   if (!session?.user) redirect("/login");
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   if (ids.length > 0) {
-    await prisma.job.deleteMany({ where: { id: { in: ids } } });
+    await prisma.job.deleteMany({ where: { id: { in: ids }, ...jobScope(session.user.email ?? "") } });
   }
   revalidatePath("/dashboard/jobs");
 }
@@ -736,7 +779,7 @@ export async function retryJob(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const id = String(formData.get("id") ?? "");
-  const job = await prisma.job.findUnique({ where: { id } });
+  const job = await prisma.job.findFirst({ where: { id, ...jobScope(session.user.email ?? "") } });
   if (job) {
     await prisma.job.create({
       data: {
@@ -761,7 +804,7 @@ export async function importJobFindings(formData: FormData) {
   if (!session?.user) redirect("/login");
 
   const id = String(formData.get("id") ?? "");
-  const job = await prisma.job.findUnique({ where: { id } });
+  const job = await prisma.job.findFirst({ where: { id, ...jobScope(session.user.email ?? "") } });
   if (!job || job.status !== "done" || !job.engagementId) {
     // Quick scans (no engagement) have nowhere to import findings to.
     revalidatePath("/dashboard/runners");
