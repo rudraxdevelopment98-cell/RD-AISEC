@@ -5,6 +5,7 @@
   "description": "Desktop control panel for the RD-AISEC runner — connect a machine, monitor it, and control it from a window.",
   "main": "main.js",
   "author": "Kuldeep J.",
+  "homepage": "https://github.com/rudraxdevelopment98-cell/RD-AISEC",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -26,6 +27,10 @@
     ],
     "mac": { "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
     "win": { "target": ["nsis", "portable"] },
-    "linux": { "target": ["AppImage", "deb"], "category": "Development" }
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Development",
+      "maintainer": "RD-AISEC <noreply@rd-aisec.app>"
+    }
   }
 }
