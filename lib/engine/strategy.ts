@@ -25,7 +25,12 @@ export function scanStepFor(tool: string, deep = false): ScanStep | null {
       return { tool, args: "--subs", mode: "host" };
     // ── scan ──
     case "nuclei":
-      return { tool, args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" };
+      // Bounty focus: only medium+ severity. Without this, nuclei fires thousands
+      // of info/low templates (tech-detect, headers, banners, panels) — the exact
+      // low-value flood that buries anything reportable. Programs don't pay for
+      // info findings; this keeps CVEs, exposures, misconfigs, takeovers, default
+      // logins, and secret leaks (all medium+) while dropping the noise at source.
+      return { tool, args: "-jsonl -severity medium,high,critical -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" };
     case "nmap":
       return {
         tool,
@@ -85,7 +90,7 @@ export function bugPipelineSteps(deep: boolean): ScanStep[] {
   if (!deep) {
     return [
       { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
-      { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
+      { tool: "nuclei", args: "-jsonl -severity medium,high,critical -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
       { tool: "nmap", args: "-Pn -F -T4 --host-timeout 10m", mode: "host" },
       { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
       { tool: "katana", args: "-silent -d 2 -jc -rl 150", mode: "url" },

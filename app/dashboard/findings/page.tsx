@@ -12,7 +12,7 @@ import { importFindingsCsv } from "@/lib/finding-actions";
 import { deleteSuppression } from "@/lib/suppression";
 import { rescoreFindingsIntel } from "@/lib/finding-backfill";
 import { classifyConfidence } from "@/lib/exploit-confidence";
-import { bySignalDesc } from "@/lib/finding-signal";
+import { bySignalDesc, signalScore } from "@/lib/finding-signal";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,7 @@ type SP = {
   engagement?: string;
   since?: string;
   sort?: string;
+  view?: string; // "reportable" → only submittable-class findings (hide noise/info)
   ok?: string;
   error?: string;
 };
@@ -179,6 +180,19 @@ export default async function FindingsPage({
             : sp.sort === "signal"
               ? [...findings].sort(bySignalDesc)
               : [...findings].sort(byRiskDesc);
+
+  // "Reportable" lens: the few findings actually worth submitting to a program —
+  // open, and triaged to priority/review tier (i.e. NOT the header/TLS/banner
+  // noise a program marks informational). This is the direct answer to "I can't
+  // find anything to report": it hides the low-value flood so real leads surface.
+  const isReportable = (f: (typeof findings)[number]) => {
+    if (f.status !== "open") return false;
+    const t = signalScore(f).tier;
+    return t === "priority" || t === "review";
+  };
+  const reportableOnly = sp.view === "reportable";
+  const reportableCount = findings.filter(isReportable).length;
+  const shown = reportableOnly ? sorted.filter(isReportable) : sorted;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -421,12 +435,36 @@ export default async function FindingsPage({
         </div>
       </details>
 
+      {/* Reportable lens — the direct answer to "nothing to report": show only the
+          submittable findings (priority/review tier, open) and hide the noise. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={withParam(sp, "view", undefined)}
+          className={`tag ${!reportableOnly ? "ring-brand/50 text-brand" : "border-surface-border text-gray-400"}`}
+        >
+          All findings ({findings.length})
+        </Link>
+        <Link
+          href={withParam(sp, "view", "reportable")}
+          className={`tag ${reportableOnly ? "ring-red-500/50 text-red-300" : "border-surface-border text-gray-400"}`}
+          title="Open findings triaged to priority/review — worth submitting to a program"
+        >
+          🎯 Reportable ({reportableCount})
+        </Link>
+        {reportableOnly && reportableCount === 0 && (
+          <span className="text-xs text-gray-500">
+            No reportable leads yet — automated scans mostly surface informational
+            issues on mature targets. Aim at fresh scope / VDP programs for real hits.
+          </span>
+        )}
+      </div>
+
       {/* Active-filter summary + clear */}
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-sm text-gray-400">
-          {findings.length} finding{findings.length === 1 ? "" : "s"}
-          {anyFilter && " match your filters"}
-          {findings.length === 300 && " (showing the first 300)"}
+          {reportableOnly ? shown.length : findings.length} finding{(reportableOnly ? shown.length : findings.length) === 1 ? "" : "s"}
+          {reportableOnly ? " worth reporting" : anyFilter && " match your filters"}
+          {!reportableOnly && findings.length === 300 && " (showing the first 300)"}
         </p>
         {anyFilter && (
           <Link href="/dashboard/findings" className="text-xs text-gray-500 hover:text-brand">
@@ -436,9 +474,17 @@ export default async function FindingsPage({
       </div>
 
       {/* Results */}
-      {findings.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="mt-4">
-          {anyFilter ? (
+          {reportableOnly && findings.length > 0 ? (
+            <EmptyState icon="target" title="Nothing reportable in this set">
+              These findings are all informational/low-value — the kind programs
+              close as &quot;won&apos;t fix.&quot; That&apos;s normal for automated
+              scans on mature targets. Switch to <b>All findings</b> to review them,
+              or aim scans at freshly added scope / VDP programs where real issues
+              (exposed secrets, subdomain takeover, unpatched CVEs) still live.
+            </EmptyState>
+          ) : anyFilter ? (
             <EmptyState icon="search" title="No findings match these filters">
               Try clearing a filter, or broaden your search.
             </EmptyState>
@@ -456,7 +502,7 @@ export default async function FindingsPage({
         </div>
       ) : (
         <FindingsBulk
-          findings={sorted.map((f) => ({
+          findings={shown.map((f) => ({
             id: f.id,
             title: f.title,
             severity: f.severity,
