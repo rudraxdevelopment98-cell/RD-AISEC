@@ -1,6 +1,7 @@
 // Outbound notifications via a Discord/Slack-compatible webhook (free). Node-only.
 
 import { prisma } from "@/lib/db";
+import { signalScore } from "@/lib/finding-signal";
 
 const RANK: Record<string, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
@@ -8,11 +9,24 @@ export async function getNotifySetting() {
   return prisma.notifySetting.findFirst();
 }
 
-type NewFinding = { title: string; severity: string };
+// Enough of a finding to judge whether it's worth a ping. The extra fields are
+// optional so existing callers keep working; when present they let us flag
+// reportable-class findings (exposed secrets, takeover, validated bugs) that a
+// raw severity threshold would miss.
+type NewFinding = {
+  title: string;
+  severity: string;
+  category?: string | null;
+  confidence?: string | null;
+  confirmed?: boolean | null;
+  sources?: string | null;
+};
 
 /**
- * Notify about new findings if any meet the configured severity threshold.
- * Best-effort: never throws (a webhook failure must not break job ingestion).
+ * Notify about new findings worth your attention: any at/above the configured
+ * severity threshold, OR any the triage engine ranks "reportable" (priority /
+ * review tier) — so a submittable exposed-secret or takeover reaches you even if
+ * the scanner rated it below your severity floor. Best-effort; never throws.
  */
 export async function notifyFindings(findings: NewFinding[], context: string): Promise<void> {
   try {
@@ -21,7 +35,19 @@ export async function notifyFindings(findings: NewFinding[], context: string): P
     if (!cfg?.enabled || !cfg.discordWebhook) return;
 
     const min = RANK[cfg.minSeverity] ?? 3;
-    const worthy = findings.filter((f) => (RANK[f.severity] ?? 0) >= min);
+    const worthy = findings.filter((f) => {
+      if ((RANK[f.severity] ?? 0) >= min) return true;
+      const tier = signalScore({
+        severity: f.severity,
+        status: "open",
+        confidence: (f.confidence as never) ?? null,
+        confirmed: f.confirmed ?? null,
+        category: f.category ?? null,
+        sources: f.sources ?? null,
+        title: f.title,
+      }).tier;
+      return tier === "priority" || tier === "review";
+    });
     if (worthy.length === 0) return;
 
     const top = worthy
