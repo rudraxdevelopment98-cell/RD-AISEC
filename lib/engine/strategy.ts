@@ -84,13 +84,30 @@ export function planScanSteps(reconTexts: string[], deep: boolean): ScanStep[] {
   return [...tools].map((t) => scanStepFor(t, deep)).filter((s): s is ScanStep => !!s);
 }
 
-// ── Bug-bounty automation pipeline (distinct recipe: adds katana crawl; deep adds
-//    nuclei-DAST fuzzing + dalfox). Kept here so ALL tool lists live in one file. ──
+// Dedicated "high-yield hunt" — the finding classes that actually earn bounties on
+// fresh scope: exposed .git/.env/backups/configs, subdomain takeover, leaked
+// secrets/tokens, default logins, exposed panels. Run as its OWN nuclei pass with
+// an explicit tag allowlist and NO severity floor, because many of these templates
+// are rated info/low by nuclei and would otherwise be filtered out by the general
+// scan's medium+ floor — which is exactly why the engine surfaced "nothing
+// reportable." nuclei's own de-dupe + the finding dedup keep the overlap cheap.
+export const HIGH_YIELD_NUCLEI: ScanStep = {
+  tool: "nuclei",
+  args:
+    "-jsonl -tags exposure,exposures,takeover,secret,token,config,backup,default-login,exposed-panel " +
+    "-rl 150 -timeout 8 -retries 1 -c 50",
+  mode: "url",
+};
+
+// ── Bug-bounty automation pipeline (distinct recipe: adds katana crawl + the
+//    high-yield hunt; deep adds nuclei-DAST fuzzing + dalfox). Kept here so ALL
+//    tool lists live in one file. ──
 export function bugPipelineSteps(deep: boolean): ScanStep[] {
   if (!deep) {
     return [
       { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
       { tool: "nuclei", args: "-jsonl -severity medium,high,critical -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
+      HIGH_YIELD_NUCLEI,
       { tool: "nmap", args: "-Pn -F -T4 --host-timeout 10m", mode: "host" },
       { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
       { tool: "katana", args: "-silent -d 2 -jc -rl 150", mode: "url" },
@@ -99,6 +116,7 @@ export function bugPipelineSteps(deep: boolean): ScanStep[] {
   return [
     { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
     { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
+    HIGH_YIELD_NUCLEI,
     { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4 --host-timeout 30m --min-rate 800 --max-retries 2", mode: "host" },
     { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
     { tool: "katana", args: "-silent -d 3 -jc -kf all -rl 150", mode: "url" },
