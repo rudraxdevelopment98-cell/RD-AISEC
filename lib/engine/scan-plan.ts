@@ -51,6 +51,11 @@ export function scanToolSet(sig: HostSignals): Set<string> {
     tools.add("nuclei");
     tools.add("gobuster");
     tools.add("nikto");
+    // Any web host gets a TLS check. Recon (httpx over http://, whatweb, gau)
+    // rarely emits an explicit "https://"/"443/tcp" signal, so gating sslscan on
+    // sig.tls alone left weak/expired-cert findings — a staple reportable class —
+    // uncovered on most real HTTPS sites. A web host is worth the (cheap) scan.
+    tools.add("sslscan");
   }
   if (sig.tls) tools.add("sslscan");
   if (sig.wordpress) tools.add("wpscan");

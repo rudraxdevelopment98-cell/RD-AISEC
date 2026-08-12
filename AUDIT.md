@@ -92,11 +92,17 @@ not "it's all broken." Three themes dominate:
 
 ## The roadmap (waves — execute in order, verify each)
 
-**Wave 0 — P0 security & config (IN PROGRESS)**
-- ✅ Custom-command RCE gated (owner + unlock); crypto fails closed; dev-login
-  fails closed; target-dash injection blocked.
-- ▶ Next: ownership scope on the rest of the runner/job actions + `runWifiCommand`;
-  `guardAction` helper; dependency security bumps (next 14.2.35, next-auth, postcss).
+**Wave 0 — P0 security & config (DONE ✅)**
+- ✅ Custom-command RCE gated (owner + unlock); WiFi custom-command gated the same.
+- ✅ Crypto fails closed; dev-login fails closed; target-dash injection blocked.
+- ✅ Multi-owner isolation: ownership scoping on every runner + job action, and
+  row/view scoping on engagements, findings, programs, submissions, resources,
+  evidence, sensing routes, and the activity/voice aggregate endpoints
+  (`lib/ownership.ts`). Owner-role sees all; members confined to their own data.
+- ✅ Dependency security bumps: next 14.2.35, next-auth beta.32 (3 critical Auth.js
+  CVEs cleared), postcss 8.5.26. npm audit 16 → 5 (remaining are dev-tooling only).
+- Deferred (minor): a `guardAction` section gate for defence-in-depth on the few
+  remaining aggregate reads; tracked for a later pass.
 
 **Wave 1 — Engine reportability (the "find real bugs" fix)**
 - Fix the open-port dedup bug; guarantee TLS scanning; add detectors: subdomain

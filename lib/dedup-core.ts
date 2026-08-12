@@ -21,6 +21,16 @@ export function findingSignature(
 ): string {
   const sig = signatureOf(f);
   const host = hostFromTitle(f.title) || fallbackHost.toLowerCase();
+  // UNCLASSIFIED findings (vulnClass === "") — e.g. open ports, banners — must NOT
+  // use the normalized titleKey: it strips port numbers and the "(service)"
+  // parenthetical, so "Open port 22/tcp (ssh)", "…80/tcp (http)", "…443/tcp" would
+  // all collapse to one finding and every port but the first would be silently
+  // dropped. Use a number-preserving key so distinct ports/services stay distinct.
+  // Classified findings keep the normalized key (so "(3)" vs "(7)" counts merge).
+  if (!sig.vulnClass) {
+    const key = f.title.toLowerCase().replace(/\s+/g, " ").trim();
+    return `|${key}|${host}`;
+  }
   const key = sig.titleKey || f.title.toLowerCase().trim();
   return `${sig.vulnClass}|${key}|${host}`;
 }
