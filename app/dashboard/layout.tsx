@@ -5,7 +5,6 @@ import { auth, signOut } from "@/auth";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { MobileNav } from "@/components/mobile-nav";
-import { NeuralBg } from "@/components/neural-bg";
 import { CommandPalette } from "@/components/command-palette";
 import { OpsRail } from "@/components/ops-rail";
 import { OpsRailShell } from "@/components/ops-rail-shell";
@@ -55,15 +54,15 @@ export default async function DashboardLayout({
 
   return (
     <div className="app-dashboard flex h-screen overflow-hidden print:h-auto print:overflow-visible">
-      {/* Liquid-glass backdrop — morphing colour blobs + grid + neural net */}
+      {/* Calm, professional backdrop — a single faint depth wash + a subtle grid.
+          (The animated neural-net canvas was removed: a moving graphic behind the
+          whole app read as busy rather than focused.) */}
       <div className="scene print:hidden" aria-hidden>
         <div className="liquid-bg">
           <span className="b1" />
           <span className="b2" />
-          <span className="b3" />
         </div>
         <div className="scene-grid" />
-        <NeuralBg />
       </div>
 
       <SidebarShell>

@@ -564,7 +564,7 @@ body {
 .scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 
 /* ── Liquid glass backdrop — slow morphing colour blobs behind the frost ── */
-.liquid-bg { position: absolute; inset: 0; overflow: hidden; filter: blur(80px); opacity: 0.16; }
+.liquid-bg { position: absolute; inset: 0; overflow: hidden; filter: blur(80px); opacity: 0.08; }
 /* Static blobs — NOT animated. Animating transforms inside an 80px blur forced
    a full-viewport gaussian re-blur every frame (the biggest constant drain);
    frozen, the blur composites once and is cached. The soft glow looks identical
@@ -588,11 +588,11 @@ body {
 .scene-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 44px 44px;
-  -webkit-mask: radial-gradient(circle at 50% 18%, #000, transparent 80%);
-  mask: radial-gradient(circle at 50% 18%, #000, transparent 80%);
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 52px 52px;
+  -webkit-mask: radial-gradient(circle at 50% 12%, #000, transparent 72%);
+  mask: radial-gradient(circle at 50% 12%, #000, transparent 72%);
 }
 .scene-rays {
   position: absolute; left: 50%; top: -40%;
