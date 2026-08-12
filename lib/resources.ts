@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
+import { ownerScope } from "@/lib/ownership";
 
 async function requireUser() {
   const session = await auth();
@@ -38,11 +39,11 @@ export async function createResource(formData: FormData) {
 }
 
 export async function deleteResource(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
   const engagementId = String(formData.get("engagementId") ?? "").trim();
   if (!id) return;
-  await prisma.resource.delete({ where: { id } });
+  await prisma.resource.deleteMany({ where: { id, ...ownerScope(email) } });
   revalidatePath("/dashboard/library");
   if (engagementId) revalidatePath(`/dashboard/engagements/${engagementId}`);
 }

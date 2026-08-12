@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { EVIDENCE_KINDS, CUSTODY_ACTIONS, HASH_ALGOS, isValidHash } from "@/lib/forensics-core";
+import { ownerScope, viaEngagementScope } from "@/lib/ownership";
 
 async function requireEmail(): Promise<string> {
   const s = await auth();
@@ -22,6 +23,9 @@ export async function addEvidence(formData: FormData): Promise<void> {
   const engagementId = String(formData.get("engagementId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!engagementId || !name) redirect(`${engPath(engagementId)}?error=${encodeURIComponent("Evidence needs a name.")}`);
+  // Only register evidence on an engagement you own.
+  const owns = await prisma.engagement.findFirst({ where: { id: engagementId, ...ownerScope(email) }, select: { id: true } });
+  if (!owns) redirect(`${engPath(engagementId)}?error=${encodeURIComponent("You don't have access to that engagement.")}`);
 
   const hashAlgo = oneOf(formData.get("hashAlgo"), HASH_ALGOS, "sha256");
   const hashValue = String(formData.get("hashValue") ?? "").trim().toLowerCase();
@@ -56,6 +60,9 @@ export async function addCustody(formData: FormData): Promise<void> {
   const evidenceId = String(formData.get("evidenceId") ?? "");
   const engagementId = String(formData.get("engagementId") ?? "");
   if (!evidenceId) return;
+  // Only append custody to evidence under an engagement you own.
+  const ev = await prisma.evidence.findFirst({ where: { id: evidenceId, ...viaEngagementScope(email) }, select: { id: true } });
+  if (!ev) return;
   await prisma.custodyEvent.create({
     data: {
       evidenceId,
@@ -72,7 +79,7 @@ export async function deleteEvidence(formData: FormData): Promise<void> {
   const email = await requireEmail();
   const id = String(formData.get("id") ?? "");
   const engagementId = String(formData.get("engagementId") ?? "");
-  if (id) await prisma.evidence.delete({ where: { id } }).catch(() => {});
+  if (id) await prisma.evidence.deleteMany({ where: { id, ...viaEngagementScope(email) } }).catch(() => {});
   await logAudit({ type: "evidence.deleted", actor: email, summary: `Deleted evidence ${id}`, severity: "warn" });
   revalidatePath(engPath(engagementId));
   redirect(`${engPath(engagementId)}#evidence`);

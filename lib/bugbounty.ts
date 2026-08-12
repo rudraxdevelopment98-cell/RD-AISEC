@@ -9,6 +9,7 @@ import { isSafeUrl, normalizeTarget, validateTarget } from "@/lib/runner-constan
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { syncHackerOneAccount, queueProgramPipeline } from "@/lib/bug-pipeline";
 import { fetchProgramScope } from "@/lib/scope-fetch";
+import { ownerScope } from "@/lib/ownership";
 
 const BACK = "/dashboard/bugbounty";
 
@@ -290,10 +291,10 @@ export async function resyncAllProgramScopes() {
 }
 
 export async function updateBugProgram(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
-  await prisma.bugProgram.update({
-    where: { id },
+  await prisma.bugProgram.updateMany({
+    where: { id, ...ownerScope(email) },
     data: {
       scope: String(formData.get("scope") ?? "").trim(),
       outScope: String(formData.get("outScope") ?? "").trim(),
@@ -307,9 +308,9 @@ export async function updateBugProgram(formData: FormData) {
 }
 
 export async function deleteBugProgram(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
-  await prisma.bugProgram.delete({ where: { id } });
+  await prisma.bugProgram.deleteMany({ where: { id, ...ownerScope(email) } });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent("Program removed")}`);
 }
@@ -318,20 +319,20 @@ const PROGRAM_STATUSES = ["active", "paused", "archived"];
 
 /** Bulk delete selected programs. */
 export async function bulkDeletePrograms(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
-  if (ids.length) await prisma.bugProgram.deleteMany({ where: { id: { in: ids } } });
+  if (ids.length) await prisma.bugProgram.deleteMany({ where: { id: { in: ids }, ...ownerScope(email) } });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent(`Removed ${ids.length} program(s)`)}`);
 }
 
 /** Bulk set category/tag on selected programs. */
 export async function bulkSetProgramCategory(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const category = String(formData.get("category") ?? "").trim().slice(0, 60);
   if (ids.length && category) {
-    await prisma.bugProgram.updateMany({ where: { id: { in: ids } }, data: { category } });
+    await prisma.bugProgram.updateMany({ where: { id: { in: ids }, ...ownerScope(email) }, data: { category } });
   }
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent(`Tagged ${ids.length} program(s)`)}`);
@@ -339,11 +340,11 @@ export async function bulkSetProgramCategory(formData: FormData) {
 
 /** Bulk set status on selected programs. */
 export async function bulkSetProgramStatus(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   const status = String(formData.get("status") ?? "");
   if (ids.length && PROGRAM_STATUSES.includes(status)) {
-    await prisma.bugProgram.updateMany({ where: { id: { in: ids } }, data: { status } });
+    await prisma.bugProgram.updateMany({ where: { id: { in: ids }, ...ownerScope(email) }, data: { status } });
   }
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent(`Updated ${ids.length} program(s)`)}`);

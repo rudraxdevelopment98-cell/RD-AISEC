@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { SUBMISSION_STATUSES, parseRewardCents } from "@/lib/submission-core";
+import { ownerScope } from "@/lib/ownership";
 
 const BACK = "/dashboard/bugbounty";
 
@@ -39,12 +40,12 @@ export async function createSubmission(formData: FormData) {
 }
 
 export async function updateSubmission(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) redirect(BACK);
   const status = String(formData.get("status") ?? "");
-  await prisma.submission.update({
-    where: { id },
+  await prisma.submission.updateMany({
+    where: { id, ...ownerScope(email) },
     data: {
       ...(status && (SUBMISSION_STATUSES as readonly string[]).includes(status) ? { status } : {}),
       rewardCents: parseRewardCents(String(formData.get("reward") ?? "")),
@@ -56,9 +57,9 @@ export async function updateSubmission(formData: FormData) {
 }
 
 export async function deleteSubmission(formData: FormData) {
-  await requireUser();
+  const email = await requireUser();
   const id = String(formData.get("id") ?? "");
-  if (id) await prisma.submission.delete({ where: { id } }).catch(() => {});
+  if (id) await prisma.submission.deleteMany({ where: { id, ...ownerScope(email) } }).catch(() => {});
   revalidatePath(BACK);
   redirect(`${BACK}?ok=${encodeURIComponent("Submission removed")}`);
 }
