@@ -194,9 +194,27 @@ function isRunning() {
   return pidAlive(pid) ? pid : null;
 }
 
-function startRunner() {
+async function startRunner() {
   const already = isRunning();
   if (already) return { ok: true, pid: already, already: true };
+
+  // A runner may already own this machine that this app didn't spawn — e.g. a
+  // `curl | sudo bash` systemd install, or a previous app run whose pidfile was
+  // lost. Its local status server answers on 127.0.0.1:8787. Spawning a second
+  // instance is pointless: the runner's single-instance guard would just kill it,
+  // and two instances war over the token (the classic "token rejected" loop).
+  // Attach to the existing one instead of starting a duplicate.
+  const probe = await httpJson("GET", "/api/status", 1500);
+  if (probe.ok && probe.json) {
+    return {
+      ok: true,
+      external: true,
+      message:
+        "A runner is already running on this machine — the app is showing its status. " +
+        "To have the app manage its own instead, stop that one first " +
+        "(e.g. sudo systemctl stop rdaisec-runner).",
+    };
+  }
 
   const py = findPython();
   if (!py)

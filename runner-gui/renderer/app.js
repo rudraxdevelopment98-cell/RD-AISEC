@@ -64,9 +64,11 @@ async function connect() {
   if (r && r.ok) {
     msg(
       $("connectMsg"),
-      r.already
-        ? "Runner already running (pid " + r.pid + ")."
-        : "Runner started (pid " + r.pid + "). Waiting for it to come online…",
+      r.external
+        ? r.message
+        : r.already
+          ? "Runner already running (pid " + r.pid + ")."
+          : "Runner started (pid " + r.pid + "). Waiting for it to come online…",
       "ok",
     );
     $("token").value = "";
@@ -84,7 +86,13 @@ function wireControls() {
     const r = await window.rd.start();
     msg(
       $("controlMsg"),
-      r.ok ? (r.already ? "Already running." : "Started (pid " + r.pid + ").") : r.error,
+      r.ok
+        ? r.external
+          ? r.message
+          : r.already
+            ? "Already running."
+            : "Started (pid " + r.pid + ")."
+        : r.error,
       r.ok ? "ok" : "err",
     );
   });
