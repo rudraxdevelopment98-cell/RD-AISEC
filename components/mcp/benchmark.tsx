@@ -12,6 +12,9 @@ const ALL_CHECKS = [
   { id: "C3-dangerous-combo", short: "C3", name: "Dangerous combo" },
   { id: "C4-drift-risk", short: "C4", name: "Drift risk" },
   { id: "C5-tool-shadowing", short: "C5", name: "Tool shadowing" },
+  { id: "C6-overbroad-scope", short: "C6", name: "Over-broad scope" },
+  { id: "C7-remote-unpinned", short: "C7", name: "Remote / unpinned" },
+  { id: "C8-result-injection", short: "C8", name: "Result injection" },
 ];
 
 export function McpBenchmark() {

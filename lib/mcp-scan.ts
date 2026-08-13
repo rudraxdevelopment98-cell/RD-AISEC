@@ -14,12 +14,22 @@ export function sevMax(a: Severity, b: Severity): Severity {
   return SEV_RANK[a] >= SEV_RANK[b] ? a : b;
 }
 
-export type McpParam = { name: string; type?: string };
+export type McpParam = {
+  name: string;
+  type?: string;
+  // Enriched from the JSON schema when present — powers the over-broad-scope check.
+  default?: string; // stringified default value, if the schema declares one
+  constrained?: boolean; // schema has enum / pattern / format (i.e. the value is bounded)
+  description?: string;
+};
 export type McpTool = {
   name: string;
   description?: string;
   params?: McpParam[];
   descriptionDynamic?: boolean;
+  // Optional sample of what this tool RETURNS — lets the scanner check for indirect
+  // prompt injection carried in tool results (C8), not just in descriptions (C1).
+  sampleResult?: string;
 };
 export type McpTarget = { name?: string; tools: McpTool[] };
 
@@ -285,6 +295,182 @@ export function checkDriftRisk(target: McpTarget): Finding[] {
   return out;
 }
 
+// --- C6: over-broad scopes / roots -------------------------------------------
+// A powerful tool is far more dangerous when its reach isn't bounded: a file tool
+// rooted at "/" or "~", a network tool that accepts any host, a param with a broad
+// default and no allowlist. Catch explicit broad roots/defaults + unconstrained
+// sensitive params + description phrasing that advertises unrestricted scope.
+const BROAD_ROOT = [
+  /^\/$/, // filesystem root
+  /^~\/?$/, // home
+  /^[A-Za-z]:\\?$/, // windows drive root
+  /^\/(etc|root|home|var|usr)\/?$/i,
+  /^\*{1,2}$/, // * or **
+  /^\.{0,2}\/?\*/, // ./* , ../* , /*
+];
+const BROAD_HOST = [/^\*$/, /^0\.0\.0\.0/, /\/0$/, /^any$/i, /^\*:\d+$/];
+const BROAD_SCOPE_DESC =
+  /\b(entire|whole|full) (file ?system|disk|drive)\b|\ball files\b|\bunrestricted\b|\bany (host|url|domain|path|file)\b|\bno (restriction|allow[- ]?list|whitelist|validation|sandbox)\b|\broot (access|directory|filesystem)\b|\barbitrary (path|host|url|file)\b|\bunsandboxed\b/i;
+const PATH_PARAM = new Set(["path", "file", "filename", "filepath", "dir", "directory", "root", "cwd", "base", "basepath"]);
+const HOST_PARAM = new Set(["url", "uri", "host", "endpoint", "address", "target", "origin"]);
+
+export function checkOverbroadScope(target: McpTarget): Finding[] {
+  const out: Finding[] = [];
+  for (const tool of target.tools) {
+    const caps = inferCapabilities(tool);
+    const sensitive = caps.has("fs_read") || caps.has("fs_write") || caps.has("fs_delete") || caps.has("exec") || caps.has("network");
+    if (!sensitive) continue;
+    // High-impact caps make an unbounded param dangerous on its own; a plain
+    // read tool with an unconstrained path is too common to flag (C2 already
+    // notes the capability) — so an unconstrained param alone is only "strong"
+    // for exec/fs_write/fs_delete, or for an any-host network reach.
+    const highImpact = caps.has("exec") || caps.has("fs_write") || caps.has("fs_delete");
+    const hits: string[] = [];
+    let sev: Severity = "medium";
+    let strong = false; // at least one signal that isn't just "a read path is unbounded"
+
+    for (const p of tool.params ?? []) {
+      const name = p.name.toLowerCase();
+      const def = (p.default ?? "").trim();
+      const isPath = PATH_PARAM.has(name);
+      const isHost = HOST_PARAM.has(name);
+      if (isPath && def && BROAD_ROOT.some((re) => re.test(def))) {
+        hits.push(`param "${p.name}" defaults to a broad root: "${def}"`);
+        sev = sevMax(sev, "high");
+        strong = true;
+      }
+      if (isHost && def && BROAD_HOST.some((re) => re.test(def))) {
+        hits.push(`param "${p.name}" defaults to any host: "${def}"`);
+        sev = sevMax(sev, "high");
+        strong = true;
+      }
+      // A sensitive path/host param with no enum/pattern/format is unbounded.
+      if ((isPath || isHost) && !p.constrained) {
+        hits.push(`sensitive param "${p.name}" has no allowlist/pattern constraint`);
+        // Unbounded is "strong" for a network reach (SSRF-to-anywhere) or a
+        // high-impact tool (write/delete/exec) — not for a plain file read.
+        if ((isHost && caps.has("network")) || highImpact) strong = true;
+      }
+    }
+    if (BROAD_SCOPE_DESC.test(tool.description ?? "")) {
+      hits.push("description advertises unrestricted scope");
+      sev = sevMax(sev, caps.has("exec") ? "critical" : "high");
+      strong = true;
+    }
+    if (hits.length === 0 || !strong) continue;
+    out.push({
+      check: "C6-overbroad-scope",
+      severity: sev,
+      tool: tool.name,
+      title: "Tool scope is not bounded (over-broad root / host / params)",
+      detail:
+        "A capable tool with an unbounded root, any-host default, or unconstrained sensitive parameters lets a single tricked call reach far beyond its intended target — the blast-radius multiplier behind most MCP incidents.",
+      evidence: Array.from(new Set(hits)).join("; "),
+      recommendation:
+        "Bound the tool: pin a specific root/working directory, allowlist hosts, and add enum/pattern constraints (or path canonicalization) to every sensitive parameter.",
+    });
+  }
+  return out;
+}
+
+// --- C7: remote / unpinned tool servers --------------------------------------
+// If a tool's code or content is fetched from a remote, unpinned source at call
+// time, the server owner (or whoever controls that source) can change what runs
+// AFTER you approved it — a supply-chain rug-pull. Flag remote-exec fetchers and
+// unpinned versions in the tool name/description/params and at the server level.
+const REMOTE_UNPINNED: { re: RegExp; label: string; sev: Severity }[] = [
+  { re: /\bnpx\b(?!\s+--no-install)/i, label: "npx fetches & runs a remote package at call time", sev: "high" },
+  { re: /\buvx?\b\s+\S/i, label: "uv/uvx runs a remote tool at call time", sev: "high" },
+  { re: /curl[^\n]*\|\s*(sh|bash|python|node)\b/i, label: "curl | sh remote install/exec", sev: "high" },
+  { re: /\bgit clone\b/i, label: "git clone at runtime (moving target)", sev: "high" },
+  { re: /@latest\b/i, label: "@latest — unpinned package version", sev: "medium" },
+  { re: /:latest\b/i, label: ":latest — unpinned container tag", sev: "medium" },
+  { re: /\bpip install\b(?![^\n]*==)/i, label: "pip install without a pinned ==version", sev: "medium" },
+  { re: /https?:\/\/\S+\.(sh|py|js|ts|rb)\b/i, label: "fetches a remote script by URL", sev: "high" },
+  { re: /\bhttp:\/\//i, label: "insecure http:// source (no integrity/TLS)", sev: "medium" },
+];
+
+export function checkRemoteUnpinned(target: McpTarget): Finding[] {
+  const out: Finding[] = [];
+  const scanText = (text: string, toolName: string) => {
+    if (!text.trim()) return;
+    const hits: string[] = [];
+    let sev: Severity = "low";
+    for (const p of REMOTE_UNPINNED) {
+      if (p.re.test(text)) {
+        hits.push(p.label);
+        sev = sevMax(sev, p.sev);
+      }
+    }
+    if (hits.length === 0) return;
+    out.push({
+      check: "C7-remote-unpinned",
+      severity: sev,
+      tool: toolName,
+      title: toolName
+        ? "Tool sources code/content from a remote or unpinned origin"
+        : "Server sources code/content from a remote or unpinned origin",
+      detail:
+        "What runs is fetched from a remote or unpinned source at call time, so it can change after you approved it — a supply-chain rug-pull. Approval of a moving target is not real approval.",
+      evidence: Array.from(new Set(hits)).join("; "),
+      recommendation:
+        "Pin exact versions/digests, vendor the tool locally, verify integrity (hash/signature), and re-review on any change. Avoid npx/uvx/curl|sh in tool definitions.",
+    });
+  };
+  if (target.name) scanText(target.name, "");
+  for (const tool of target.tools) {
+    const paramText = (tool.params ?? []).map((p) => `${p.name} ${p.default ?? ""} ${p.description ?? ""}`).join(" ");
+    scanText(`${tool.name}\n${tool.description ?? ""}\n${paramText}`, tool.name);
+  }
+  return out;
+}
+
+// --- C8: prompt injection in tool RESULTS (indirect injection) ----------------
+// C1 catches instructions hidden in a tool's DESCRIPTION. But the higher-volume
+// modern vector is indirect: a tool returns attacker-controlled content (a web
+// page, a file, an issue body) carrying instructions the model then obeys. Reuse
+// the C1 instruction signal on a tool's RESULT text.
+export function checkResultInjection(resultText: string, toolName = ""): Finding[] {
+  const text = resultText ?? "";
+  if (!text.trim()) return [];
+  let score = 0;
+  const hits: string[] = [];
+  for (const p of INSTRUCTION_PATTERNS) {
+    if (p.re.test(text)) {
+      score += p.weight;
+      hits.push(p.label);
+    }
+  }
+  if (BASE64_BLOB.test(text)) { score += 2; hits.push("long encoded blob"); }
+  if (INVISIBLE.test(text)) { score += 3; hits.push("invisible/zero-width characters"); }
+  if (hits.length === 0) return [];
+  const snippet = text.replace(/\s+/g, " ").slice(0, 140);
+  return [{
+    check: "C8-result-injection",
+    // Result injection is at least as severe as description injection (the content
+    // is fully attacker-controlled), so floor it a notch higher.
+    severity: escalate(sevFromScore(score)),
+    tool: toolName,
+    title: "Tool result carries hidden or imperative instructions (indirect prompt injection)",
+    detail:
+      "A tool returned content that steers the model rather than just answering. When tool output is attacker-controlled (fetched pages, files, tickets), embedded instructions become indirect prompt injection — the model may act on them as if they were the user.",
+    evidence: `${Array.from(new Set(hits)).sort().join("; ")} — “${snippet}…”`,
+    recommendation:
+      "Treat tool results as untrusted data, never instructions. Wrap/escape returned content, strip markup & invisible characters, and require human approval before acting on tool-derived directives.",
+  }];
+}
+
+// Run C8 over any tools that ship a sampleResult in the manifest.
+function checkManifestResultInjection(target: McpTarget): Finding[] {
+  const out: Finding[] = [];
+  for (const tool of target.tools) {
+    if (tool.sampleResult && tool.sampleResult.trim()) {
+      out.push(...checkResultInjection(tool.sampleResult, tool.name));
+    }
+  }
+  return out;
+}
+
 export function scan(target: McpTarget): Finding[] {
   return [
     ...checkHiddenInstructions(target),
@@ -292,6 +478,9 @@ export function scan(target: McpTarget): Finding[] {
     ...checkDangerousCombos(target),
     ...checkToolShadowing(target),
     ...checkDriftRisk(target),
+    ...checkOverbroadScope(target),
+    ...checkRemoteUnpinned(target),
+    ...checkManifestResultInjection(target),
   ].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity] || a.check.localeCompare(b.check));
 }
 
@@ -329,8 +518,13 @@ export function parseManifest(input: string): McpTarget {
       const props = schema?.properties as Record<string, unknown> | undefined;
       if (props && typeof props === "object") {
         for (const [pname, pspec] of Object.entries(props)) {
-          const type = pspec && typeof pspec === "object" ? String((pspec as Record<string, unknown>).type ?? "") : "";
-          params.push({ name: pname, type });
+          const s = (pspec && typeof pspec === "object" ? pspec : {}) as Record<string, unknown>;
+          const type = String(s.type ?? "");
+          const def = s.default != null ? String(s.default) : undefined;
+          // Bounded if the schema pins the value space (enum / pattern / format).
+          const constrained = !!(s.enum || s.pattern || s.format);
+          const description = s.description != null ? String(s.description) : undefined;
+          params.push({ name: pname, type, default: def, constrained, description });
         }
       }
       return {
@@ -338,6 +532,7 @@ export function parseManifest(input: string): McpTarget {
         description: String(e.description ?? ""),
         params,
         descriptionDynamic: Boolean(e.descriptionDynamic),
+        sampleResult: e.sampleResult != null ? String(e.sampleResult) : undefined,
       };
     });
   return { name, tools };
