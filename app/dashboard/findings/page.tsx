@@ -24,6 +24,7 @@ type SP = {
   severity?: string;
   status?: string;
   category?: string;
+  state?: string;
   q?: string;
   engagement?: string;
   since?: string;
@@ -44,6 +45,7 @@ const SEV_RANK: Record<string, number> = {
 const SORT_OPTIONS = [
   { value: "risk", label: "Risk (threat-intel — KEV/EPSS)" },
   { value: "signal", label: "Priority (smart triage)" },
+  { value: "acceptance", label: "Acceptance % (bounty likelihood)" },
   { value: "severity", label: "Severity (high→low)" },
   { value: "recent", label: "Most recent" },
   { value: "oldest", label: "Oldest first" },
@@ -52,6 +54,16 @@ const SORT_OPTIONS = [
 
 // Finding statuses (schema enum-as-string) — for the status filter chips.
 const FINDING_STATUSES = ["open", "fixed", "accepted", "false_positive"] as const;
+
+// Master-policy state (lib/bb-engine assessFinding), persisted on the finding →
+// filterable. Ordered worst-first for the chip row.
+const STATE_FILTERS: { value: string; label: string }[] = [
+  { value: "confirmed_exploitable", label: "Confirmed exploitable" },
+  { value: "validated", label: "Validated" },
+  { value: "suspected", label: "Suspected" },
+  { value: "detected", label: "Detected" },
+  { value: "informational", label: "Informational" },
+];
 
 // "Created within" presets → how far back to include (ms).
 const SINCE_MS: Record<string, number> = {
@@ -111,6 +123,7 @@ export default async function FindingsPage({
   if (sp.severity) where.severity = sp.severity;
   if (sp.status) where.status = sp.status;
   if (sp.category) where.category = sp.category;
+  if (sp.state) where.state = sp.state;
   if (sp.engagement) where.engagementId = sp.engagement;
   if (sp.since && SINCE_MS[sp.since]) {
     where.createdAt = { gte: new Date(Date.now() - SINCE_MS[sp.since]) };
@@ -143,19 +156,20 @@ export default async function FindingsPage({
     sp.severity ||
     sp.status ||
     sp.category ||
+    sp.state ||
     sp.q ||
     sp.engagement ||
     sp.since
   );
   // Chip filters live in a collapsible drawer; open it when one is active so the
   // user sees what's applied, otherwise keep it closed to maximize the list area.
-  const chipFilterActive = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.category);
+  const chipFilterActive = !!(sp.attack || sp.owasp || sp.severity || sp.status || sp.category || sp.state);
   const activeChipCount =
-    (sp.attack ? 1 : 0) + (sp.owasp ? 1 : 0) + (sp.severity ? 1 : 0) + (sp.status ? 1 : 0) + (sp.category ? 1 : 0);
+    (sp.attack ? 1 : 0) + (sp.owasp ? 1 : 0) + (sp.severity ? 1 : 0) + (sp.status ? 1 : 0) + (sp.category ? 1 : 0) + (sp.state ? 1 : 0);
 
   // CSV export honors the current filters (real filter keys only).
   const exportQs = new URLSearchParams();
-  for (const k of ["attack", "owasp", "severity", "status", "category", "q", "since"] as const) {
+  for (const k of ["attack", "owasp", "severity", "status", "category", "state", "q", "since"] as const) {
     if (sp[k]) exportQs.set(k, sp[k]!);
   }
   if (sp.engagement) exportQs.set("engagement", sp.engagement);
@@ -172,6 +186,14 @@ export default async function FindingsPage({
     if (a.kev !== b.kev) return a.kev ? -1 : 1;
     return (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9);
   };
+  // Acceptance sort = estimated bug-bounty acceptance % first (the persisted
+  // bbProb from assessFinding). Answers "what's most likely to actually pay?"
+  // Nulls (legacy / pre-enrich) fall back to risk order.
+  const byAcceptanceDesc = (a: (typeof findings)[number], b: (typeof findings)[number]) => {
+    const pa = a.bbProb ?? -1, pb = b.bbProb ?? -1;
+    if (pb !== pa) return pb - pa;
+    return byRiskDesc(a, b);
+  };
   const sorted =
     sp.sort === "recent"
       ? findings
@@ -181,9 +203,11 @@ export default async function FindingsPage({
           ? [...findings].sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
           : sp.sort === "status"
             ? [...findings].sort((a, b) => a.status.localeCompare(b.status))
-            : sp.sort === "signal"
-              ? [...findings].sort(bySignalDesc)
-              : [...findings].sort(byRiskDesc);
+            : sp.sort === "acceptance"
+              ? [...findings].sort(byAcceptanceDesc)
+              : sp.sort === "signal"
+                ? [...findings].sort(bySignalDesc)
+                : [...findings].sort(byRiskDesc);
 
   // "Reportable" lens: the few findings actually worth submitting to a program —
   // open, and triaged to priority/review tier (i.e. NOT the header/TLS/banner
@@ -419,6 +443,18 @@ export default async function FindingsPage({
               href={withParam(sp, "status", sp.status === s ? undefined : s)}
             >
               {s.replace("_", " ")}
+            </Chip>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-semibold text-gray-500">Policy state</span>
+          {STATE_FILTERS.map((s) => (
+            <Chip
+              key={s.value}
+              active={sp.state === s.value}
+              href={withParam(sp, "state", sp.state === s.value ? undefined : s.value)}
+            >
+              {s.label}
             </Chip>
           ))}
         </div>

@@ -415,6 +415,16 @@ model Finding {
   // a real attack path with others on the same asset (e.g. SSRF + exposed secret),
   // its risk is boosted and this holds the short chain label. "" = not in a chain.
   chain          String     @default("")
+  // Master-policy assessment (lib/bb-engine.ts assessFinding), stamped at ingest so
+  // the findings list can FILTER/SORT by them instead of only computing at render.
+  // state = policy category ("detected" | "suspected" | "validated" |
+  // "confirmed_exploitable" | "informational"); confScore = engine confidence
+  // 0..100 (numeric — distinct from the categorical proof-level "confidence" in
+  // finding-signal); bbProb = estimated bug-bounty acceptance % (0..100). Null on
+  // legacy rows until re-enriched.
+  state          String     @default("")
+  confScore      Int?
+  bbProb         Int?
   createdAt      DateTime   @default(now())
 
   // Rank the findings list by real risk, worst first.
@@ -422,6 +432,8 @@ model Finding {
   // Findings-list filters (status/severity) + the category filter chips.
   @@index([status, severity])
   @@index([category])
+  // Filter/sort by policy state (Confirmed / Validated / Suspected / …).
+  @@index([engagementId, state])
 }
 
 // A single reconnaissance/security scan run. Tracks scan execution history,

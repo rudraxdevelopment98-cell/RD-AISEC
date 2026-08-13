@@ -4,10 +4,19 @@ import { prisma } from "@/lib/db";
 import { getKevSet, getEpssMap } from "@/lib/threat-intel";
 import { scoreFinding } from "@/lib/engine/risk-core";
 import { correlateChains, type ChainFinding } from "@/lib/engine/chain-core";
+import { assessFinding } from "@/lib/bb-engine";
 
 const CVE_RE = /\bCVE-\d{4}-\d{3,7}\b/gi;
 
-export type IntelFields = { kev: boolean; epss: number | null; risk: number };
+export type IntelFields = {
+  kev: boolean;
+  epss: number | null;
+  risk: number;
+  // Persisted master-policy assessment (see Finding.state/confScore/bbProb).
+  state: string;
+  confScore: number;
+  bbProb: number;
+};
 
 type Enrichable = {
   title: string;
@@ -60,7 +69,16 @@ export async function enrichFindingsIntel<T extends Enrichable>(
       // to its text detection ("actively exploited"/"KEV" in the description).
       knownExploited: kev || undefined,
     }).score;
-    return { ...f, kev, epss, risk };
+    // Master-policy assessment (state / confidence / acceptance %). Feed the same
+    // KEV signal in so an actively-exploited finding isn't dismissed by freshness.
+    const q = assessFinding({
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      confirmedFlag: f.confirmed,
+      knownExploited: kev,
+    });
+    return { ...f, kev, epss, risk, state: q.state, confScore: q.confidence, bbProb: q.bugBountyProbability };
   });
 }
 
@@ -78,6 +96,7 @@ export async function recomputeEngagementIntel(engagementId: string): Promise<nu
       id: true, title: true, description: true, severity: true,
       confirmed: true, status: true, category: true,
       kev: true, epss: true, risk: true, chain: true,
+      state: true, confScore: true, bbProb: true,
     },
   });
   if (findings.length === 0) return 0;
@@ -96,9 +115,15 @@ export async function recomputeEngagementIntel(engagementId: string): Promise<nu
     const ch = chainById.get(f.id);
     const risk = Math.min(100, f.risk + (ch?.boost ?? 0));
     const chain = ch?.label ?? "";
-    if (orig.kev === f.kev && orig.epss === f.epss && orig.risk === risk && orig.chain === chain) continue;
+    if (
+      orig.kev === f.kev && orig.epss === f.epss && orig.risk === risk && orig.chain === chain &&
+      orig.state === f.state && orig.confScore === f.confScore && orig.bbProb === f.bbProb
+    ) continue;
     await prisma.finding
-      .update({ where: { id: f.id }, data: { kev: f.kev, epss: f.epss, risk, chain } })
+      .update({
+        where: { id: f.id },
+        data: { kev: f.kev, epss: f.epss, risk, chain, state: f.state, confScore: f.confScore, bbProb: f.bbProb },
+      })
       .catch(() => {});
     updated += 1;
   }
