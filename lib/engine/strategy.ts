@@ -69,9 +69,23 @@ export function reconSteps(): ScanStep[] {
   return RECON_TOOLS.map((t) => scanStepFor(t)).filter((s): s is ScanStep => !!s);
 }
 
+// Append the high-yield exposure hunt + the GraphQL introspection probe to a web
+// host's scan. These are the passes that actually surface reportable modern-class
+// bugs (exposed .git/.env, takeovers, leaked secrets, SSRF/SSTI/XXE/OAuth, GraphQL
+// authz) — the same two dedicated passes the bug-bounty pipeline runs. Previously
+// only the bug-bounty orchestrator ran them, so a MANUAL staged engagement scan
+// silently missed exactly the classes we build exploit playbooks for. Gated on the
+// host actually being web (a url-mode nuclei step present) so SMB/host-only targets
+// don't get pointless URL passes. Finding dedup keeps the overlap cheap.
+function withHighYield(steps: ScanStep[]): ScanStep[] {
+  const isWeb = steps.some((s) => s.tool === "nuclei" && s.mode === "url");
+  return isWeb ? [...steps, HIGH_YIELD_NUCLEI, GRAPHQL_PROBE] : steps;
+}
+
 /** The default (no-signal) scan-stage steps. */
 export function scanDefaultSteps(deep: boolean): ScanStep[] {
-  return SCAN_DEFAULT.map((t) => scanStepFor(t, deep)).filter((s): s is ScanStep => !!s);
+  const base = SCAN_DEFAULT.map((t) => scanStepFor(t, deep)).filter((s): s is ScanStep => !!s);
+  return withHighYield(base);
 }
 
 /**
@@ -81,7 +95,8 @@ export function scanDefaultSteps(deep: boolean): ScanStep[] {
 export function planScanSteps(reconTexts: string[], deep: boolean): ScanStep[] {
   if (reconTexts.length === 0) return scanDefaultSteps(deep);
   const tools = scanToolSet(deriveHostSignals(reconTexts));
-  return [...tools].map((t) => scanStepFor(t, deep)).filter((s): s is ScanStep => !!s);
+  const base = [...tools].map((t) => scanStepFor(t, deep)).filter((s): s is ScanStep => !!s);
+  return withHighYield(base);
 }
 
 // Dedicated "high-yield hunt" — the finding classes that actually earn bounties on
