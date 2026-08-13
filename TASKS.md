@@ -148,8 +148,13 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
     info + per-sink hypotheses (critical sinks stored at HIGH — no critical without
     proof). Wired into the engagement Command tab (auth-gated). Clone is read-only +
     auto-deleted.
-  - ⬜ One-click "validate this hypothesis" from a source finding (queue the matching
-    dynamic check).
+  - ✅ **One-click "validate this hypothesis"** (`lib/hypothesis-validate.ts` +
+    `validateHypothesis` action, tested): a white-box source finding has no target
+    of its own, so this maps its hypothesis class → the matching dynamic check
+    (sqlmap/dalfox/class-tagged nuclei/sslscan) and queues it against the
+    engagement's prioritized in-scope host to prove it live. Authorized-only,
+    non-destructive tier; a hit auto-imports and can promote detected→validated.
+    Button on the per-finding exploit page (shown only for white-box hypotheses).
 - ⬜ Threat-model stage between recon and exploit (attack-surface map → hypotheses).
 
 ## P. Bug-bounty accuracy + report engine (master-policy vNext)
