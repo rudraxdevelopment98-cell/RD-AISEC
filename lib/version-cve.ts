@@ -80,5 +80,21 @@ export function versionAffected(detected: string, constraints: Constraint[]): bo
 
 /** Extract the first product-version pair from finding text (e.g. "Apache 2.4.49"). */
 export function extractVersion(text: string): string | null {
-  return text.match(VERSION_RE)?.[0] ?? null;
+  // The DETECTED (installed/banner) version — distinct from the CVE's fixed/
+  // affected version. Grabbing the wrong token flips a real finding to "patched"
+  // and silently drops it (a false-negative in the FP-reduction path). So before
+  // taking the first version, remove tokens that are NOT the detected version:
+  //   • URLs (a version in a docs/asset link, e.g. ".../2.4.55/")
+  //   • versions inside a "fixed in / before / < X" constraint clause (that's the
+  //     advisory's fixed/affected version).
+  // Banner versions like "Apache/2.4.41" (no scheme, no constraint word) survive.
+  const cleaned = text
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(
+      /\b(?:fixed(?:\s+in)?|patched(?:\s+in)?|resolved\s+in|before|prior\s+to|earlier\s+than|up\s+to(?:\s+and\s+including)?|through|affected)\s+v?\d+(?:\.\d+){1,3}/gi,
+      " ",
+    )
+    .replace(/[<>]=?\s*v?\d+(?:\.\d+){1,3}/g, " ")
+    .replace(/(?:^|[\s(])=\s*v?\d+(?:\.\d+){1,3}/g, " ");
+  return cleaned.match(VERSION_RE)?.[0] ?? null;
 }
