@@ -10,6 +10,7 @@
 import { classifyConfidence, type Confidence } from "./exploit-confidence";
 import { assessFinding } from "./bb-engine";
 import { requiresHumanReview } from "./review-gate";
+import { classifyFindingVuln, remediationFor } from "./vuln-taxonomy";
 
 export type ReportInput = {
   title: string;
@@ -144,33 +145,54 @@ function reproSteps(i: ReportInput, seed: number): string[] {
 
 // --- the structured "engine" writeup (for our records) ------------------------
 export function buildStructuredReport(i: ReportInput): string {
+  // Recognize the vulnerability class so the draft carries real, class-specific
+  // detail (CWE, CVSS band, impact, reproduction hints, remediation) instead of a
+  // generic skeleton — what a program actually needs to triage and accept it.
+  const cls = classifyFindingVuln({ title: i.title, description: i.description, evidence: i.evidence });
+
+  const repro = cls?.indicators?.length
+    ? [
+        `1. On the affected asset, exercise the ${cls.label.toLowerCase()} condition.`,
+        ...cls.indicators.slice(0, 3).map((ind, n) => `${n + 2}. Confirm: ${ind}.`),
+      ]
+    : [
+        `1. Access the affected asset.`,
+        `2. Reproduce the condition described in the summary.`,
+        `3. Observe the impact below.`,
+      ];
+
+  const impact = cls?.summary
+    ? cls.summary
+    : `A ${(i.severity || "medium").toLowerCase()}-severity issue affecting the asset above.`;
+
+  const remediation = (i.recommendation || "").trim() || remediationFor(cls?.id);
+
   const lines = [
     `# ${i.title}`,
     ``,
     `**Severity:** ${(i.severity || "medium").toUpperCase()}`,
+    cls ? `**Vulnerability class:** ${cls.label}` : "",
+    cls ? `**CWE:** ${cls.cwe} · **OWASP:** ${cls.owasp} · **CVSS:** ${cls.cvss}` : i.owaspLabel ? `**OWASP:** ${i.owaspLabel}` : "",
     i.target ? `**Affected asset:** ${i.target}` : "",
     i.program ? `**Program:** ${i.program}` : "",
     i.engagement ? `**Engagement:** ${i.engagement}` : "",
-    i.owaspLabel ? `**OWASP:** ${i.owaspLabel}` : "",
-    i.attackLabel ? `**MITRE ATT&CK:** ${i.attackLabel}` : "",
+    !cls && i.attackLabel ? `**MITRE ATT&CK:** ${i.attackLabel}` : "",
     i.confirmed ? `**Status:** Reproduced / confirmed exploitable` : "",
     ``,
     `## Summary`,
-    (i.description || "").trim() || "—",
+    (i.description || "").trim() || impact,
     ``,
     `## Steps to Reproduce`,
-    `1. Access the affected asset.`,
-    `2. Reproduce the condition described in the summary.`,
-    `3. Observe the impact below.`,
+    ...repro,
     ``,
     ...(i.evidence?.trim()
       ? [`## Supporting Material`, "```", i.evidence.trim().slice(0, 1500), "```", ``]
       : []),
     `## Impact`,
-    `A ${(i.severity || "medium").toLowerCase()}-severity issue affecting the asset above.`,
+    impact,
     ``,
     `## Remediation`,
-    (i.recommendation || "").trim() || "Patch/upgrade the affected component and re-test.",
+    remediation,
   ];
   return lines.filter((l) => l !== "").join("\n");
 }

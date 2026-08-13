@@ -499,3 +499,51 @@ export function classifyFindingVuln(f: {
 export function vulnClassById(id: string): VulnClass | undefined {
   return VULN_CLASSES.find((c) => c.id === id);
 }
+
+// Per-class remediation — one actionable line for a bug-bounty/pentest report's
+// "Remediation" section, so a submission draft carries real fix guidance instead
+// of a generic "patch and re-test".
+const REMEDIATION: Record<string, string> = {
+  rce: "Never pass user input to a shell/eval; use safe APIs with strict allowlists, run with least privilege, and patch the vulnerable component.",
+  deserialization: "Don't deserialize untrusted data; use data-only formats (JSON) with schema validation, or signed/whitelisted types.",
+  sqli: "Use parameterized queries / prepared statements (never string concatenation); apply least-privilege DB accounts and input validation.",
+  nosqli: "Cast and validate types server-side, reject query operators ($where/$ne) in user input, and use an ODM with strict schemas.",
+  ssti: "Never render user input as a template; use logic-less templates and pass user data as sandboxed variables, not template source.",
+  xxe: "Disable external entities and DTD processing in the XML parser (FEATURE_SECURE_PROCESSING); prefer JSON where possible.",
+  auth_bypass: "Enforce authentication server-side on every request, verify JWT signature + alg (reject 'none'), rotate secrets, and fix session handling.",
+  ato: "Harden the password-reset/OTP flow (single-use, expiring, bound tokens), add MFA, and rate-limit; never leak reset tokens.",
+  idor: "Enforce per-object authorization on the server for every request (not just the UI); use unguessable references and deny-by-default.",
+  ssrf_metadata: "Block app egress to link-local/metadata ranges (169.254.0.0/16), enforce IMDSv2, and validate/allowlist outbound URLs; scope IAM roles tightly.",
+  ssrf: "Allowlist outbound hosts/schemes, resolve+validate targets server-side, block internal ranges, and disable unused URL fetchers.",
+  lfi: "Canonicalize and allowlist file paths, never pass user input to file APIs, and run with least filesystem privilege.",
+  file_upload: "Validate type by content (not extension), store outside the webroot with random names, and never execute uploaded files.",
+  stored_xss: "Context-encode all output, sanitize rich input server-side, and deploy a strict Content-Security-Policy.",
+  reflected_xss: "Context-encode reflected values, validate input, and add a strict CSP; avoid reflecting raw user input.",
+  secrets: "Rotate the exposed credential immediately, remove it from the response/repo/history, and move secrets to a vault/secret manager.",
+  cors: "Reflect only an allowlist of trusted origins (never '*') with credentials; validate the Origin server-side.",
+  subdomain_takeover: "Remove the dangling DNS record or reclaim the target resource; audit DNS for unclaimed CNAMEs regularly.",
+  open_redirect: "Allowlist redirect destinations or use relative paths; never redirect to a user-supplied absolute URL.",
+  csrf: "Add anti-CSRF tokens (or SameSite=Lax/Strict cookies) and verify Origin/Referer on state-changing requests.",
+  prompt_injection: "Treat all model input/retrieved content as untrusted, constrain tool/actions with allowlists + human approval, and separate system instructions from user data.",
+  graphql: "Disable introspection in production, enforce per-resolver authorization, add depth/complexity/rate limits, and disable batching if unused.",
+  oauth: "Strictly allowlist redirect_uri (exact match), require + validate the state parameter and PKCE, and never expose the code/token via referer or open redirect.",
+  request_smuggling: "Normalize request framing at the edge (reject ambiguous CL+TE), use HTTP/2 to the origin, and keep front-end/back-end parsers consistent.",
+  cache_poisoning: "Include all inputs that affect the response in the cache key, strip/normalize unkeyed headers, and don't cache responses that vary by them.",
+  prototype_pollution: "Reject __proto__/constructor/prototype keys on input, use Map or Object.create(null), and freeze prototypes; patch vulnerable libs.",
+  race_condition: "Make check-and-act atomic (DB transactions, row locks, idempotency keys) and enforce server-side limits, not client-side.",
+  business_logic: "Enforce every business rule server-side (price, quantity, role, workflow order); never trust client-supplied state.",
+  legacy_smb: "Disable SMBv1, patch MS17-010, require SMB signing, and restrict SMB exposure to trusted networks.",
+  default_creds: "Change all default/weak credentials, enforce a strong password policy + MFA, and rotate on a schedule.",
+  outdated_component: "Upgrade the component to a fixed version and put a dependency-update/patch process in place.",
+  weak_tls: "Disable SSLv3/TLS1.0/1.1 and weak ciphers, enable TLS 1.2+/1.3 with forward secrecy, and fix certificate issues.",
+  missing_headers: "Add the missing security headers (CSP, HSTS, X-Content-Type-Options, etc.) with hardened values.",
+  info_disclosure: "Disable directory listing/verbose errors/debug pages in production and strip internal detail from responses.",
+};
+
+/** One-line remediation guidance for a vuln class id (generic fallback otherwise). */
+export function remediationFor(id: string | null | undefined): string {
+  return (
+    (id && REMEDIATION[id]) ||
+    "Patch/upgrade the affected component, validate and sanitize the input path, and re-test to confirm the fix."
+  );
+}
