@@ -121,8 +121,16 @@ Goal: match KeygraphHQ/Shannon's edge — source-aware recon + proof-by-exploita
 - ✅ **Proof-level badge** (`ConfidenceBadge`) on the Findings list, Exploit page
   (confirmed + exploitable rows), and the per-finding exploit page; the glow dot
   now means "proven" (not just a confirmed flag).
-- ⬜ Per-class exploit agents (injection · XSS · SSRF · broken auth · IDOR/mass-
-  assignment) — structured playbooks per OWASP class.
+- ✅ **Per-class exploit playbooks** (`lib/exploit-strategy.ts` CATALOG, tested):
+  tailored 4–5 phase proof plans now cover the modern high-yield classes
+  (SSRF→metadata, GraphQL, OAuth, request smuggling, cache poisoning, prototype
+  pollution, race condition, business logic, prompt injection) **and** the classic
+  gaps that used to fall through to the generic plan (deserialization, NoSQLi,
+  XXE, auth bypass, ATO, file upload, subdomain takeover). Each step carries a
+  risk tier + target-filled command + MITRE ref; only passive/safe auto-run. Also
+  fixed attack-chain detection so the dedicated `ssrf_metadata` class opens the
+  SSRF→cloud chain and prototype pollution counts as an RCE sink. 20 checks in
+  `lib/exploit-strategy.test.ts`.
 - 🔄 White-box / source-aware recon:
   - ✅ **Analysis core** (`lib/source-recon-core.ts`, pure + tested): given source
     files → detect frameworks (Express/Next/Flask/Django/FastAPI/Rails/Spring/
