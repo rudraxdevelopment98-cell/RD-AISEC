@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { runReconnaissancePipeline } from "@/lib/reconnaissance";
-import { classifyFinding } from "@/lib/finding-map";
+import { ingestFindings } from "@/lib/finding-ingest";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -153,24 +153,11 @@ export async function executeReconnaissanceScan(
       }
     }
 
-    // Batch create findings
-    for (const finding of findings) {
-      await prisma.finding.create({
-        data: {
-          engagementId: scanRun.engagementId,
-          title: finding.title,
-          severity: finding.severity,
-          status: "open",
-          description: finding.description,
-          recommendation: finding.recommendation,
-          ...classifyFinding({
-            title: finding.title,
-            description: finding.description,
-            severity: finding.severity,
-          }),
-        },
-      });
-    }
+    // Persist through the shared accuracy chain (gate → suppress → dedup →
+    // enrich) so recon findings match the runner path's quality instead of being
+    // raw, ungated, duplicate-prone rows.
+    const host = scanRun.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
+    await ingestFindings(scanRun.engagementId, findings, { tool: "recon", host });
 
     // Update ScanRun with results
     const durationMs = Date.now() - startTime;

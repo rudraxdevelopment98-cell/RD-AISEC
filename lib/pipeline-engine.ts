@@ -11,7 +11,7 @@ import { parseScopeEntries } from "@/lib/bugbounty-core";
 import { normalizeTarget, validateTarget } from "@/lib/runner-constants";
 import { exploitActions } from "@/lib/exploit-core";
 import { playbookFor } from "@/data/exploit-playbook";
-import { assessFinding, groupForReport } from "@/lib/bb-engine";
+import { assessFinding, groupForReport, worthAutomating } from "@/lib/bb-engine";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
 import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
 import { reconSteps, scanDefaultSteps, planScanSteps, prioritizeHosts } from "@/lib/engine/strategy";
@@ -94,7 +94,11 @@ export async function queueStageJobs(
       where: { engagementId },
       select: { title: true, description: true, severity: true, owasp: true },
     });
-    const wanted = findings.flatMap((f) => exploitActions(f));
+    // Only spend the exploit budget on findings that could actually be a
+    // vulnerability — not recon artifacts (open ports, missing headers, banners).
+    // Matches the bug-bounty path's gate so the staged pipeline doesn't waste its
+    // 10-job cap searchsploiting informational noise.
+    const wanted = findings.filter((f) => worthAutomating(f)).flatMap((f) => exploitActions(f));
     const seen = new Set<string>();
     for (const a of wanted) {
       const target = normalizeTarget(a.tool, a.target);
