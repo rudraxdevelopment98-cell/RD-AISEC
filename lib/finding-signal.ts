@@ -20,6 +20,11 @@ export type SignalInput = {
   category?: string | null;
   sources?: string | null;
   title?: string | null;
+  // Persisted threat-intel risk score (lib/engine/risk-core). When present it is
+  // the SINGLE ranking authority — the triage tier derives from it so the risk
+  // sort, the risk tier, and this triage tier can't disagree. The heuristic below
+  // is only the fallback for findings not yet risk-scored (legacy / pre-enrich).
+  risk?: number | null;
 };
 
 export type SignalTier = "priority" | "review" | "low" | "noise";
@@ -45,10 +50,27 @@ export const TIER_CLASS: Record<SignalTier, string> = {
   noise: "border-gray-600/40 text-gray-500",
 };
 
+/** Map a persisted risk score (0..100, risk-core tiers) to a triage tier. */
+function tierFromRisk(risk: number): SignalTier {
+  if (risk >= 60) return "priority"; // risk-core P1/P2
+  if (risk >= 35) return "review"; //   risk-core P3
+  if (risk >= 15) return "low"; //      risk-core P4 (non-trivial)
+  return "noise";
+}
+
 /** Score a finding 0..100 with a triage tier and the reasons behind it. */
 export function signalScore(f: SignalInput): { score: number; tier: SignalTier; reasons: string[] } {
   const reasons: string[] = [];
   if (f.status === "false_positive") return { score: 0, tier: "noise", reasons: ["marked false positive"] };
+
+  // Single authority: when a finding carries a persisted risk score, rank by it so
+  // the risk tier and this triage tier agree. (Resolved findings still sink below
+  // open ones, matching the heuristic's behavior.)
+  if (typeof f.risk === "number" && f.risk >= 0) {
+    let rs = f.risk;
+    if (f.status === "fixed" || f.status === "accepted") rs = Math.round(rs * 0.4);
+    return { score: rs, tier: tierFromRisk(rs), reasons: [`risk score ${f.risk}`] };
+  }
 
   let s = SEV_WEIGHT[f.severity] ?? 6;
 
