@@ -95,10 +95,23 @@ export const HIGH_YIELD_NUCLEI: ScanStep = {
   tool: "nuclei",
   args:
     // Fresh-scope exposures + the modern high-value classes that actually pay in
-    // 2024–2025 (SSRF, GraphQL, JWT/OAuth, SSTI/XXE, cache poisoning, CRLF, LFI).
+    // 2024–2025 (SSRF, JWT/OAuth, SSTI/XXE, cache poisoning, CRLF, LFI). GraphQL is
+    // its own dedicated probe below.
     "-jsonl -tags exposure,exposures,takeover,secret,token,config,backup,default-login,exposed-panel," +
-    "graphql,jwt,oauth,ssrf,ssti,xxe,cache,crlf,lfi,redirect " +
+    "jwt,oauth,ssrf,ssti,xxe,cache,crlf,lfi,redirect " +
     "-rl 150 -timeout 8 -retries 1 -c 50",
+  mode: "url",
+};
+
+// Dedicated GraphQL introspection probe — a first-class step. GraphQL IDOR/BOLA
+// and introspection disclosure are among the most under-explored, well-paying
+// classes right now (missing per-resolver authz + a schema handed to the world).
+// nuclei's graphql templates fingerprint the common endpoints (/graphql,
+// /api/graphql, /v1/graphql, /graphql/console, …) and flag introspection + known
+// GraphQL CVEs. Findings classify via the "graphql" taxonomy class.
+export const GRAPHQL_PROBE: ScanStep = {
+  tool: "nuclei",
+  args: "-jsonl -tags graphql -rl 120 -timeout 8 -retries 1 -c 40",
   mode: "url",
 };
 
@@ -111,6 +124,7 @@ export function bugPipelineSteps(deep: boolean): ScanStep[] {
       { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
       { tool: "nuclei", args: "-jsonl -severity medium,high,critical -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
       HIGH_YIELD_NUCLEI,
+      GRAPHQL_PROBE,
       { tool: "nmap", args: "-Pn -F -T4 --host-timeout 10m", mode: "host" },
       { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
       { tool: "katana", args: "-silent -d 2 -jc -rl 150", mode: "url" },
@@ -120,6 +134,7 @@ export function bugPipelineSteps(deep: boolean): ScanStep[] {
     { tool: "httpx", args: "-title -status-code -tech-detect", mode: "url" },
     { tool: "nuclei", args: "-jsonl -rl 150 -timeout 8 -retries 1 -c 50", mode: "url" },
     HIGH_YIELD_NUCLEI,
+    GRAPHQL_PROBE,
     { tool: "nmap", args: "-Pn -sV -p- --script vuln -T4 --host-timeout 30m --min-rate 800 --max-retries 2", mode: "host" },
     { tool: "gobuster", args: "dir -q -t 50 --timeout 10s -w /usr/share/wordlists/dirb/common.txt", mode: "url" },
     { tool: "katana", args: "-silent -d 3 -jc -kf all -rl 150", mode: "url" },

@@ -20,9 +20,16 @@ ok(id("Business logic flaw: negative quantity yields a refund") === "business_lo
 ok(classifyVuln("GraphQL introspection enabled")?.tier === "high", "graphql tier high");
 ok(classifyVuln("Prompt injection jailbreak")?.tier === "high", "prompt injection tier high");
 
+// SSRF → cloud metadata is elevated to its own CRITICAL class (top-payout chain).
+ok(id("SSRF fetches http://169.254.169.254/latest/meta-data/iam/security-credentials returning IAM role credentials") === "ssrf_metadata", "ssrf→metadata classified");
+ok(classifyVuln("SSRF to 169.254.169.254 leaked IAM token")?.tier === "critical", "ssrf→metadata is critical");
+// Plain SSRF (no metadata) stays high, not critical.
+ok(id("SSRF: server fetches an attacker-supplied URL") === "ssrf", "plain ssrf stays generic");
+ok(classifyVuln("SSRF: server fetches an attacker-supplied URL")?.tier === "high", "plain ssrf stays high");
+
 // Classics still classify (no regression).
 ok(id("SQL injection in id parameter") === "sqli", "sqli still works");
-ok(id("SSRF to 169.254.169.254 metadata endpoint") === "ssrf", "ssrf still works");
+ok(id("Server-side request forgery reaching an internal admin service") === "ssrf", "ssrf still works");
 ok(id("Reflected XSS in search parameter") === "reflected_xss", "reflected xss still works");
 ok(classifyVuln("Missing X-Frame-Options header")?.tier === "low", "headers stay low");
 

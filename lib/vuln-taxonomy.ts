@@ -147,6 +147,22 @@ export const VULN_CLASSES: VulnClass[] = [
     summary: "Missing per-object authorization lets a user access others' data or actions.",
   },
   {
+    // MUST precede generic "ssrf": an SSRF that reaches cloud metadata is credential
+    // theft (IAM role creds / tokens) → critical, not just high. This is the classic
+    // top-payout SSRF chain, so it gets its own critical class.
+    id: "ssrf_metadata",
+    label: "SSRF → Cloud Metadata (credential theft)",
+    re: /169\.254\.169\.254[\s\S]{0,60}(cred|token|role|\biam\b|secret)|iam\/security-credentials|(instance[- ]metadata|imdsv?[12]|metadata\.google\.internal|169\.254\.170\.2)[\s\S]{0,40}(cred|token|role|exposed|leak)|(ssrf|server-side request forgery)[\s\S]{0,60}(169\.254\.169\.254|instance[- ]metadata|\bimds\b)/i,
+    owasp: "A10:2021 SSRF",
+    cwe: "CWE-918",
+    attack: "T1552.005",
+    cvss: "9.1–10.0",
+    tier: "critical",
+    surface: "cloud",
+    indicators: ["app fetches 169.254.169.254", "IAM role credentials returned", "GCP/Azure metadata token leaked"],
+    summary: "SSRF reaches the cloud instance-metadata service and returns IAM/role credentials — full account compromise; the top-payout SSRF chain.",
+  },
+  {
     id: "ssrf",
     label: "Server-Side Request Forgery",
     re: /\bssrf\b|server-side request forgery|metadata (endpoint|service)|169\.254\.169\.254/i,

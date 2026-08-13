@@ -53,6 +53,7 @@ const CLASSES: ClassDef[] = [
   { re: /authentication bypass|auth bypass|login bypass/i, label: "auth bypass", baseProb: 96, canBeCritical: true },
   { re: /\bidor\b|insecure direct object|broken (access control|authorization)|mass assignment/i, label: "IDOR / broken access", baseProb: 95, canBeCritical: true },
   { re: /sql ?injection|\bsqli\b/i, label: "SQL injection", baseProb: 93, canBeCritical: true },
+  { re: /169\.254\.169\.254[\s\S]{0,60}(cred|token|role|\biam\b)|iam\/security-credentials|(ssrf|server-side request forgery)[\s\S]{0,60}(169\.254\.169\.254|instance[- ]metadata|\bimds\b)/i, label: "SSRF → cloud metadata credentials", baseProb: 94, canBeCritical: true },
   { re: /\bssrf\b|server-side request forgery|169\.254\.169\.254|metadata (endpoint|service)/i, label: "SSRF", baseProb: 88, canBeCritical: true },
   { re: /privilege escalation|priv ?esc/i, label: "privilege escalation", baseProb: 90, canBeCritical: true },
   // Modern high-value classes (2024–2025 landscape).
