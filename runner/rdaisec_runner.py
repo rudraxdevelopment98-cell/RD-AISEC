@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "60.1"
+RUNNER_VERSION = "61"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -871,6 +871,17 @@ def post_with_retry(path: str, body, what: str) -> bool:
         try:
             request("POST", path, body, timeout=60)
             return True
+        except urllib.error.HTTPError as e:
+            # Token rotated out from under us mid-job → re-enroll and retry now with
+            # the fresh token, so a result isn't lost to a 401.
+            if e.code == 401 and reenroll_on_401():
+                continue
+            if attempt == 3:
+                print(f"  posting {what} failed (try 4/4): HTTP {e.code}")
+                break
+            wait = 2 ** attempt
+            print(f"  posting {what} failed (try {attempt + 1}/4): HTTP {e.code} — retrying in {wait}s")
+            time.sleep(wait)
         except Exception as e:  # noqa: BLE001
             if attempt == 3:  # last try — don't sleep before giving up
                 print(f"  posting {what} failed (try 4/4): {e}")
@@ -956,6 +967,7 @@ def _apply_update(content) -> bool:
         return False
 
     print(f"⬆ updated runner {RUNNER_VERSION} → {remote}; restarting…")
+    _release_single_instance()  # let the re-exec'd process re-acquire the lock
     try:
         os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
     except Exception as exc:  # noqa: BLE001
@@ -981,6 +993,7 @@ def restart_self():
         sys.stdout.flush()
     except Exception:  # noqa: BLE001
         pass
+    _release_single_instance()  # let the re-exec'd process re-acquire the lock
     try:
         os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
     except Exception as exc:  # noqa: BLE001
@@ -1093,7 +1106,8 @@ def fetch_tools():
         return tools or None
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
+            reenroll_on_401()  # self-heal, don't die — keep the current tool list
+            return None
         return None  # older portal without the route, etc. — keep current list
     except Exception:  # noqa: BLE001
         return None
@@ -1253,9 +1267,10 @@ def stream_loop():
             # Clean end-of-stream (the endpoint closes after ~25s) → reconnect now.
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                # Token/enrollment problem — the poll/heartbeat path reports it
-                # clearly; back off here so we don't spin.
-                time.sleep(30)
+                # Token rejected mid-stream → self-heal in place, then back off
+                # briefly so the reconnect picks up the fresh token.
+                reenroll_on_401()
+                time.sleep(15)
             elif e.code == 404:
                 # Portal doesn't have the stream yet — fall back quietly to poll.
                 time.sleep(60)
@@ -2019,7 +2034,10 @@ def poll():
         return json.loads(resp.read().decode()), anon
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
+            # Self-heal in place — re-enroll for a fresh token and skip this poll,
+            # instead of exiting. Next poll uses the new token. NEVER die on a 401.
+            reenroll_on_401()
+            return None, None
         print(f"  poll error: HTTP {e.code}")
         try:
             _apply_workers(e.headers)
@@ -2760,7 +2778,8 @@ def poll_install():
         return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            sys.exit("✗ Runner token rejected. Check RUNNER_TOKEN.")
+            reenroll_on_401()  # self-heal, don't die
+            return None
         return None
     except Exception:  # noqa: BLE001
         return None
@@ -3052,6 +3071,35 @@ def enroll() -> bool:
     return False
 
 
+# Runtime self-healing: how often we may re-enroll after a mid-run 401. Rate-limited
+# so a persistent 401 (or two instances rotating a shared token) can't hammer the
+# enroll endpoint; long enough to absorb a token rotation, short enough to recover fast.
+REENROLL_MIN_INTERVAL = int(os.environ.get("REENROLL_MIN_INTERVAL", "20"))
+_LAST_REENROLL = 0.0
+
+
+def reenroll_on_401() -> bool:
+    """A runtime request was rejected with HTTP 401. Self-heal IN PLACE: fetch a
+    fresh token via the enrollment code and KEEP RUNNING, instead of exiting. This
+    is what makes a mid-run token rotation (token rotated/wiped, or a second
+    instance re-enrolling the same machine) recoverable with no human. Rate-limited.
+    Returns True if a fresh token was obtained."""
+    global _LAST_REENROLL
+    now = time.time()
+    if now - _LAST_REENROLL < REENROLL_MIN_INTERVAL:
+        return False
+    _LAST_REENROLL = now
+    if not (ENROLL_CODE and PORTAL_URL):
+        note("token rejected (401) and no enrollment code is set — cannot self-heal. "
+             "Set RUNNER_ENROLL_CODE (portal → Runners) so this machine can re-enroll.", err=True)
+        return False
+    note("token rejected (401) — re-enrolling for a fresh token…")
+    ok = enroll()
+    if ok:
+        note("re-enrolled successfully; resuming with the fresh token.")
+    return ok
+
+
 def preflight(_allow_reenroll: bool = True) -> bool:
     """Test portal connectivity once at startup and print a plain diagnosis. Never
     raises. Returns True if the portal answered."""
@@ -3233,8 +3281,52 @@ def local_status_server():
         pass
 
 
+_SINGLE_INSTANCE_SOCK = None
+
+
+def acquire_single_instance() -> bool:
+    """Guarantee ONE runner per machine. Two instances (e.g. a GUI-spawned runner
+    AND a systemd/curl-installed one) would each enroll the same machine and rotate
+    each other's token, producing an endless stream of 401 'token rejected'. A Linux
+    abstract-namespace socket is the lock: it's cross-user, needs no lock file, and
+    is released automatically when the holder exits. Opt out with RDAISEC_ALLOW_MULTI=1."""
+    global _SINGLE_INSTANCE_SOCK
+    if os.environ.get("RDAISEC_ALLOW_MULTI") in ("1", "true", "yes"):
+        return True
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        s.bind("\0rdaisec-runner")  # abstract namespace (leading NUL) — no fs entry
+        _SINGLE_INSTANCE_SOCK = s   # keep a reference so it stays bound for our lifetime
+        return True
+    except OSError:
+        return False
+    except Exception:  # noqa: BLE001 — non-Linux / unexpected: don't block startup
+        return True
+
+
+def _release_single_instance() -> None:
+    """Drop the single-instance lock. Called right before a self-update / restart
+    re-exec so the replacement process can re-acquire it without racing its own
+    inherited socket. (Python sets close-on-exec by default, but be explicit.)"""
+    global _SINGLE_INSTANCE_SOCK
+    try:
+        if _SINGLE_INSTANCE_SOCK is not None:
+            _SINGLE_INSTANCE_SOCK.close()
+            _SINGLE_INSTANCE_SOCK = None
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def main():
     global TOOLS, SUBNETS, ACTIVE_WORKERS, WIFI_IFACES, WIFI_MONITOR
+    # Single-instance guard FIRST — before we enroll or touch the token — so a
+    # second instance can't start a token-rotation war with the first (the #1 cause
+    # of persistent "token rejected").
+    if not acquire_single_instance():
+        sys.exit("Another RD-AISEC runner is already running on this machine. Stop it "
+                 "first (e.g. `sudo systemctl stop rdaisec-runner`, or quit the desktop "
+                 "app) — running two rotates the token and causes constant 401s. "
+                 "Set RDAISEC_ALLOW_MULTI=1 to override (not recommended).")
     # No token yet but we have an enrollment code → self-register for one. This is
     # how a fresh machine comes online without a token ever being hand-pasted.
     if PORTAL_URL and not RUNNER_TOKEN and ENROLL_CODE:
