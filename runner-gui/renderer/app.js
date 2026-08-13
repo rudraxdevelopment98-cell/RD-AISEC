@@ -110,6 +110,7 @@ function wireControls() {
     msg($("controlMsg"), r.ok ? "Reconnect requested." : "Runner not reachable.", r.ok ? "ok" : "err");
   });
   $("statusPageBtn").addEventListener("click", () => window.rd.openStatusPage());
+  wireUpdates();
   $("installBtn").addEventListener("click", async () => {
     const btn = $("installBtn");
     btn.disabled = true;
@@ -117,6 +118,43 @@ function wireControls() {
     const r = await window.rd.installEssentials();
     btn.disabled = false;
     msg($("toolsMsg"), r.ok ? "Essentials installed." : r.error, r.ok ? "ok" : "err");
+  });
+}
+
+// ── Updates ─────────────────────────────────────────────────────────────────────
+let pendingUpdateUrl = "";
+async function wireUpdates() {
+  // Show the current app version in the chip.
+  try {
+    const v = await window.rd.appVersion();
+    if (v && v.version) $("verChip").textContent = "v" + v.version;
+  } catch {
+    /* ignore */
+  }
+  $("checkUpdateBtn").addEventListener("click", async () => {
+    const btn = $("checkUpdateBtn");
+    const dl = $("downloadUpdateBtn");
+    btn.disabled = true;
+    dl.style.display = "none";
+    pendingUpdateUrl = "";
+    msg($("updateMsg"), "Checking for updates…");
+    const r = await window.rd.checkUpdate();
+    btn.disabled = false;
+    if (!r || !r.ok) {
+      msg($("updateMsg"), (r && r.error) || "Update check failed.", "err");
+      return;
+    }
+    if (r.updateAvailable) {
+      pendingUpdateUrl = r.downloadUrl;
+      dl.textContent = "Download " + r.latest + " (" + r.downloadLabel + ")";
+      dl.style.display = "";
+      msg($("updateMsg"), "Update available: v" + r.current + " → v" + r.latest + ".", "ok");
+    } else {
+      msg($("updateMsg"), "You're up to date (v" + r.current + ").", "ok");
+    }
+  });
+  $("downloadUpdateBtn").addEventListener("click", () => {
+    if (pendingUpdateUrl) window.rd.openExternal(pendingUpdateUrl);
   });
 }
 

@@ -23,4 +23,9 @@ contextBridge.exposeInMainWorld("rd", {
   installEssentials: () => ipcRenderer.invoke("tools:installEssentials"),
   openStatusPage: () => ipcRenderer.invoke("app:openStatusPage"),
   paths: () => ipcRenderer.invoke("app:paths"),
+
+  // Updates
+  checkUpdate: () => ipcRenderer.invoke("app:checkUpdate"),
+  openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
+  appVersion: () => ipcRenderer.invoke("app:version"),
 });

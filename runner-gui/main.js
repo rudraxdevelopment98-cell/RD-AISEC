@@ -319,6 +319,102 @@ function httpJson(method, urlPath, timeoutMs) {
   });
 }
 
+// GET an absolute http(s) URL and parse JSON. Used for the portal update check —
+// distinct from httpJson (which only talks to the local runner status server).
+function httpsGetJson(absUrl, timeoutMs) {
+  return new Promise((resolve) => {
+    let mod;
+    try {
+      mod = absUrl.startsWith("https:") ? require("https") : require("http");
+    } catch {
+      return resolve({ ok: false, error: "no-http-module" });
+    }
+    const req = mod.request(
+      absUrl,
+      { method: "GET", timeout: timeoutMs || 6000, headers: { Accept: "application/json" } },
+      (res) => {
+        // Follow one redirect (release CDN / trailing-slash).
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          return resolve(httpsGetJson(res.headers.location, timeoutMs));
+        }
+        let body = "";
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          try {
+            resolve({ ok: true, status: res.statusCode, json: JSON.parse(body || "{}") });
+          } catch {
+            resolve({ ok: false, error: "bad-json" });
+          }
+        });
+      },
+    );
+    req.on("error", (e) => resolve({ ok: false, error: e.code || e.message }));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({ ok: false, error: "timeout" });
+    });
+    req.end();
+  });
+}
+
+// Compare two "1.0.3"-style versions. >0 if a is newer than b.
+function cmpVersion(a, b) {
+  const parse = (v) =>
+    String(v || "")
+      .replace(/^runner-gui-/, "")
+      .replace(/^v/, "")
+      .split(".")
+      .map((x) => parseInt(x, 10) || 0);
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+// Pick the best installer asset for THIS machine's platform/arch from a release.
+function pickAssetForThisMachine(release) {
+  if (!release || !Array.isArray(release.assets)) return null;
+  const plat = IS_WIN ? "windows" : IS_MAC ? "macos" : "linux";
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const mine = release.assets.filter((a) => a.platform === plat);
+  if (mine.length === 0) return null;
+  // Prefer an exact arch match, then the highest-weight asset.
+  const archMatch = mine.filter((a) => a.arch === arch || a.arch === "universal");
+  const pool = archMatch.length ? archMatch : mine;
+  return pool.slice().sort((x, y) => (y.weight || 0) - (x.weight || 0))[0] || null;
+}
+
+/**
+ * Check the portal for a newer desktop-app release. Compares this app's own version
+ * (app.getVersion()) to the latest published runner-gui release. Returns a concrete,
+ * direct download URL for THIS machine so the renderer can offer a one-click update.
+ */
+async function checkForUpdate() {
+  const cfg = readConfig();
+  const portal = (cfg.PORTAL_URL || "").replace(/\/+$/, "");
+  if (!portal) return { ok: false, error: "Connect to a portal first (no PORTAL_URL set)." };
+  const r = await httpsGetJson(portal + "/api/runner-gui/releases", 7000);
+  if (!r.ok || !r.json) return { ok: false, error: "Could not reach the portal update feed (" + (r.error || "no data") + ")." };
+  const latest = r.json.latest;
+  if (!latest || !latest.version) return { ok: false, error: "No published releases found." };
+  const current = app.getVersion();
+  const newer = cmpVersion(latest.version, current) > 0;
+  const asset = pickAssetForThisMachine(latest);
+  return {
+    ok: true,
+    current,
+    latest: String(latest.version).replace(/^runner-gui-/, ""),
+    updateAvailable: newer,
+    downloadUrl: (asset && asset.url) || latest.url || "",
+    downloadLabel: (asset && asset.label) || "Open release page",
+    releaseUrl: latest.url || "",
+  };
+}
+
 async function getStatus() {
   const running = isRunning();
   const r = await httpJson("GET", "/api/status", 3500);
@@ -417,6 +513,13 @@ function registerIpc() {
   ipcMain.handle("runner:log", (_e, n) => tailLog(n));
   ipcMain.handle("runner:isRunning", () => ({ running: !!isRunning() }));
   ipcMain.handle("tools:installEssentials", () => installEssentials());
+  ipcMain.handle("app:checkUpdate", () => checkForUpdate());
+  ipcMain.handle("app:openExternal", (_e, url) => {
+    // Only allow http(s) links (release/download URLs) — never arbitrary schemes.
+    if (typeof url === "string" && /^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { ok: true };
+  });
+  ipcMain.handle("app:version", () => ({ version: app.getVersion() }));
   ipcMain.handle("app:openStatusPage", () => shell.openExternal(STATUS_URL));
   ipcMain.handle("app:paths", () => ({
     config: CFG_FILE,
