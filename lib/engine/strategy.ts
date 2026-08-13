@@ -94,7 +94,10 @@ export function planScanSteps(reconTexts: string[], deep: boolean): ScanStep[] {
 export const HIGH_YIELD_NUCLEI: ScanStep = {
   tool: "nuclei",
   args:
-    "-jsonl -tags exposure,exposures,takeover,secret,token,config,backup,default-login,exposed-panel " +
+    // Fresh-scope exposures + the modern high-value classes that actually pay in
+    // 2024–2025 (SSRF, GraphQL, JWT/OAuth, SSTI/XXE, cache poisoning, CRLF, LFI).
+    "-jsonl -tags exposure,exposures,takeover,secret,token,config,backup,default-login,exposed-panel," +
+    "graphql,jwt,oauth,ssrf,ssti,xxe,cache,crlf,lfi,redirect " +
     "-rl 150 -timeout 8 -retries 1 -c 50",
   mode: "url",
 };
