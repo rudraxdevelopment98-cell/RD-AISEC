@@ -83,8 +83,17 @@ export function gradeFindings(findings: Finding[], kev?: Set<string>): GradedSec
     _row: f,
   }));
   const g = groupForReport(inputs);
+  // Within each report section, lead with the highest persisted risk score (which
+  // folds in KEV / EPSS / exposure), falling back to severity — so the reader hits
+  // the genuinely most dangerous finding first, consistent with the triage ranking.
+  const byRisk = (a: Row & { quality: Quality }, b: Row & { quality: Quality }): number => {
+    const ra = a._row.risk ?? -1;
+    const rb = b._row.risk ?? -1;
+    if (rb !== ra) return rb - ra;
+    return severityRank(a.severity) - severityRank(b.severity);
+  };
   const withRow = (arr: (Row & { quality: Quality })[]): GradedFinding[] =>
-    arr.map((x) => ({ ...x._row, quality: x.quality }));
+    [...arr].sort(byRisk).map((x) => ({ ...x._row, quality: x.quality }));
   const pendingReview = findings.filter(
     (f) =>
       publishState({
