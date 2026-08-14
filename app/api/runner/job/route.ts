@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { decryptSecret } from "@/lib/crypto";
 import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
+import { IDOR_TOOL } from "@/lib/idor-scan";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -133,6 +134,29 @@ export async function GET(req: Request) {
           authArgv = [];
         }
       }
+
+      // Two-account IDOR/BOLA replay: hand the runner both account sessions + the
+      // owner-data marker + the endpoints to replay. Secrets are decrypted here
+      // (TLS only) and never persisted in the Job row. The runner reports back
+      // only status/length/marker-present per identity — account A's data never
+      // transits back.
+      let idorSpec: { headerA: string; headerB: string; marker: string; endpoints: unknown } | null = null;
+      if (next.tool === IDOR_TOOL && next.engagementId) {
+        try {
+          const eng = await prisma.engagement.findUnique({
+            where: { id: next.engagementId },
+            select: { authSession: true, authSessionB: true, idorMarker: true },
+          });
+          const headerA = eng?.authSession ? decryptSecret(eng.authSession) : "";
+          const headerB = eng?.authSessionB ? decryptSecret(eng.authSessionB) : "";
+          if (headerA && headerB) {
+            idorSpec = { headerA, headerB, marker: eng?.idorMarker ?? "", endpoints: JSON.parse(next.args || "[]") };
+          }
+        } catch {
+          idorSpec = null;
+        }
+      }
+
       return setHeaders(
         NextResponse.json({
           id: next.id,
@@ -140,6 +164,7 @@ export async function GET(req: Request) {
           target: next.target,
           args: next.args,
           ...(authArgv.length > 0 ? { authArgv } : {}),
+          ...(idorSpec ? { idorSpec } : {}),
         }),
       );
     }

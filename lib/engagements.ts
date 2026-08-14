@@ -13,6 +13,9 @@ import {
 import { classifyFinding } from "@/lib/finding-map";
 import { encryptSecret } from "@/lib/crypto";
 import { isSafeHeader, describeHeader } from "@/lib/auth-scan";
+import { IDOR_TOOL, buildIdorEndpoints } from "@/lib/idor-scan";
+import { pickRunnerId } from "@/lib/pipeline-engine";
+import { JOB_PRIORITY } from "@/lib/runner-constants";
 import { logAudit } from "@/lib/audit";
 import { learnFromFinding } from "@/lib/suppression";
 import { ownerScope, viaEngagementScope } from "@/lib/ownership";
@@ -146,6 +149,99 @@ export async function setEngagementAuthSession(formData: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?ok=${encodeURIComponent(raw ? "Scan session saved (encrypted)." : "Scan session cleared.")}`);
+}
+
+/**
+ * Set the SECOND account's session + the owner-data marker for two-account
+ * IDOR/BOLA testing. Session B is stored ENCRYPTED (same as session A); the
+ * marker is a non-secret needle unique to account A's data (e.g. A's email/id)
+ * used to prove a leak. Owner-only.
+ */
+export async function setEngagementIdorAccount(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const back = `/dashboard/engagements/${id}`;
+
+  const eng = await prisma.engagement.findUnique({ where: { id }, select: { ownerEmail: true } });
+  if (!eng) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (eng!.ownerEmail && eng!.ownerEmail !== email) {
+    redirect(`${back}?error=${encodeURIComponent("Only the engagement owner can set the IDOR test account.")}`);
+  }
+
+  const rawB = String(formData.get("authSessionB") ?? "").trim();
+  const marker = String(formData.get("idorMarker") ?? "").trim().slice(0, 200);
+  if (rawB && !isSafeHeader(rawB)) {
+    redirect(`${back}?error=${encodeURIComponent('Account B session must be a header line like "Cookie: session=…" or "Authorization: Bearer …".')}`);
+  }
+  await prisma.engagement.update({
+    where: { id },
+    data: { authSessionB: rawB ? encryptSecret(rawB) : "", idorMarker: marker },
+  });
+  await logAudit({
+    type: rawB ? "engagement.idor_account.set" : "engagement.idor_account.cleared",
+    actor: email,
+    summary: rawB ? `Set IDOR test account (${describeHeader(rawB)}) on engagement` : "Cleared IDOR test account on engagement",
+    target: id,
+  });
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(rawB ? "IDOR test account saved (encrypted)." : "IDOR test account cleared.")}`);
+}
+
+/**
+ * Launch a two-account IDOR/BOLA scan: gather object-id endpoints from this
+ * engagement's findings and queue a replay job. The runner replays each endpoint
+ * as account A, account B, and anonymously; a leak of A's marker (or a same-shape
+ * success) for B/anon becomes a finding. Owner-only + requires authorization and
+ * both account sessions.
+ */
+export async function launchIdorScan(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const back = `/dashboard/engagements/${id}`;
+
+  const eng = await prisma.engagement.findUnique({
+    where: { id },
+    select: { ownerEmail: true, authorized: true, authSession: true, authSessionB: true },
+  });
+  if (!eng) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (eng!.ownerEmail && eng!.ownerEmail !== email) {
+    redirect(`${back}?error=${encodeURIComponent("Only the engagement owner can launch an IDOR scan.")}`);
+  }
+  if (!eng!.authorized) {
+    redirect(`${back}?error=${encodeURIComponent("Record written authorization on the engagement first.")}`);
+  }
+  if (!eng!.authSession || !eng!.authSessionB) {
+    redirect(`${back}?error=${encodeURIComponent("Set BOTH account sessions first (the scan session = account A, and the IDOR test account = account B).")}`);
+  }
+
+  const findings = await prisma.finding.findMany({
+    where: { engagementId: id },
+    select: { title: true, description: true },
+    take: 2000,
+  });
+  const endpoints = buildIdorEndpoints(findings);
+  if (endpoints.length === 0) {
+    redirect(`${back}?error=${encodeURIComponent("No object-id endpoints found yet — run a scan/crawl (e.g. katana) so there are URLs with ids to test.")}`);
+  }
+  const runnerId = await pickRunnerId();
+  if (!runnerId) {
+    redirect(`${back}?error=${encodeURIComponent("No runner online — connect a machine first.")}`);
+  }
+  await prisma.job.create({
+    data: {
+      engagementId: id,
+      runnerId: runnerId!,
+      tool: IDOR_TOOL,
+      target: "idor",
+      args: JSON.stringify(endpoints),
+      autoImport: true,
+      queuedBy: email,
+      priority: JOB_PRIORITY.manual,
+    },
+  });
+  redirect(`/dashboard/jobs?ok=${encodeURIComponent(`Queued a two-account IDOR/BOLA replay of ${endpoints.length} endpoint(s)`)}`);
 }
 
 export async function updateEngagement(formData: FormData) {

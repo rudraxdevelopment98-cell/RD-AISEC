@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "62"
+RUNNER_VERSION = "63"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2696,6 +2696,64 @@ def resolve_wordlist(argv):
         return ""
 
 
+def _idor_fetch(method, url, header, marker):
+    """One request for the IDOR replay. Returns a COMPACT result — status, body
+    length, and whether the owner-data marker appears — so account A's actual data
+    never leaves the machine. Never raises."""
+    body = b""
+    status = 0
+    try:
+        req = urllib.request.Request(url, method=(method or "GET").upper())
+        if header and ":" in header:
+            name, _, val = header.partition(":")
+            name = name.strip()
+            val = val.strip()
+            if name and val:
+                req.add_header(name, val)
+        req.add_header("User-Agent", "rdaisec-idor")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read(300000)  # cap the read; we only need length + marker
+            status = resp.getcode()
+    except urllib.error.HTTPError as e:
+        status = e.code
+        try:
+            body = e.read(300000)
+        except Exception:  # noqa: BLE001
+            body = b""
+    except Exception:  # noqa: BLE001
+        return {"s": 0, "n": 0, "m": False}
+    text = body.decode("utf-8", "ignore") if body else ""
+    return {"s": int(status), "n": len(body), "m": bool(marker) and marker in text}
+
+
+def run_idor(job):
+    """Two-account IDOR/BOLA replay. For each endpoint, request it as account A
+    (owner), account B (attacker), and anonymously, and report only status/length/
+    marker-present per identity. The portal decides the verdict (lib/idor-core)."""
+    spec = job.get("idorSpec") or {}
+    endpoints = spec.get("endpoints") or []
+    header_a = spec.get("headerA") or ""
+    header_b = spec.get("headerB") or ""
+    marker = (spec.get("marker") or "").strip()
+    if not endpoints or not header_a or not header_b:
+        return "IDOR replay skipped: missing endpoints or one of the two account sessions.", 1
+    probes = []
+    for ep in endpoints[:60]:  # bound the replay (3 requests each)
+        if not isinstance(ep, dict):
+            continue
+        method = str(ep.get("method") or "GET")
+        url = str(ep.get("url") or "")
+        if not url.lower().startswith(("http://", "https://")):
+            continue
+        probes.append({
+            "ep": f"{method.upper()} {url}",
+            "o": _idor_fetch(method, url, header_a, marker),
+            "a": _idor_fetch(method, url, header_b, marker),
+            "x": _idor_fetch(method, url, "", marker),
+        })
+    return json.dumps({"probes": probes}), 0
+
+
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
@@ -2703,6 +2761,8 @@ def run_job(job):
         return run_wifisense(job)
     if job.get("tool") == "wifisurvey":
         return run_wifisurvey(job)
+    if job.get("tool") == "idorprobe" or job.get("idorSpec"):
+        return run_idor(job)
     argv, err = build_argv(job)
     if err:
         return err, 1

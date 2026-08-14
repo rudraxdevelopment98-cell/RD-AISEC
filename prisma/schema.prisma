@@ -32,6 +32,12 @@ model Engagement {
   // tools so scans run as the logged-in user (reaches IDOR / access-control /
   // business-logic bugs). Decrypted only server-side at job-serve time.
   authSession  String    @default("")
+  // Second account's session (ENCRYPTED) + a marker unique to account A's data
+  // (e.g. A's email/id). Together they enable two-account IDOR/BOLA testing: the
+  // runner replays each object endpoint as A, B, and anon, and a leak of A's
+  // marker into B's/anon's response is a confirmed broken-object-authorization bug.
+  authSessionB String    @default("")
+  idorMarker   String    @default("")
   authorized   Boolean   @default(false)
   authorizedBy String    @default("")
   ownerEmail   String    @default("")

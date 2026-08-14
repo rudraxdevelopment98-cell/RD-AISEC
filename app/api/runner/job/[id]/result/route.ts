@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings } from "@/lib/job-parser";
+import { IDOR_TOOL, parseIdorResult } from "@/lib/idor-scan";
 import { tagFindings } from "@/lib/finding-map";
 import { gateFindings } from "@/lib/finding-gate";
 import { loadRules, recordSuppressions } from "@/lib/suppression";
@@ -89,9 +90,28 @@ export async function POST(
       // Parse results into findings, then run every candidate through the
       // accuracy gate (freshness + proof engines) so patched/banner-only false
       // positives are dropped or de-confirmed BEFORE they become findings.
-      let parsed = gateFindings(
-        tagFindings(parseJobFindings(job.tool, job.target, output), job.tool),
-      ).kept;
+      // Two-account IDOR/BOLA replay: parse the runner's per-identity report with
+      // the engagement's owner-data marker (differential access → findings). Every
+      // other tool goes through the generic parser.
+      let candidates;
+      if (job.tool === IDOR_TOOL) {
+        const eng = await prisma.engagement.findUnique({
+          where: { id: job.engagementId! },
+          select: { idorMarker: true },
+        });
+        candidates = parseIdorResult(output, eng?.idorMarker || "").map((f) => ({
+          title: f.title,
+          severity: f.severity,
+          status: "open",
+          description: `${f.description}\nEvidence: ${f.evidence}`,
+          recommendation:
+            "Enforce object-level authorization server-side: on every request, verify the authenticated user owns / is permitted the referenced object — not merely that they are logged in. Use unguessable ids where feasible.",
+          confirmed: f.severity === "critical",
+        }));
+      } else {
+        candidates = parseJobFindings(job.tool, job.target, output);
+      }
+      let parsed = gateFindings(tagFindings(candidates, job.tool)).kept;
       // Learned false positives: drop candidates matching a rule you created by
       // marking a similar finding as a false positive before.
       const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();

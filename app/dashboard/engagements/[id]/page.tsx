@@ -24,6 +24,8 @@ import {
   deleteFinding,
   deleteEngagement,
   setEngagementAuthSession,
+  setEngagementIdorAccount,
+  launchIdorScan,
 } from "@/lib/engagements";
 import {
   ENGAGEMENT_STATUSES,
@@ -78,6 +80,11 @@ export default async function EngagementDetail({
   const authSessionLabel = (() => {
     if (!e.authSession) return "";
     const header = decryptSecret(e.authSession);
+    return header ? describeHeader(header) : "";
+  })();
+  const idorAccountBLabel = (() => {
+    if (!e.authSessionB) return "";
+    const header = decryptSecret(e.authSessionB);
     return header ? describeHeader(header) : "";
   })();
 
@@ -502,6 +509,67 @@ export default async function EngagementDetail({
             <Icon name="alert" className="mr-1 inline h-3 w-3" />
             Only use a session you own or are explicitly authorized to test with.
           </p>
+        </div>
+
+        {/* Two-account IDOR / BOLA testing — the top-paying class a single-session
+            scan cannot find. Needs BOTH accounts' sessions + a marker unique to
+            account A's data; the runner replays each object endpoint as A, B, and
+            anon and a leak of A's data to B/anon becomes a finding. */}
+        <div className="card mt-4">
+          <div className="flex items-center gap-2">
+            <Icon name="target" className="h-4 w-4 text-brand" />
+            <h3 className="text-sm font-semibold text-white">
+              IDOR / BOLA testing (two accounts){" "}
+              <Hint>
+                Broken object-level authorization is the highest-paying class a normal scan
+                can&apos;t find — it needs a second account. Above is <b>account A</b> (the scan
+                session). Set <b>account B</b> here plus a <b>marker</b> unique to A&apos;s data (e.g.
+                A&apos;s email or account id). The runner replays each discovered object URL as A, B,
+                and anonymously; if B or anon receives A&apos;s object, that&apos;s a confirmed BOLA.
+              </Hint>
+            </h3>
+            {idorAccountBLabel ? (
+              <span className="tag border-brand/50 text-brand text-[10px]">account B · {idorAccountBLabel}</span>
+            ) : (
+              <span className="tag text-[10px]">not set</span>
+            )}
+          </div>
+
+          <form action={setEngagementIdorAccount} className="mt-3 space-y-2">
+            <input type="hidden" name="id" value={e.id} />
+            <input
+              type="text"
+              name="authSessionB"
+              placeholder='Account B session — e.g. "Cookie: session=…" or "Authorization: Bearer …"'
+              className="glass-input w-full text-xs"
+              autoComplete="off"
+            />
+            <input
+              type="text"
+              name="idorMarker"
+              defaultValue={e.idorMarker ?? ""}
+              placeholder="Marker unique to account A's data (e.g. alice@example.com or A's account id)"
+              className="glass-input w-full text-xs"
+              autoComplete="off"
+            />
+            <button type="submit" className="btn-ghost text-xs">Save account B &amp; marker</button>
+          </form>
+
+          <form action={launchIdorScan} className="mt-3 border-t border-surface-border pt-3">
+            <input type="hidden" name="id" value={e.id} />
+            <button
+              type="submit"
+              className="btn-primary text-sm"
+              disabled={!e.authorized || !authSessionLabel || !idorAccountBLabel}
+            >
+              <Icon name="skull" className="mr-1 inline h-4 w-4" />
+              Run IDOR / BOLA scan
+            </button>
+            <p className="mt-2 text-[11px] text-gray-500">
+              Requires authorization + both account sessions. Tests the object-id URLs found so far
+              (run a crawl like katana first for a bigger surface).
+            </p>
+          </form>
         </div>
       </section>
       </TabPanel>
