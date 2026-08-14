@@ -621,6 +621,13 @@ function registerIpc() {
     if (enrollCode) updates.RUNNER_ENROLL_CODE = String(enrollCode).trim();
     if (token) updates.RUNNER_TOKEN = String(token).trim();
     if (maxWorkers) updates.MAX_WORKERS = String(parseInt(maxWorkers, 10) || 3);
+    // Fresh enroll/connection code but no explicit token → the user is
+    // (re)establishing this machine's identity. Clear any stale RUNNER_TOKEN
+    // ("" deletes the key) so the runner enrolls cleanly with the new code
+    // instead of first failing on a dead token. Fingerprint enrollment reclaims
+    // the same machine row and issues a fresh token. This is the deterministic
+    // recovery from a "token rejected + code changed" state.
+    if (updates.RUNNER_ENROLL_CODE && !token) updates.RUNNER_TOKEN = "";
     if (!updates.PORTAL_URL)
       return { ok: false, error: "Paste a connection code (or set the portal URL manually)." };
     if (!updates.RUNNER_ENROLL_CODE && !updates.RUNNER_TOKEN) {
