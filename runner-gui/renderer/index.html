@@ -34,10 +34,8 @@
       <section class="card" id="connectCard">
         <h2>Connect this machine</h2>
         <p class="hint">
-          Paste your <b>connection code</b> from
-          <span class="mono">Dashboard → Runners → Add a machine</span>. One code
-          is all you need — it carries the portal address and enrolls the machine
-          for its own token. You never paste a URL or token by hand.
+          Paste your <b>connection code</b> from the portal
+          (<span class="mono">Runners → Add a machine</span>) — no URL or token by hand.
         </p>
         <label>Connection code</label>
         <input
@@ -110,8 +108,8 @@
       <section class="card" id="toolsCard">
         <h2>Machine setup</h2>
         <p class="hint">
-          Get a bare machine ready (Python 3, nmap, curl). Heavy tool installs
-          happen from the portal once connected.
+          Installs the basics (Python 3, nmap, curl). Everything else installs
+          from the portal once connected.
         </p>
         <div class="btnrow wrap">
           <button id="installBtn">Install essentials</button>
@@ -127,8 +125,7 @@
           <span class="tokenchip" id="verChip"></span>
         </div>
         <p class="hint">
-          The runner engine auto-updates in the background. Use this to update the
-          desktop app itself when a new version ships.
+          Updates the desktop app itself. (The runner engine auto-updates on its own.)
         </p>
         <div class="btnrow wrap">
           <button id="checkUpdateBtn">Check for updates</button>

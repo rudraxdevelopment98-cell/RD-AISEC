@@ -526,19 +526,29 @@ function installEssentials() {
         "This helper supports apt-based systems (Debian/Kali/Ubuntu). " +
         "Install " + pkgs.join(", ") + " with your package manager.",
     };
-  const cmd = "apt-get update && apt-get install -y " + pkgs.join(" ");
+  // Wait up to 5 min for the apt lock instead of failing instantly — the runner's
+  // own auto-install (or an unattended-upgrade) frequently holds it. DPkg::Lock::
+  // Timeout makes apt queue for the lock rather than erroring "Could not get lock".
+  const APT = "apt-get -o DPkg::Lock::Timeout=300";
+  const cmd = `${APT} update && ${APT} install -y ` + pkgs.join(" ");
   let r;
   if (spawnSync("which", ["pkexec"]).status === 0) {
     r = spawnSync("pkexec", ["bash", "-lc", cmd], { encoding: "utf-8" });
   } else {
     r = spawnSync("sudo", ["bash", "-lc", cmd], { encoding: "utf-8" });
   }
-  return r.status === 0
-    ? { ok: true, output: (r.stdout || "").slice(-2000) }
-    : {
-        ok: false,
-        error: (r.stderr || r.stdout || "install failed (need admin rights)").slice(-2000),
-      };
+  if (r.status === 0) return { ok: true, output: (r.stdout || "").slice(-2000) };
+  const err = (r.stderr || r.stdout || "install failed (need admin rights)").slice(-2000);
+  // Friendlier message for the common lock case even after the timeout.
+  if (/could not get lock|unable to (lock|acquire)/i.test(err)) {
+    return {
+      ok: false,
+      error:
+        "Package manager is busy (another install/update is running — often the runner installing a tool). " +
+        "Wait a minute and try again. Details: " + err,
+    };
+  }
+  return { ok: false, error: err };
 }
 
 // ── IPC wiring ───────────────────────────────────────────────────────────────
