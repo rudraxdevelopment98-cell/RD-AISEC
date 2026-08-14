@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "61"
+RUNNER_VERSION = "62"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -306,17 +306,25 @@ def _load_env_files():
     across terminals and reboots (no need to `export` each time). Real
     environment variables always win, so `export` still overrides the file.
 
-    Checked in order (first found wins per key):
-      $RDAISEC_ENV, ./runner.env, ./.env, ~/.config/rdaisec/runner.env
+    Precedence (first found wins per key):
+      1. $RDAISEC_ENV (explicit override)
+      2. ~/.config/rdaisec/runner.env  ← the CANONICAL config: where the desktop
+         app writes settings AND where the runner persists its enrolled token.
+         It MUST outrank the files below so a fresh enroll code / token from the
+         app is never shadowed by a stale file left next to the script (e.g. an
+         old `curl|bash` install's ~/.rdaisec/runner.env). This shadowing was the
+         cause of "enrollment failed: unknown or revoked code" after re-pasting a
+         valid code.
+      3. runner.env / .env sitting next to the script (portable installs)
     """
     here = os.path.dirname(os.path.abspath(__file__))
     candidates = []
     if os.environ.get("RDAISEC_ENV"):
         candidates.append(os.environ["RDAISEC_ENV"])
     candidates += [
+        os.path.expanduser("~/.config/rdaisec/runner.env"),
         os.path.join(here, "runner.env"),
         os.path.join(here, ".env"),
-        os.path.expanduser("~/.config/rdaisec/runner.env"),
     ]
     for path in candidates:
         try:
@@ -813,28 +821,57 @@ def stats_loop() -> None:
         time.sleep(STATS_SECONDS)
 
 
+# HTTP header values must be latin-1 encodable (http.client encodes them as
+# latin-1). Telemetry we put in X-Runner-* headers comes from the OS — GPU model
+# names, Wi-Fi SSIDs, load strings — which routinely contain Unicode punctuation
+# (en/em dashes, smart quotes) or emoji. One such character used to raise
+# UnicodeEncodeError deep in urlopen, abort the whole request, and flip the
+# machine OFFLINE. So every header value is normalized here: common typographic
+# punctuation is folded to ASCII, then anything still outside latin-1 is dropped.
+# This can never raise, so a stray character can never take the runner down.
+_HEADER_FOLD = {
+    "–": "-", "—": "-", "‒": "-", "―": "-", "−": "-",
+    "‘": "'", "’": "'", "‚": "'", "‛": "'",
+    "“": '"', "”": '"', "„": '"',
+    "…": "...", " ": " ", " ": " ", "​": "",
+}
+
+
+def _safe_header(value) -> str:
+    s = str(value)
+    for bad, good in _HEADER_FOLD.items():
+        if bad in s:
+            s = s.replace(bad, good)
+    # Final guard: drop anything still outside the latin-1 header charset.
+    return s.encode("latin-1", "ignore").decode("latin-1")
+
+
 def request(method: str, path: str, body=None, timeout: int = 30):
     url = f"{PORTAL_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
-    req.add_header("Authorization", f"Bearer {RUNNER_TOKEN}")
-    req.add_header("X-Runner-Version", RUNNER_VERSION)
-    req.add_header("X-Runner-Tools", ",".join(sorted(TOOLS)))
-    req.add_header("X-Runner-Exit-Ip", EXIT_IP)
-    req.add_header("X-Runner-Anon-Status", ANON_STATUS)
-    req.add_header("X-Runner-Subnets", ",".join(SUBNETS))
-    req.add_header("X-Runner-Wifi", ",".join(WIFI_IFACES))
-    req.add_header("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
-    req.add_header("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
+
+    def hdr(name, value):
+        req.add_header(name, _safe_header(value))
+
+    hdr("Authorization", f"Bearer {RUNNER_TOKEN}")
+    hdr("X-Runner-Version", RUNNER_VERSION)
+    hdr("X-Runner-Tools", ",".join(sorted(TOOLS)))
+    hdr("X-Runner-Exit-Ip", EXIT_IP)
+    hdr("X-Runner-Anon-Status", ANON_STATUS)
+    hdr("X-Runner-Subnets", ",".join(SUBNETS))
+    hdr("X-Runner-Wifi", ",".join(WIFI_IFACES))
+    hdr("X-Runner-Wifi-Monitor", "1" if WIFI_MONITOR else "0")
+    hdr("X-Runner-Wifi-Detail", ",".join(WIFI_DETAIL))
     # Until our first successful job poll, tell the portal we just (re)started so
     # it requeues any jobs still marked "running" under us from a previous process
     # (e.g. after a self-update / crash) — otherwise they'd sit stuck forever.
     if BOOT:
-        req.add_header("X-Runner-Boot", "1")
+        hdr("X-Runner-Boot", "1")
     with MAINT_LOCK:
         _maint = MAINT
     if _maint and _maint != "idle":
-        req.add_header("X-Runner-Maint", _maint)
+        hdr("X-Runner-Maint", _maint)
     # Read the cached telemetry snapshot (populated by the stats thread). This is a
     # plain dict copy — it never spawns a subprocess or blocks, so a slow stat read
     # can never stall this request (and thus the heartbeat).
@@ -845,7 +882,7 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     # would otherwise blank the portal's tool list.
     _inst = st.get("installed") or []
     if _inst:
-        req.add_header("X-Runner-Installed", ",".join(_inst))
+        hdr("X-Runner-Installed", ",".join(_inst))
     _num = {
         "X-Runner-Cpu": "cpu", "X-Runner-Mem": "mem", "X-Runner-Temp": "temp",
         "X-Runner-Mem-Used": "mem_used", "X-Runner-Mem-Total": "mem_total",
@@ -856,11 +893,11 @@ def request(method: str, path: str, body=None, timeout: int = 30):
     for header, key in _num.items():
         val = st.get(key)
         if val is not None:
-            req.add_header(header, str(val))
+            hdr(header, str(val))
     if st.get("load"):
-        req.add_header("X-Runner-Load", st["load"])
+        hdr("X-Runner-Load", st["load"])
     if data is not None:
-        req.add_header("Content-Type", "application/json")
+        hdr("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)
 
 
