@@ -83,6 +83,12 @@ export function parameterizedUrls(urls: string[]): string[] {
   return urls.filter((u) => /\?[^#]*=/.test(u));
 }
 
+/** JavaScript bundles among the URLs — the richest source of leaked secrets and
+ *  hidden endpoints, worth fetching + scanning for credentials. */
+export function jsUrls(urls: string[]): string[] {
+  return urls.filter((u) => /\.m?js(?:$|\?)/i.test(u));
+}
+
 /** Distinct query-parameter names across the given URLs (for param-level testing). */
 export function extractParams(urls: string[]): string[] {
   const out = new Set<string>();

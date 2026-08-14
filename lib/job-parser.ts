@@ -741,7 +741,7 @@ const SECRET_PLACEHOLDER =
   /EXAMPLE|XXXXX|AAAAA|0000000|1234567|ABCDEFG|YOUR[_-]?|PLACEHOLDER|SAMPLE|REDACTED|<[^>]+>|\.\.\./i;
 
 /** Detect leaked secrets/keys in any tool output (responses, JS, headers). */
-function parseSecrets(target: string, output: string): ParsedFinding[] {
+export function parseSecrets(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
   const seen = new Set<string>();
   for (const p of SECRET_PATTERNS) {

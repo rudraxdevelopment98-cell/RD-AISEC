@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
-import { parseJobFindings } from "@/lib/job-parser";
+import { parseJobFindings, parseSecrets } from "@/lib/job-parser";
 import { IDOR_TOOL, parseIdorResult } from "@/lib/idor-scan";
 import { tagFindings } from "@/lib/finding-map";
 import { gateFindings } from "@/lib/finding-gate";
@@ -10,8 +10,8 @@ import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
-import { queueHostScans, queueExploitJobs, queueEndpointScans, RECON_TOOLS } from "@/lib/bug-pipeline";
-import { extractEndpoints } from "@/lib/recon-extract";
+import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { extractEndpoints, jsUrls } from "@/lib/recon-extract";
 
 // Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
 const CRAWL_TOOLS = new Set(["katana", "gau", "gospider", "waybackurls", "hakrawler"]);
@@ -98,6 +98,9 @@ export async function POST(
       if (CRAWL_TOOLS.has(job.tool) && !pipelineJob) {
         const urls = extractEndpoints(output, job.target);
         await queueEndpointScans(job.engagementId, job.runnerId ?? runner.id, urls, job.queuedBy, 15);
+        // JS secret mining: nuclei fetches + scans each discovered JS bundle for
+        // leaked keys (front-end secret leak — a common, high-value finding).
+        await queueJsSecretScans(job.engagementId, job.runnerId ?? runner.id, jsUrls(urls), job.queuedBy, 20);
       }
       // Parse results into findings, then run every candidate through the
       // accuracy gate (freshness + proof engines) so patched/banner-only false
@@ -122,6 +125,12 @@ export async function POST(
         }));
       } else {
         candidates = parseJobFindings(job.tool, job.target, output);
+        // Secret-scan crawl output too (gau/wayback/gospider URLs often carry
+        // leaked tokens in query strings; katana already runs this — dedup covers
+        // the overlap).
+        if (CRAWL_TOOLS.has(job.tool)) {
+          candidates = [...candidates, ...parseSecrets(job.target, output)];
+        }
       }
       let parsed = gateFindings(tagFindings(candidates, job.tool)).kept;
       // Learned false positives: drop candidates matching a rule you created by

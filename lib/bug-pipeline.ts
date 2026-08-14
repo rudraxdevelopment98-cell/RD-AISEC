@@ -11,7 +11,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
 import { exploitActions } from "@/lib/exploit-core";
 import { worthAutomating } from "@/lib/bb-engine";
-import { extractEndpoints, parameterizedUrls } from "@/lib/recon-extract";
+import { extractEndpoints, parameterizedUrls, jsUrls } from "@/lib/recon-extract";
 
 // Recon tools whose findings should trigger automated exploit validation.
 // (Excludes searchsploit/sslscan etc. so exploit results don't re-trigger.)
@@ -282,6 +282,37 @@ export async function queueEndpointScans(
         queuedBy: queuedBy || "recon-loop",
       });
     }
+  }
+  if (data.length > 0) await prisma.job.createMany({ data });
+  return data.length;
+}
+
+/**
+ * JS secret mining: queue a nuclei exposure/token pass on each discovered
+ * JavaScript bundle. nuclei fetches the JS body and its exposure/secret/token
+ * templates scan it for leaked API keys and credentials — the classic front-end
+ * secret leak. Deduped + capped. Returns the number of jobs queued.
+ */
+export async function queueJsSecretScans(
+  engagementId: string,
+  runnerId: string,
+  js: string[],
+  queuedBy: string,
+  cap = 20,
+): Promise<number> {
+  const targets = js.slice(0, cap);
+  if (targets.length === 0) return 0;
+  const pending = await prisma.job.findMany({
+    where: { engagementId, status: { in: ["queued", "running"] } },
+    select: { tool: true, target: true },
+  });
+  const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
+  const args = "-tags exposure,exposures,token,secret,credential -rl 100 -timeout 8 -retries 1 -jsonl";
+  const data = [];
+  for (const url of targets) {
+    const target = normalizeTarget("nuclei", url);
+    if (!validateTarget("nuclei", target) || pendingKey.has(`nuclei|${target}`)) continue;
+    data.push({ engagementId, runnerId, tool: "nuclei", target, args, autoImport: true, queuedBy: queuedBy || "recon-loop" });
   }
   if (data.length > 0) await prisma.job.createMany({ data });
   return data.length;

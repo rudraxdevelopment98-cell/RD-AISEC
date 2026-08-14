@@ -1,7 +1,7 @@
 // Tests the iterative-recon extraction core. Run with `npm test` (tsx).
 
 import assert from "node:assert";
-import { extractUrls, extractPaths, extractEndpoints, parameterizedUrls, extractParams } from "./recon-extract";
+import { extractUrls, extractPaths, extractEndpoints, parameterizedUrls, extractParams, jsUrls } from "./recon-extract";
 
 let passed = 0;
 function t(name: string, fn: () => void) {
@@ -60,6 +60,17 @@ t("extractParams: distinct param names", () => {
 t("extractEndpoints dedupes", () => {
   const eps = extractEndpoints(`https://t.example/a https://t.example/a fetch("/a")`);
   assert.strictEqual(eps.filter((e) => e === "https://t.example/a").length, 1);
+});
+
+t("jsUrls: picks .js/.mjs bundles, ignores others", () => {
+  const js = jsUrls([
+    "https://t.example/static/app.js",
+    "https://t.example/main.mjs?v=3",
+    "https://t.example/api/orders/1",
+    "https://t.example/style.css",
+  ]);
+  assert.strictEqual(js.length, 2);
+  assert.ok(js.every((u) => /\.m?js/i.test(u)));
 });
 
 console.log(`\nrecon-extract: ${passed} checks passed`);
