@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icons";
+import { Hint } from "@/components/hint";
 import { SeverityBadge } from "@/components/badges";
 import { parseManifest, scan, maxSeverity, SEV_RANK, type Severity } from "@/lib/mcp-scan";
 import { FIXTURES, FIXTURE_JSON, type Fixture } from "./fixtures";
@@ -89,12 +90,14 @@ export function McpAttackRange() {
       <div className="card flex items-start gap-3">
         <Icon name="skull" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
         <div>
-          <p className="text-sm font-semibold text-white">Attack range</p>
-          <p className="text-xs text-gray-500">
-            A gallery of malicious (and one honest) MCP servers. Each is a real
-            <code className="mx-1 rounded bg-black/40 px-1 text-[11px]">tools/list</code> manifest —
-            run the scanner against it and confirm the detection matches the threat. For authorized
-            research and education only.
+          <p className="text-sm font-semibold text-white">
+            Attack range{" "}
+            <Hint>
+              A gallery of malicious (and one honest) MCP servers. Each is a real
+              <code className="mx-1 rounded bg-black/40 px-1 text-[11px]">tools/list</code> manifest —
+              run the scanner against it and confirm the detection matches the threat. For authorized
+              research and education only.
+            </Hint>
           </p>
         </div>
       </div>

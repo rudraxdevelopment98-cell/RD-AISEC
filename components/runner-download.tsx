@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icons";
+import { Hint } from "@/components/hint";
 import {
   fetchRunnerGuiReleases,
   bestPerPlatform,
@@ -94,7 +95,11 @@ export async function RunnerDownloadCard() {
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold text-brand">
           <Icon name="server" className="mr-1 inline h-4 w-4" />
-          Download the desktop app
+          Download the desktop app{" "}
+          <Hint>
+            Install, paste a <span className="font-semibold text-brand">connection code</span> from{" "}
+            <span className="font-mono">Add a machine</span>, and the machine connects — no terminal.
+          </Hint>
         </h2>
         {latest && (
           <span className="tag text-xs text-gray-300">
@@ -102,10 +107,6 @@ export async function RunnerDownloadCard() {
           </span>
         )}
       </div>
-      <p className="mt-1 text-sm text-gray-400">
-        Install, paste a <span className="font-semibold text-brand">connection code</span> from{" "}
-        <span className="font-mono">Add a machine</span>, and the machine connects — no terminal.
-      </p>
 
       {latest && byPlatform ? (
         <div className="mt-3 grid gap-3 sm:grid-cols-3">

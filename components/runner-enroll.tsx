@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Icon } from "@/components/icons";
+import { Hint } from "@/components/hint";
 import { createEnrollCode } from "@/lib/runners";
 import { encodeConnectCode } from "@/lib/connect-code";
 
@@ -62,14 +63,14 @@ export function EnrollCodeForm() {
     <div className="card mt-6">
       <h2 className="font-semibold text-brand">
         <Icon name="bolt" className="mr-1 inline h-4 w-4" />
-        Add a machine
+        Add a machine{" "}
+        <Hint>
+          Generate an enrollment code, run one command on the machine, and it comes
+          online — registering itself for a token. If that token is ever rotated or
+          wiped, it fetches a fresh one automatically, so a machine never goes dark
+          over a bad token again. The code is reusable and revocable; shown only once.
+        </Hint>
       </h2>
-      <p className="mt-1 text-sm text-gray-400">
-        Generate an enrollment code, run one command on the machine, and it comes
-        online — registering itself for a token. If that token is ever rotated or
-        wiped, it fetches a fresh one automatically, so a machine never goes dark
-        over a bad token again. The code is reusable and revocable; shown only once.
-      </p>
 
       <form action={formAction} className="mt-4 flex flex-col gap-3 sm:flex-row">
         <input

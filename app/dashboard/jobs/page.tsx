@@ -10,7 +10,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { cancelJob, cancelQueuedJobs, prioritizeJob, deprioritizeJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
 import { Tabs, TabPanel } from "@/components/tabs";
-import { HelpBanner } from "@/components/hint";
+import { HelpBanner, Hint } from "@/components/hint";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -199,8 +199,7 @@ export default async function JobsPage({
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {JOB_TEMPLATES.map((t) => (
                 <div key={t.name} className="card flex flex-col">
-                  <p className="text-sm font-semibold text-white">{t.name}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">{t.desc}</p>
+                  <p className="text-sm font-semibold text-white">{t.name} <Hint>{t.desc}</Hint></p>
                   <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[11px] text-gray-300">
                     {t.cmd}
                   </pre>

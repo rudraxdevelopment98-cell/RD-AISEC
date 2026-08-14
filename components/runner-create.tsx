@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Icon } from "@/components/icons";
+import { Hint } from "@/components/hint";
 import { createRunner } from "@/lib/runners";
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -51,13 +52,15 @@ chmod 600 ~/.config/rdaisec/runner.env`
 
   return (
     <div className="card mt-6">
-      <h2 className="font-semibold text-brand">Create a one-off token</h2>
-      <p className="mt-1 text-sm text-gray-400">
-        The manual way: create a runner and get a single token to paste on the
-        machine. Prefer <strong>Add a machine</strong> above — it self-heals if the
-        token is ever lost. Use this only if you specifically want a fixed token.
-        Copy it now, it&apos;s shown only once.
-      </p>
+      <h2 className="font-semibold text-brand">
+        Create a one-off token{" "}
+        <Hint>
+          The manual way: create a runner and get a single token to paste on the
+          machine. Prefer <strong>Add a machine</strong> above — it self-heals if the
+          token is ever lost. Use this only if you specifically want a fixed token.
+          Copy it now, it&apos;s shown only once.
+        </Hint>
+      </h2>
 
       <form action={formAction} className="mt-4 flex flex-col gap-3 sm:flex-row">
         <input

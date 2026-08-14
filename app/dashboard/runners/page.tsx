@@ -8,7 +8,7 @@ import { EnrollCodeForm } from "@/components/runner-enroll";
 import { RunnerDownloadCard } from "@/components/runner-download";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { HelpBanner } from "@/components/hint";
+import { HelpBanner, Hint } from "@/components/hint";
 import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall, installAllTools, revokeEnrollCode } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
@@ -354,13 +354,13 @@ curl -fsSL "https://rd-aisec.vercel.app/api/runner/bootstrap?code=rde_…" | sud
         <div className="card mt-4">
           <h2 className="text-sm font-semibold text-brand">
             <Icon name="lock" className="mr-1 inline h-4 w-4" />
-            Active enrollment codes
+            Active enrollment codes{" "}
+            <Hint>
+              Machines can still enroll with these. The code itself is never shown
+              again — revoke one to stop any new enrollments using it (already-enrolled
+              machines keep their tokens).
+            </Hint>
           </h2>
-          <p className="mt-1 text-xs text-gray-400">
-            Machines can still enroll with these. The code itself is never shown
-            again — revoke one to stop any new enrollments using it (already-enrolled
-            machines keep their tokens).
-          </p>
           <div className="mt-3 divide-y divide-surface-border">
             {enrollCodes.map((c) => {
               const atLimit = c.usedCount >= c.maxUses;

@@ -45,6 +45,7 @@ import { setSourceRepo, queueSourceRecon } from "@/lib/source-recon";
 import { decryptSecret } from "@/lib/crypto";
 import { describeHeader, AUTH_HEADER_TOOLS } from "@/lib/auth-scan";
 import { AuthSessionForm } from "@/components/auth-session-form";
+import { Hint } from "@/components/hint";
 
 export const dynamic = "force-dynamic";
 
@@ -440,15 +441,9 @@ export default async function EngagementDetail({
         <div className="card mt-4">
           <div className="flex items-center gap-2">
             <Icon name="search" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">White-box source recon</h3>
+            <h3 className="text-sm font-semibold text-white">White-box source recon <Hint>Point this at the target&apos;s <b>https git repo</b> (one you&apos;re authorized to test). A runner shallow-clones it, the portal maps frameworks + endpoints and raises code-level vulnerability hypotheses, then deletes the clone. Hypotheses stay &quot;detected&quot; until an exploit validates them.</Hint></h3>
             <span className="tag ring-sky accent-sky text-[10px]">Shannon-style</span>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Point this at the target&apos;s <b>https git repo</b> (one you&apos;re authorized to
-            test). A runner shallow-clones it, the portal maps frameworks + endpoints and raises
-            code-level vulnerability hypotheses, then deletes the clone. Hypotheses stay
-            &quot;detected&quot; until an exploit validates them.
-          </p>
           <form action={setSourceRepo} className="mt-3 flex flex-wrap items-center gap-2">
             <input type="hidden" name="engagementId" value={e.id} />
             <input
@@ -484,7 +479,7 @@ export default async function EngagementDetail({
         <div className="card mt-4">
           <div className="flex items-center gap-2">
             <Icon name="lock" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">Authenticated scanning</h3>
+            <h3 className="text-sm font-semibold text-white">Authenticated scanning <Hint>Pick the auth type and enter the value — the header is built for you, stored <b>encrypted</b>, and once set <b>every scan on this engagement runs authenticated automatically</b> (injected into {AUTH_HEADER_TOOLS.join(", ")}), reaching IDOR / access-control / business-logic bugs an anonymous scan can&apos;t. The value is never displayed again.</Hint></h3>
             {authSessionLabel ? (
               <span className="tag border-brand/50 text-brand text-[10px]">
                 active · {authSessionLabel}
@@ -493,13 +488,6 @@ export default async function EngagementDetail({
               <span className="tag text-[10px]">not set</span>
             )}
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Pick the auth type and enter the value — the header is built for you,
-            stored <b>encrypted</b>, and once set <b>every scan on this engagement
-            runs authenticated automatically</b> (injected into {AUTH_HEADER_TOOLS.join(", ")}),
-            reaching IDOR / access-control / business-logic bugs an anonymous scan
-            can&apos;t. The value is never displayed again.
-          </p>
           <AuthSessionForm engagementId={e.id} active={authSessionLabel} />
           {authSessionLabel && (
             <form action={setEngagementAuthSession} className="mt-2">
@@ -635,15 +623,11 @@ export default async function EngagementDetail({
       <TabPanel id="map">
       {/* Engagement data map — 3D galaxy of this case's hosts/findings/people. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">🌌 Engagement map</h2>
+        <h2 className="text-lg font-semibold">🌌 Engagement map <Hint>Hosts, subdomains, services, findings, programs and collaborators for this engagement — linked and explorable. Tap any bubble for details.</Hint></h2>
         <Link href={`/dashboard/engagements/map?e=${e.id}`} className="text-xs text-brand hover:underline">
           Open full-screen <Icon name="arrow" className="inline h-3 w-3" />
         </Link>
       </div>
-      <p className="mt-1 text-sm text-gray-400">
-        Hosts, subdomains, services, findings, programs and collaborators for this
-        engagement — linked and explorable. Tap any bubble for details.
-      </p>
       <div className="mt-3">
         <EngagementMap graph={engGraph} engagementId={e.id} />
       </div>

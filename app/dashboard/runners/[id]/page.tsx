@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
+import { Hint } from "@/components/hint";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
@@ -238,11 +239,11 @@ export default async function MachinePage({
         <input type="hidden" name="id" value={r.id} />
         <input type="hidden" name="back" value={`/dashboard/runners/${r.id}`} />
         <p className="text-sm font-semibold text-white">
-          <Icon name="clock" className="mr-1 inline h-4 w-4 text-brand" /> Maintenance schedule
-        </p>
-        <p className="mt-1 text-[11px] text-gray-500">
-          When the machine runs its unattended daily self-heal (its own local time). Changes apply on the
-          next check-in — no restart needed.
+          <Icon name="clock" className="mr-1 inline h-4 w-4 text-brand" /> Maintenance schedule{" "}
+          <Hint>
+            When the machine runs its unattended daily self-heal (its own local time). Changes apply on the
+            next check-in — no restart needed.
+          </Hint>
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-300">
@@ -404,12 +405,12 @@ export default async function MachinePage({
 
       {/* ── Command console ──────────────────────────────── */}
       <h2 className="mt-8 flex items-center gap-2 text-lg font-semibold">
-        <Icon name="bolt" className="h-4 w-4 text-brand" /> Run a command
+        <Icon name="bolt" className="h-4 w-4 text-brand" /> Run a command{" "}
+        <Hint>
+          A full console for this machine — run any command, or tap a quick command
+          to check the box and its tools.
+        </Hint>
       </h2>
-      <p className="mt-1 text-sm text-gray-400">
-        A full console for this machine — run any command, or tap a quick command
-        to check the box and its tools.
-      </p>
       <div className="card mt-3">
         <MachineConsole runnerId={r.id} online={online} />
       </div>
@@ -422,13 +423,13 @@ export default async function MachinePage({
         ) : (
           <span className="tag border-gray-500/40 text-xs text-gray-400">🔒 locked</span>
         )}
+        <Hint>
+          A live terminal to this machine — plus files, processes, services, and
+          install-anything. This is remote code execution, so it&apos;s time-boxed:
+          unlock it, and it auto-locks after {""}
+          {unlocked ? "the window ends" : "45 minutes"}.
+        </Hint>
       </h2>
-      <p className="mt-1 text-sm text-gray-400">
-        A live terminal to this machine — plus files, processes, services, and
-        install-anything. This is remote code execution, so it&apos;s time-boxed:
-        unlock it, and it auto-locks after {""}
-        {unlocked ? "the window ends" : "45 minutes"}.
-      </p>
       <div className="card mt-3 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           {unlocked ? (

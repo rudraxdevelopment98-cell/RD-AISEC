@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Hint } from "@/components/hint";
 import { planBounds, wallSegments, type FloorPlan } from "@/lib/floorplan-core";
 import { rssiBars, type DeviceKind } from "@/lib/survey-core";
 import type { HomeMap, PositionedDevice, Pin } from "@/lib/homemap-core";
@@ -277,18 +278,19 @@ export function WifiHomemap({ machines, defaultIface, plan }: { machines: Machin
   return (
     <div className="card mt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold text-white">🗺 Auto home map — walk &amp; sense</span>
+        <span className="text-sm font-semibold text-white">
+          🗺 Auto home map — walk &amp; sense{" "}
+          <Hint>
+            Tap the plan where you&apos;re standing, capture, move, repeat. After <b>3+ spots</b> your fixed routers
+            become anchors and every device gets a real position. <b>Pin</b> a router at its true spot to sharpen
+            positioning and reveal wall hints. <b>Live monitor</b> keeps re-surveying to show who&apos;s moving.
+          </Hint>
+        </span>
         {map?.canPosition ? <span className="tag ring-emerald accent-emerald">● positioning live</span>
           : <span className="tag border-amber-500/40 text-amber-300">{resolvedCount}/3 spots · walk to position</span>}
         {(state?.pins.length ?? 0) > 0 && <span className="tag border-sky-500/40 text-sky-300">📌 {state!.pins.length} pinned</span>}
         {liveOn && <span className="tag border-emerald-500/40 text-emerald-300 animate-pulse">◉ live monitor</span>}
       </div>
-
-      <p className="mt-2 text-xs text-gray-400">
-        Tap the plan where you&apos;re standing, capture, move, repeat. After <b>3+ spots</b> your fixed routers
-        become anchors and every device gets a real position. <b>Pin</b> a router at its true spot to sharpen
-        positioning and reveal wall hints. <b>Live monitor</b> keeps re-surveying to show who&apos;s moving.
-      </p>
 
       {/* Mode + controls */}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
