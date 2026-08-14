@@ -741,6 +741,30 @@ const SECRET_PLACEHOLDER =
   /EXAMPLE|XXXXX|AAAAA|0000000|1234567|ABCDEFG|YOUR[_-]?|PLACEHOLDER|SAMPLE|REDACTED|<[^>]+>|\.\.\./i;
 
 /** Detect leaked secrets/keys in any tool output (responses, JS, headers). */
+/** Parse arjun output → the hidden parameters it discovered on an endpoint. These
+ *  are the un-advertised input surface behind IDOR/injection/access-control bugs;
+ *  we surface them (info) so the operator + fuzzers can test each. Best-effort on
+ *  arjun's console format across versions. */
+export function parseArjun(target: string, output: string): ParsedFinding[] {
+  const names = new Set<string>();
+  for (const m of output.matchAll(/valid parameter found:\s*([a-zA-Z0-9_\-[\]]{1,64})/gi)) names.add(m[1]);
+  for (const m of output.matchAll(/parameters?\s+found[:\-]?[ \t]+([a-zA-Z0-9_,\t \-[\]]{2,300})/gi)) {
+    for (const n of m[1].split(/[,\s]+/)) if (/^[a-zA-Z0-9_\-[\]]{1,64}$/.test(n)) names.add(n);
+  }
+  const params = [...names].filter(Boolean);
+  if (params.length === 0) return [];
+  return [{
+    title: `Hidden parameters discovered: ${target}`,
+    severity: "info",
+    status: "open",
+    description:
+      `arjun found parameter(s) this endpoint accepts but doesn't advertise: ${params.join(", ")}.\n` +
+      "These are the hidden input surface behind IDOR, injection, and access-control bugs — test each with a value (dalfox / sqlmap / manual).",
+    recommendation:
+      "Review server-side handling of these parameters — validate and authorize them. Fuzz each for injection and access-control issues.",
+  }];
+}
+
 export function parseSecrets(target: string, output: string): ParsedFinding[] {
   const out: ParsedFinding[] = [];
   const seen = new Set<string>();
@@ -1139,6 +1163,8 @@ export function parseJobFindings(
       return [...parseKatana(target, output), ...parseSecrets(target, output)];
     case "sqlmap":
       return parseSqlmap(target, output);
+    case "arjun":
+      return parseArjun(target, output);
     case "nikto":
       return parseNikto(target, output);
     case "masscan":

@@ -10,7 +10,7 @@ import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
-import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, queueParamDiscovery, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { extractEndpoints, jsUrls } from "@/lib/recon-extract";
 
 // Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
@@ -101,6 +101,9 @@ export async function POST(
         // JS secret mining: nuclei fetches + scans each discovered JS bundle for
         // leaked keys (front-end secret leak — a common, high-value finding).
         await queueJsSecretScans(job.engagementId, job.runnerId ?? runner.id, jsUrls(urls), job.queuedBy, 20);
+        // Hidden-parameter discovery: arjun on the parameterless endpoints — finds
+        // the un-advertised input surface behind IDOR / injection / access-control.
+        await queueParamDiscovery(job.engagementId, job.runnerId ?? runner.id, urls, job.queuedBy, 12);
       }
       // Parse results into findings, then run every candidate through the
       // accuracy gate (freshness + proof engines) so patched/banner-only false

@@ -318,6 +318,38 @@ export async function queueJsSecretScans(
   return data.length;
 }
 
+/**
+ * Hidden-parameter discovery: queue arjun on the PARAMETERLESS endpoints from a
+ * crawl to find inputs the app accepts but doesn't advertise (the surface behind
+ * IDOR/injection/access-control). Discovered params surface as findings the
+ * operator + fuzzers then test. Deduped + capped (arjun is slow).
+ */
+export async function queueParamDiscovery(
+  engagementId: string,
+  runnerId: string,
+  urls: string[],
+  queuedBy: string,
+  cap = 12,
+): Promise<number> {
+  const paramless = urls
+    .filter((u) => !/\?[^#]*=/.test(u) && !/\.m?js(?:$|\?)/i.test(u))
+    .slice(0, cap);
+  if (paramless.length === 0) return 0;
+  const pending = await prisma.job.findMany({
+    where: { engagementId, status: { in: ["queued", "running"] } },
+    select: { tool: true, target: true },
+  });
+  const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
+  const data = [];
+  for (const url of paramless) {
+    const target = normalizeTarget("arjun", url);
+    if (!validateTarget("arjun", target) || pendingKey.has(`arjun|${target}`)) continue;
+    data.push({ engagementId, runnerId, tool: "arjun", target, args: "-m GET --stable", autoImport: true, queuedBy: queuedBy || "recon-loop" });
+  }
+  if (data.length > 0) await prisma.job.createMany({ data });
+  return data.length;
+}
+
 /** Cron: run the pipeline for every auto-enabled program whose interval elapsed. */
 export async function runDueBugPrograms(): Promise<{ programs: number; jobs: number }> {
   // Only programs you've ENGAGED (have an engagement) auto-run — never the

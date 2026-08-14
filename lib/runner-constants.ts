@@ -259,6 +259,17 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     presets: [{ id: "scan", label: "Scan URL params", args: ["--silence", "--no-spinner"] }],
   },
   {
+    id: "arjun",
+    label: "arjun — hidden parameter discovery",
+    description:
+      "Find HTTP parameters an endpoint accepts but doesn't advertise — the hidden input surface behind IDOR, injection, and access-control bugs.",
+    active: true,
+    presets: [
+      { id: "get", label: "Discover GET params", args: ["-m", "GET", "--stable"] },
+      { id: "post", label: "Discover POST params", args: ["-m", "POST", "--stable"] },
+    ],
+  },
+  {
     id: "ffuf",
     label: "ffuf — fast web fuzzer",
     description:
@@ -446,6 +457,9 @@ export const RUNNER_TOOL_SPECS: Record<string, { bin: string; flag: string | nul
   dalfox: { bin: "dalfox", flag: "url" },
   ffuf: { bin: "ffuf", flag: "-u" },
   gau: { bin: "gau", flag: null },
+  // arjun finds HIDDEN HTTP parameters on an endpoint — the input surface a
+  // crawler can't see. `arjun -u <url>`.
+  arjun: { bin: "arjun", flag: "-u" },
   feroxbuster: { bin: "feroxbuster", flag: "-u" },
   dirsearch: { bin: "dirsearch", flag: "-u" },
   testssl: { bin: "testssl.sh", flag: null },
@@ -491,6 +505,7 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   naabu: "naabu",
   katana: "katana",
   dalfox: "dalfox",
+  arjun: "arjun", // hidden-parameter discovery (Kali apt / pip)
   ffuf: "ffuf", // fast web fuzzer (Kali apt; go fallback elsewhere)
   metasploit: "metasploit-framework", // for the Exploitation section (no auto-find tool)
   tor: "tor", // for anonymity
