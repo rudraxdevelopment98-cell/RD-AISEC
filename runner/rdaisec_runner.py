@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "63"
+RUNNER_VERSION = "64"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2721,9 +2721,19 @@ def _idor_fetch(method, url, header, marker):
         except Exception:  # noqa: BLE001
             body = b""
     except Exception:  # noqa: BLE001
-        return {"s": 0, "n": 0, "m": False}
+        return {"s": 0, "n": 0, "m": False, "d": False, "h": ""}
     text = body.decode("utf-8", "ignore") if body else ""
-    return {"s": int(status), "n": len(body), "m": bool(marker) and marker in text}
+    low = text.lower()
+    # Soft-deny detection: a 200 that's really a login/denied page is NOT access.
+    denied = any(s in low for s in (
+        "sign in", "log in", "login", "unauthorized", "forbidden", "access denied",
+        "permission denied", "not authorized", "authentication required", "please authenticate",
+    ))
+    # Body hash (whitespace-normalized) — an exact match between owner and attacker
+    # proves the byte-identical object was returned, even without a marker.
+    norm = " ".join(text.split())
+    h = hashlib.sha256(norm.encode("utf-8", "ignore")).hexdigest()[:16] if norm else ""
+    return {"s": int(status), "n": len(body), "m": bool(marker) and marker in text, "d": denied, "h": h}
 
 
 def run_idor(job):

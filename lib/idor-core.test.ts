@@ -43,6 +43,35 @@ t("sensitive path bumps same-shape BOLA to critical", () => {
   assert.strictEqual(v.severity, "critical");
 });
 
+t("same body hash across accounts → confirmed BOLA even without a marker", () => {
+  const v = assessAccess({
+    endpoint: "GET /api/orders/1001",
+    owner: { status: 200, bodyLen: 500, bodyHash: "abc123", contentType: "application/json" },
+    attacker: { status: 200, bodyLen: 500, bodyHash: "abc123", contentType: "application/json" },
+  });
+  assert.strictEqual(v.verdict, "bola");
+  assert.ok(v.confidence >= 90, "byte-identical object is high-confidence");
+});
+
+t("200 but login/denied page (deniedLooking) → safe, not BOLA", () => {
+  const v = assessAccess({
+    endpoint: "GET /api/orders/1001",
+    owner: { status: 200, bodyLen: 500 },
+    attacker: { status: 200, bodyLen: 480, deniedLooking: true },
+  });
+  assert.strictEqual(v.verdict, "safe", "soft-deny login page must not read as access");
+});
+
+t("anon 200 login page → not unauth", () => {
+  const v = assessAccess({
+    endpoint: "GET /api/profile/7",
+    owner: { status: 200, bodyLen: 300 },
+    attacker: { status: 403, bodyLen: 10 },
+    anon: { status: 200, bodyLen: 305, deniedLooking: true },
+  });
+  assert.strictEqual(v.verdict, "safe");
+});
+
 t("account B denied (403) → safe", () => {
   const v = assessAccess({ endpoint: "GET /api/orders/1001", owner: ok(500), attacker: { status: 403, bodyLen: 20 } });
   assert.strictEqual(v.verdict, "safe");

@@ -21,6 +21,14 @@ export type Resp = {
   /** Optional body text — enables the strongest, lowest-false-positive check. */
   body?: string | null;
   contentType?: string | null;
+  /** Short hash of the (whitespace-normalized) body. If the attacker's hash equals
+   *  the owner's, they received the byte-identical object — definitive BOLA, even
+   *  without a marker. */
+  bodyHash?: string | null;
+  /** The response LOOKS like a denial/login page (contains "sign in", "forbidden",
+   *  "unauthorized", …) even if the status was 200 — the classic soft-deny that a
+   *  status/length check misreads as access. */
+  deniedLooking?: boolean;
 };
 
 export type AccessProbe = {
@@ -96,12 +104,17 @@ export function assessAccess(p: AccessProbe): AccessVerdict {
   }
 
   const isData = /json|xml|csv|octet-stream/i.test(p.attacker.contentType ?? "") || /json|xml|csv/i.test(p.owner.contentType ?? "");
+  const sameHash = (a: Resp, b: Resp) => !!a.bodyHash && !!b.bodyHash && a.bodyHash === b.bodyHash;
 
   // 2. Unauthenticated access is the worst case — check it first.
-  if (p.anon) {
+  if (p.anon && !p.anon.deniedLooking) {
     if (leaksMarker(p.anon, p.ownerMarker)) {
       return { verdict: "unauth", severity: "critical", confidence: 96,
         reasons: [`Unauthenticated request returned the owner's data (marker "${p.ownerMarker}" present). No session required to read the object.`] };
+    }
+    if (SUCCESS(p.anon.status) && sameHash(p.owner, p.anon)) {
+      return { verdict: "unauth", severity: "critical", confidence: 92,
+        reasons: [`Unauthenticated request returned a byte-identical copy of the owner's object (same body hash). No auth required.`] };
     }
     if (SUCCESS(p.anon.status) && similarSize(p.owner, p.anon)) {
       return { verdict: "unauth", severity: bump("high", p.endpoint), confidence: isData ? 78 : 65,
@@ -113,6 +126,15 @@ export function assessAccess(p: AccessProbe): AccessVerdict {
   if (leaksMarker(p.attacker, p.ownerMarker)) {
     return { verdict: "bola", severity: "critical", confidence: 95,
       reasons: [`Account B's response contains account A's data marker ("${p.ownerMarker}") — B can read A's object. Confirmed broken object-level authorization.`] };
+  }
+  if (SUCCESS(p.attacker.status) && sameHash(p.owner, p.attacker)) {
+    return { verdict: "bola", severity: bump("high", p.endpoint) === "critical" ? "critical" : "high", confidence: 93,
+      reasons: [`Account B received a byte-identical copy of account A's object (same body hash) — confirmed broken object-level authorization.`] };
+  }
+  // A 200 that's actually a login/denied page is NOT access — treat as enforced.
+  if (p.attacker.deniedLooking) {
+    return { verdict: "safe", severity: "info", confidence: 80,
+      reasons: [`Account B got ${p.attacker.status} but the response is a login/denied page (soft-deny) — authorization is enforced.`] };
   }
   if (SUCCESS(p.attacker.status)) {
     if (similarSize(p.owner, p.attacker)) {

@@ -45,10 +45,11 @@ export function buildIdorEndpoints(
   return out;
 }
 
-// ── Runner result shape (compact on purpose — no bodies, only booleans) ──────
-// { probes: [ { ep, o:{s,n,m}, a:{s,n,m}, x?:{s,n,m} } ] }
-//   ep = "GET <url>";  s=status, n=body length, m=owner-marker present
-type Identity = { s?: unknown; n?: unknown; m?: unknown };
+// ── Runner result shape (compact on purpose — no bodies, only signals) ───────
+// { probes: [ { ep, o:{s,n,m,d,h}, a:{...}, x?:{...} } ] }
+//   ep = "GET <url>";  s=status, n=body length, m=owner-marker present,
+//   d=looks like a login/denied page, h=short hash of the normalized body
+type Identity = { s?: unknown; n?: unknown; m?: unknown; d?: unknown; h?: unknown };
 type RawProbe = { ep?: unknown; o?: Identity; a?: Identity; x?: Identity };
 
 function toResp(id: Identity | undefined, marker: string): Resp | undefined {
@@ -61,6 +62,8 @@ function toResp(id: Identity | undefined, marker: string): Resp | undefined {
     // it. The actual owner data is never shipped — only this boolean.
     body: hasMarker ? marker : undefined,
     contentType: "application/json",
+    bodyHash: typeof id.h === "string" ? id.h : undefined,
+    deniedLooking: id.d === true,
   };
 }
 
