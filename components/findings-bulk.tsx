@@ -69,7 +69,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
     <div className="mt-4">
       {/* Action bar — sticks under the page title bar so bulk controls stay in
           reach while the list scrolls. */}
-      <div className="sticky-under-header flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-surface p-2 text-xs">
+      <div className="sticky-under-header glass flex flex-wrap items-center gap-2 rounded-xl p-2.5 text-xs shadow-lg">
         <label className="flex items-center gap-1.5 text-gray-400">
           <input
             type="checkbox"
@@ -107,7 +107,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
           return (
           <div
             key={f.id}
-            className={`card ${SEV_GLOW[f.severity] ?? ""}`}
+            className={`card hover-lift hover:border-brand/40 ${selected.has(f.id) ? "border-brand/50 ring-1 ring-brand/20" : ""} ${SEV_GLOW[f.severity] ?? ""}`}
           >
             {/* Title first (full width), badges wrap on their own row beneath —
                 so a long multi-line title never collides with the frosted
