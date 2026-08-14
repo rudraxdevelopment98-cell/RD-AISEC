@@ -71,13 +71,16 @@ html:has(.app-dashboard) {
   --white: 255 255 255;
   --black: 0 0 0;
 
-  --surface: 8 11 16;
-  --surface-card: 16 21 29;
-  --surface-border: 34 43 56;
+  --surface: 6 9 13;
+  --surface-card: 15 20 27;
+  --surface-border: 32 41 54;
 
   --brand: 53 226 164;
   --brand-dark: 16 185 129;
   --brand-glow: 123 243 198;
+  /* Signature emerald ambient — a soft glow used behind heroes, active nav, and
+     interactive card hovers to make the surface feel alive without shouting. */
+  --brand-ambient: 52 211 153;
 
   /* Semantic severity — one source of truth (separate from the brand accent).
      Stored as R G B triplets so they take any opacity: rgb(var(--sev-crit)/.15). */
@@ -106,8 +109,9 @@ html:has(.app-dashboard) {
 
   /* Liquid-glass composites (dark). */
   --canvas-glow:
-    radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.025), transparent 45%),
-    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.5), transparent 50%);
+    radial-gradient(120% 80% at 50% -20%, rgba(52, 211, 153, 0.10), transparent 55%),
+    radial-gradient(90% 60% at 100% 0%, rgba(52, 211, 153, 0.05), transparent 50%),
+    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.55), transparent 55%);
   --card-bg:
     linear-gradient(158deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 34%, rgba(255, 255, 255, 0) 62%),
     radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.05), transparent 46%),
@@ -214,8 +218,18 @@ html:has(.app-dashboard) {
 body {
   @apply bg-surface text-gray-100 antialiased;
   background-image: var(--canvas-glow);
+  background-attachment: fixed;
   min-height: 100vh;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  letter-spacing: -0.006em;
 }
+
+/* Headings read tighter + crisper — a premium editorial feel. */
+h1, h2, h3 { letter-spacing: -0.02em; }
+
+/* Numbers align in columns (stats, tables, counters). */
+.tabular { font-variant-numeric: tabular-nums; }
 
 @layer components {
   /* ── Liquid glass surface ────────────────────────────────────────────────
@@ -227,18 +241,42 @@ body {
      flat-elevation shadow. Reads sharper and more contemporary than the old
      frosted-gradient card, and repaints cheaply (no backdrop-filter). */
   .card {
-    @apply relative rounded-xl p-5;
-    background: rgb(var(--surface-card));
+    @apply relative rounded-2xl p-5;
+    /* A subtle top-lit gradient over the solid surface — reads as light catching
+       the panel, richer than a flat fill but still cheap to paint. */
+    background:
+      linear-gradient(180deg, rgb(var(--brand-ambient) / 0.028), transparent 30%),
+      rgb(var(--surface-card));
     border: 1px solid rgb(var(--surface-border));
     box-shadow: var(--elev-1);
   }
+  /* A hairline top highlight so every card catches a sliver of light. */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.10) 25%, rgb(255 255 255 / 0.10) 75%, transparent);
+    pointer-events: none;
+  }
   .card-hover {
-    @apply card transition-all duration-200;
+    @apply card transition-all duration-300;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    border-color: rgb(var(--brand) / 0.5);
-    box-shadow: var(--elev-2), 0 0 0 1px rgb(var(--brand) / 0.12);
+    transform: translateY(-3px);
+    border-color: rgb(var(--brand) / 0.55);
+    box-shadow:
+      var(--elev-2),
+      0 0 0 1px rgb(var(--brand) / 0.18),
+      0 18px 48px -22px rgb(var(--brand-ambient) / 0.4);
+  }
+  /* Opt-in ambient emerald glow behind a hero/feature card. */
+  .card-glow {
+    background:
+      radial-gradient(120% 100% at 10% 0%, rgb(var(--brand-ambient) / 0.10), transparent 50%),
+      linear-gradient(180deg, rgb(var(--brand-ambient) / 0.03), transparent 30%),
+      rgb(var(--surface-card));
   }
   /* Frosted "liquid glass" panel — used for the mobile drawer, sidebar rail and
      any solid overlay. Denser frost so content behind stays legible. */
@@ -266,13 +304,20 @@ body {
        bright mint gradient reads as premium and high-contrast in both themes. */
     @apply btn font-semibold;
     color: #04140d;
-    background: linear-gradient(140deg, rgb(var(--brand)), rgb(var(--brand-dark)));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    background: linear-gradient(140deg, rgb(var(--brand-glow)), rgb(var(--brand)) 45%, rgb(var(--brand-dark)));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 8px 22px -10px rgb(var(--brand-ambient) / 0.6);
   }
   .btn-primary:hover {
     color: #04140d;
-    filter: brightness(1.06);
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 12px 30px -10px rgb(var(--brand-ambient) / 0.75);
   }
+  .btn-primary:active { transform: translateY(0); }
   /* Frosted-glass ghost button — translucent, blurred, rim-lit. */
   .btn-ghost {
     @apply btn text-gray-200;
@@ -312,24 +357,29 @@ body {
   /* Active item: solid brand text + a signature emerald left-edge indicator —
      precise and unmistakable, no heavy glass. */
   .nav-link-active {
-    @apply bg-brand/10 text-brand;
+    @apply text-brand;
+    background: linear-gradient(90deg, rgb(var(--brand) / 0.16), rgb(var(--brand) / 0.03) 70%, transparent);
   }
   .nav-link-active::before {
     content: "";
     position: absolute;
     left: 0;
     top: 50%;
-    height: 1.05rem;
+    height: 1.15rem;
     width: 3px;
     transform: translateY(-50%);
     border-radius: 0 3px 3px 0;
     background: rgb(var(--brand));
+    box-shadow: 0 0 10px rgb(var(--brand-ambient) / 0.8);
   }
   .nav-section {
     @apply px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600;
   }
   .stat-num {
     @apply text-3xl font-bold text-brand;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 24px rgb(var(--brand-ambient) / 0.35);
+    letter-spacing: -0.02em;
   }
   /* Frosted input/select surface — opt-in for form fields that want the glass. */
   .glass-input {
@@ -342,9 +392,32 @@ body {
     border-color: rgb(var(--brand) / 0.5);
     box-shadow:
       inset 0 1px 0 var(--glass-highlight),
-      0 0 0 3px rgb(var(--brand) / 0.12);
+      0 0 0 3px rgb(var(--brand) / 0.14);
+  }
+  /* Signature emerald gradient headline — for hero titles + section leads. */
+  .text-brand-gradient {
+    background: linear-gradient(100deg, rgb(var(--brand-glow)), rgb(var(--brand)) 55%, rgb(var(--brand-dark)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* A tiny live status pill (online/running). */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+    background: rgb(var(--brand) / 0.12);
+    border: 1px solid rgb(var(--brand) / 0.3);
+    color: rgb(var(--brand-glow));
   }
 }
+
+/* Generic hover lift — add to any clickable surface for the "alive" feel. */
+.hover-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+.hover-lift:hover { transform: translateY(-2px); }
+
+/* Count-up / rise-in for stat tiles (staggered via .stagger-in on the parent). */
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+.rise-in { animation: riseIn .5s cubic-bezier(.2,.7,.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .hover-lift:hover { transform: none; } .rise-in { animation: none; } }
 
 /* Print: clean white page for reports (chrome is hidden via print:hidden).
    Reset the theme tokens to literal values so a light-theme session (which SWAPS
