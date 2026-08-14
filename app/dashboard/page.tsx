@@ -337,7 +337,7 @@ export default async function DashboardOverview({
         </div>
       )}
       {/* Galaxy hero */}
-      <section className="galaxy relative overflow-hidden rounded-xl border border-surface-border p-6 sm:p-8">
+      <section className="galaxy relative overflow-hidden rounded-2xl border border-surface-border p-6 sm:p-8">
         <div className="galaxy-stars" aria-hidden />
         <div className="scanline" aria-hidden />
         <svg
@@ -357,7 +357,7 @@ export default async function DashboardOverview({
               <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-emerald-400" /> Authorized session
             </span>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-              Welcome back, <span className="text-gradient">{firstName}</span>
+              Welcome back, <span className="text-brand-gradient">{firstName}</span>
             </h1>
             <p className="mt-1 max-w-md text-gray-400">
               Your security operations, live — across testing, scanning, and reporting.
