@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { SeverityBadge } from "@/components/badges";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { MachineStats } from "@/components/machine-stats";
+import { CountUp } from "@/components/count-up";
 import { RUNNER_ONLINE_WINDOW_MS, RUNNER_VERSION } from "@/lib/runner-constants";
 import { canAccess, isOwnerRole, type AccessInfo } from "@/lib/access";
 
@@ -95,6 +96,21 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
       {/* Keep the rail live so counts (active jobs, online) update without a
           manual reload — but only while there's live work to watch. */}
       {anyLive && <AutoRefresh seconds={20} />}
+
+      {/* Live stat strip — animated at-a-glance counters (the cockpit line). */}
+      {(showFindings || showRunners || showJobs) && (
+        <div className="stagger-in grid grid-cols-3 gap-2">
+          {showFindings && (
+            <RailStat label="Critical" value={critical.length} tone={critical.length ? "crit" : "ok"} href="/dashboard/findings?severity=critical" />
+          )}
+          {showRunners && (
+            <RailStat label="Online" value={online} tone={online ? "ok" : "muted"} href="/dashboard/runners" />
+          )}
+          {showJobs && (
+            <RailStat label="Running" value={running} tone={running ? "run" : "muted"} href="/dashboard/jobs" live={running > 0} />
+          )}
+        </div>
+      )}
 
       {/* Needs attention — high-criticised work */}
       {showFindings && (
@@ -209,6 +225,35 @@ export async function OpsRail({ info }: { info: AccessInfo }) {
         <RailEmpty>No live-ops sections are available for your access.</RailEmpty>
       )}
     </div>
+  );
+}
+
+function RailStat({
+  label,
+  value,
+  tone,
+  href,
+  live,
+}: {
+  label: string;
+  value: number;
+  tone: "crit" | "ok" | "run" | "muted";
+  href: string;
+  live?: boolean;
+}) {
+  const toneClass =
+    tone === "crit" ? "text-sev-crit" : tone === "run" ? "text-sky-300" : tone === "ok" ? "text-brand" : "text-gray-500";
+  return (
+    <Link
+      href={href}
+      className="hover-lift relative overflow-hidden rounded-xl border border-surface-border bg-black/20 px-2.5 py-2 hover:border-brand/40"
+    >
+      {live && <span className="absolute right-2 top-2 h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />}
+      <div className={`text-xl font-bold ${toneClass}`}>
+        <CountUp value={value} />
+      </div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+    </Link>
   );
 }
 
