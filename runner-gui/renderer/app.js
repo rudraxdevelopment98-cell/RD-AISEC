@@ -131,9 +131,32 @@ async function wireUpdates() {
   } catch {
     /* ignore */
   }
+
+  const dl = $("downloadUpdateBtn");
+  // Live auto-update events: download progress, completion (→ restart), errors.
+  window.rd.onUpdateEvent((ev) => {
+    if (ev.type === "progress") {
+      msg($("updateMsg"), "Downloading update… " + ev.pct + "%", "ok");
+    } else if (ev.type === "downloaded") {
+      dl.textContent = "Restart & install";
+      dl.dataset.mode = "install";
+      dl.style.display = "";
+      msg($("updateMsg"), "Update downloaded — restart to install.", "ok");
+    } else if (ev.type === "error") {
+      // Auto-update failed → fall back to a manual browser download if we have a URL.
+      if (pendingUpdateUrl) {
+        dl.textContent = "Download update";
+        dl.dataset.mode = "browser";
+        dl.style.display = "";
+        msg($("updateMsg"), "Auto-update unavailable — download the installer instead.", "err");
+      } else {
+        msg($("updateMsg"), "Update error: " + ev.msg, "err");
+      }
+    }
+  });
+
   $("checkUpdateBtn").addEventListener("click", async () => {
     const btn = $("checkUpdateBtn");
-    const dl = $("downloadUpdateBtn");
     btn.disabled = true;
     dl.style.display = "none";
     pendingUpdateUrl = "";
@@ -144,17 +167,32 @@ async function wireUpdates() {
       msg($("updateMsg"), (r && r.error) || "Update check failed.", "err");
       return;
     }
-    if (r.updateAvailable) {
-      pendingUpdateUrl = r.downloadUrl;
-      dl.textContent = "Download " + r.latest + " (" + r.downloadLabel + ")";
-      dl.style.display = "";
-      msg($("updateMsg"), "Update available: v" + r.current + " → v" + r.latest + ".", "ok");
-    } else {
+    if (!r.updateAvailable) {
       msg($("updateMsg"), "You're up to date (v" + r.current + ").", "ok");
+      return;
+    }
+    // A newer version exists. Prefer a real in-app auto-update; the browser
+    // download is the fallback (macOS, .deb, or when auto-update isn't available).
+    pendingUpdateUrl = r.downloadUrl;
+    msg($("updateMsg"), "Update available: v" + r.current + " → v" + r.latest + ".", "ok");
+    const au = await window.rd.startAutoUpdate();
+    if (au && au.ok && au.supported && au.downloading) {
+      msg($("updateMsg"), "Downloading update v" + r.latest + "…", "ok");
+      // progress + "Restart & install" arrive via onUpdateEvent
+    } else {
+      dl.textContent = "Download " + r.latest + " (" + r.downloadLabel + ")";
+      dl.dataset.mode = "browser";
+      dl.style.display = "";
     }
   });
-  $("downloadUpdateBtn").addEventListener("click", () => {
-    if (pendingUpdateUrl) window.rd.openExternal(pendingUpdateUrl);
+
+  dl.addEventListener("click", () => {
+    if (dl.dataset.mode === "install") {
+      msg($("updateMsg"), "Restarting to install…");
+      window.rd.quitAndInstall();
+    } else if (pendingUpdateUrl) {
+      window.rd.openExternal(pendingUpdateUrl);
+    }
   });
 }
 

@@ -26,6 +26,17 @@ contextBridge.exposeInMainWorld("rd", {
 
   // Updates
   checkUpdate: () => ipcRenderer.invoke("app:checkUpdate"),
+  startAutoUpdate: () => ipcRenderer.invoke("app:startAutoUpdate"),
+  quitAndInstall: () => ipcRenderer.invoke("app:quitAndInstall"),
   openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
   appVersion: () => ipcRenderer.invoke("app:version"),
+  // Auto-update progress/completion events (download-progress → downloaded → error).
+  onUpdateEvent: (cb) => {
+    const onProgress = (_e, pct) => cb({ type: "progress", pct });
+    const onDone = () => cb({ type: "downloaded" });
+    const onErr = (_e, msg) => cb({ type: "error", msg });
+    ipcRenderer.on("update:progress", onProgress);
+    ipcRenderer.on("update:downloaded", onDone);
+    ipcRenderer.on("update:error", onErr);
+  },
 });

@@ -415,6 +415,61 @@ async function checkForUpdate() {
   };
 }
 
+// ── Auto-update (electron-updater) ───────────────────────────────────────────
+// Full in-app update where the packaging supports it: Windows (NSIS) and Linux
+// AppImage self-update from the GitHub release. macOS needs code-signing for
+// Squirrel.Mac, and .deb/.rpm are owned by the OS package manager — those (and
+// dev) fall back to the check-and-download flow (checkForUpdate above).
+let _autoUpdater = null;
+function getAutoUpdater() {
+  if (_autoUpdater !== null) return _autoUpdater;
+  try {
+    _autoUpdater = require("electron-updater").autoUpdater;
+    _autoUpdater.autoDownload = false; // we download on explicit user action
+    _autoUpdater.autoInstallOnAppQuit = true;
+    _autoUpdater.on("download-progress", (p) => {
+      if (win) win.webContents.send("update:progress", Math.round(p.percent || 0));
+    });
+    _autoUpdater.on("update-downloaded", () => {
+      if (win) win.webContents.send("update:downloaded");
+    });
+    _autoUpdater.on("error", (e) => {
+      if (win) win.webContents.send("update:error", String((e && e.message) || e));
+    });
+  } catch {
+    _autoUpdater = false; // module unavailable (e.g. not installed in dev)
+  }
+  return _autoUpdater;
+}
+
+// Can an in-app update actually be applied on THIS install?
+function autoUpdateSupported() {
+  if (!app.isPackaged) return false; // dev run
+  if (IS_WIN) return true; // NSIS
+  if (IS_MAC) return false; // requires code-signing
+  return !!process.env.APPIMAGE; // Linux: only AppImage self-updates (not .deb/.rpm)
+}
+
+// Begin an in-app update: check the GitHub feed, and if a newer version exists,
+// start downloading it (progress + completion arrive via the events above).
+async function startAutoUpdate() {
+  const au = getAutoUpdater();
+  if (!au || !autoUpdateSupported()) return { ok: true, supported: false };
+  try {
+    const res = await au.checkForUpdates();
+    const ver = res && res.updateInfo && res.updateInfo.version;
+    if (!ver || cmpVersion(ver, app.getVersion()) <= 0) {
+      return { ok: true, supported: true, updateAvailable: false };
+    }
+    au.downloadUpdate().catch((e) => {
+      if (win) win.webContents.send("update:error", String((e && e.message) || e));
+    });
+    return { ok: true, supported: true, updateAvailable: true, downloading: true, version: ver };
+  } catch (e) {
+    return { ok: false, supported: true, error: String((e && e.message) || e) };
+  }
+}
+
 async function getStatus() {
   const running = isRunning();
   const r = await httpJson("GET", "/api/status", 3500);
@@ -514,6 +569,12 @@ function registerIpc() {
   ipcMain.handle("runner:isRunning", () => ({ running: !!isRunning() }));
   ipcMain.handle("tools:installEssentials", () => installEssentials());
   ipcMain.handle("app:checkUpdate", () => checkForUpdate());
+  ipcMain.handle("app:startAutoUpdate", () => startAutoUpdate());
+  ipcMain.handle("app:quitAndInstall", () => {
+    const au = getAutoUpdater();
+    if (au) setImmediate(() => au.quitAndInstall());
+    return { ok: !!au };
+  });
   ipcMain.handle("app:openExternal", (_e, url) => {
     // Only allow http(s) links (release/download URLs) — never arbitrary schemes.
     if (typeof url === "string" && /^https?:\/\//i.test(url)) shell.openExternal(url);

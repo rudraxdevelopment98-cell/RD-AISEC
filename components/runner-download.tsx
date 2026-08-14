@@ -3,6 +3,7 @@ import {
   fetchRunnerGuiReleases,
   bestPerPlatform,
   type AssetPlatform,
+  type ReleaseAsset,
   type RunnerGuiRelease,
 } from "@/lib/runner-gui-releases";
 
@@ -22,91 +23,71 @@ function fmtSize(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   return mb >= 1 ? `${mb.toFixed(0)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 }
-
 function fmtDate(iso: string): string {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
-
 function shortVer(tag: string): string {
   return tag.replace(/^runner-gui-/, "");
 }
 
-// A direct download link for one installer asset.
-function AssetLink({ href, label, size }: { href: string; label: string; size: number }) {
+// The recommended (highest-weight) download per platform, as a compact button.
+function RecommendedButton({ platform, asset }: { platform: AssetPlatform; asset: ReleaseAsset }) {
+  const m = PLATFORM_META[platform];
   return (
     <a
-      href={href}
-      className="flex items-center gap-2 rounded-md border border-surface-border bg-surface px-3 py-2 text-sm transition hover:border-brand"
+      href={asset.url}
+      className="flex items-center gap-3 rounded-lg border border-surface-border bg-surface px-4 py-3 transition hover:border-brand"
     >
-      <Icon name="arrow" className="h-4 w-4 shrink-0 text-brand" />
-      <span className="flex-1">{label}</span>
-      {size > 0 && <span className="text-xs text-gray-500">{fmtSize(size)}</span>}
+      <Icon name={m.icon} className="h-5 w-5 shrink-0 text-brand" />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{m.label}</span>
+        <span className="block truncate text-xs text-gray-500">{asset.label.replace(/^.*·\s*/, "")}{asset.size ? ` · ${fmtSize(asset.size)}` : ""}</span>
+      </span>
     </a>
   );
 }
 
 // Static fallback tiles → the GitHub releases page (only when the API failed).
 function FallbackTiles() {
-  const tiles = [
-    { os: "Windows", icon: "globe", file: ".exe installer" },
-    { os: "macOS", icon: "bot", file: ".dmg" },
-    { os: "Linux", icon: "server", file: ".AppImage / .deb" },
+  const tiles: { os: string; icon: string }[] = [
+    { os: "Windows", icon: "globe" },
+    { os: "macOS", icon: "bot" },
+    { os: "Linux", icon: "server" },
   ];
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+    <div className="mt-3 grid gap-3 sm:grid-cols-3">
       {tiles.map((p) => (
-        <a
-          key={p.os}
-          href={RELEASES_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-3 rounded-lg border border-surface-border bg-surface px-4 py-3 transition hover:border-brand"
-        >
+        <a key={p.os} href={RELEASES_URL} target="_blank" rel="noreferrer"
+          className="flex items-center gap-3 rounded-lg border border-surface-border bg-surface px-4 py-3 transition hover:border-brand">
           <Icon name={p.icon} className="h-5 w-5 text-brand" />
-          <span>
-            <span className="block text-sm font-semibold">{p.os}</span>
-            <span className="block text-xs text-gray-500">{p.file}</span>
-          </span>
+          <span className="text-sm font-semibold">{p.os}</span>
         </a>
       ))}
     </div>
   );
 }
 
-function LatestDownloads({ release }: { release: RunnerGuiRelease }) {
-  const byPlatform = bestPerPlatform(release);
-  const platforms = (Object.keys(PLATFORM_META) as AssetPlatform[]).filter((p) => byPlatform[p].length > 0);
-  return (
-    <div className="mt-4 grid gap-4 sm:grid-cols-3">
-      {platforms.map((p) => (
-        <div key={p} className="rounded-lg border border-surface-border bg-surface/50 p-3">
-          <div className="mb-2 flex items-center gap-2">
-            <Icon name={PLATFORM_META[p].icon} className="h-5 w-5 text-brand" />
-            <span className="text-sm font-semibold">{PLATFORM_META[p].label}</span>
-          </div>
-          <div className="space-y-1.5">
-            {byPlatform[p].map((a) => (
-              <AssetLink key={a.name} href={a.url} label={a.label} size={a.size} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
- * "Download the desktop app" card. Resolves DIRECT installer links from the latest
- * GitHub Release (no more bounce to the release page), with per-platform/arch
- * options and a version picker for older builds. Falls back to the release page if
- * the GitHub API is unreachable. Async server component — cached upstream.
+ * "Download the desktop app" card. Compact by default: one recommended installer
+ * per platform from the latest release. Everything secondary — other architectures,
+ * older versions, and the setup steps — lives behind a single disclosure so the
+ * card stays clean. Async server component; release data is cached upstream.
  */
 export async function RunnerDownloadCard() {
   const releases = await fetchRunnerGuiReleases(12);
   const latest = releases[0] ?? null;
   const older = releases.slice(1);
+  const byPlatform = latest ? bestPerPlatform(latest) : null;
+  const platforms = byPlatform
+    ? (Object.keys(PLATFORM_META) as AssetPlatform[]).filter((p) => byPlatform[p].length > 0)
+    : [];
+  // Assets beyond the recommended one per platform → shown only in the disclosure.
+  const extras: { platform: AssetPlatform; assets: ReleaseAsset[] }[] = byPlatform
+    ? platforms.map((p) => ({ platform: p, assets: byPlatform[p].slice(1) })).filter((x) => x.assets.length > 0)
+    : [];
+  const hasMore = extras.length > 0 || older.length > 0;
 
   return (
     <div className="card mt-6">
@@ -117,64 +98,62 @@ export async function RunnerDownloadCard() {
         </h2>
         {latest && (
           <span className="tag text-xs text-gray-300">
-            Latest {shortVer(latest.version)}
-            {latest.publishedAt ? ` · ${fmtDate(latest.publishedAt)}` : ""}
+            {shortVer(latest.version)}{latest.publishedAt ? ` · ${fmtDate(latest.publishedAt)}` : ""}
           </span>
         )}
       </div>
       <p className="mt-1 text-sm text-gray-400">
-        The easiest way to connect a machine with no terminal. Install the app,
-        paste a <span className="font-semibold text-brand">connection code</span>{" "}
-        (generate one in <span className="font-mono">Add a machine</span>, below),
-        and it connects — then you can start, stop, monitor, and set up the runner
-        from a window.
+        Install, paste a <span className="font-semibold text-brand">connection code</span> from{" "}
+        <span className="font-mono">Add a machine</span>, and the machine connects — no terminal.
       </p>
 
-      {latest ? <LatestDownloads release={latest} /> : <FallbackTiles />}
+      {latest && byPlatform ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {platforms.map((p) => (
+            <RecommendedButton key={p} platform={p} asset={byPlatform[p][0]} />
+          ))}
+        </div>
+      ) : (
+        <FallbackTiles />
+      )}
 
-      {older.length > 0 && (
-        <details className="mt-3 rounded-lg border border-surface-border bg-surface/40 p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-gray-300">
-            Other versions ({older.length})
+      {hasMore && (
+        <details className="mt-3 group">
+          <summary className="cursor-pointer list-none text-xs text-gray-500 transition hover:text-gray-300">
+            <span className="inline-flex items-center gap-1">
+              <span className="transition-transform group-open:rotate-90">▸</span>
+              More builds &amp; older versions
+            </span>
           </summary>
           <div className="mt-3 space-y-3">
-            {older.map((r) => (
-              <div key={r.version} className="border-t border-surface-border pt-3 first:border-t-0 first:pt-0">
-                <div className="mb-1.5 flex items-center gap-2 text-xs text-gray-400">
-                  <span className="font-semibold text-gray-200">{shortVer(r.version)}</span>
-                  {r.publishedAt && <span>· {fmtDate(r.publishedAt)}</span>}
-                  {r.prerelease && <span className="tag text-[10px] text-amber-400">pre-release</span>}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {r.assets.map((a) => (
-                    <a
-                      key={a.name}
-                      href={a.url}
-                      className="tag text-xs text-gray-300 transition hover:border-brand hover:text-brand"
-                    >
-                      {a.label}
-                    </a>
-                  ))}
-                </div>
+            {extras.length > 0 && (
+              <div className="space-y-2">
+                {extras.map(({ platform, assets }) => (
+                  <div key={platform} className="text-xs">
+                    <span className="mr-2 font-semibold text-gray-400">{PLATFORM_META[platform].label}</span>
+                    {assets.map((a) => (
+                      <a key={a.name} href={a.url} className="tag mr-1.5 text-xs text-gray-300 transition hover:border-brand hover:text-brand">
+                        {a.label}
+                      </a>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            {older.map((r: RunnerGuiRelease) => (
+              <div key={r.version} className="border-t border-surface-border pt-2 text-xs">
+                <span className="mr-2 font-semibold text-gray-300">{shortVer(r.version)}</span>
+                {r.publishedAt && <span className="mr-2 text-gray-500">{fmtDate(r.publishedAt)}</span>}
+                {r.assets.map((a) => (
+                  <a key={a.name} href={a.url} className="tag mr-1.5 text-xs text-gray-400 transition hover:border-brand hover:text-brand">
+                    {a.label}
+                  </a>
+                ))}
               </div>
             ))}
           </div>
         </details>
       )}
-
-      <ol className="mt-4 list-inside list-decimal space-y-1 text-xs text-gray-400">
-        <li>Install and open the app on the machine you want to connect.</li>
-        <li>
-          Generate a <span className="font-semibold text-brand">connection code</span>{" "}
-          in <span className="font-mono">Add a machine</span> below and paste it in.
-        </li>
-        <li>The machine appears in the fleet below, online — that&apos;s it.</li>
-      </ol>
-      <p className="mt-3 text-xs text-gray-500">
-        The app checks for updates itself (Settings → Check for updates), and the
-        runner engine auto-updates in the background. Prefer no install? Use the
-        one-command headless installer in <span className="font-mono">Add a machine</span>.
-      </p>
     </div>
   );
 }
