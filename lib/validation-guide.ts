@@ -260,14 +260,15 @@ const REPRO: Record<string, Omit<ManualRepro, "classId">> = {
   },
   secrets: {
     title: "Confirm the exposed secret is live",
-    tools: "Browser + DevTools → Sources/Network",
+    tools: "Browser DevTools → Sources + a terminal (one read-only API call)",
     steps: [
-      "Open the file/response where the key was found (JS bundle, response body) in DevTools → Sources and locate the value.",
-      "Identify the provider (AWS/Google/Stripe/etc.) from the key prefix.",
-      "Do a minimal READ-ONLY validity check (e.g. an identity/whoami call) — enough to prove it's active, nothing more.",
+      "In DevTools → Sources, open the JS bundle / response where the key was found and copy the exact value.",
+      "Identify the provider from the prefix: `AKIA…` = AWS, `ghp_` / `github_pat_` = GitHub, `sk_live_` / `sk_test_` = Stripe, `xox…` = Slack, `AIza…` = Google, `eyJ…` = JWT.",
+      "Run ONE read-only identity call to prove it authenticates — e.g. AWS: `aws sts get-caller-identity`; GitHub: `curl -H 'Authorization: token <T>' https://api.github.com/user`; Stripe: `curl https://api.stripe.com/v1/account -u <K>:`; Slack: `curl -H 'Authorization: Bearer <T>' https://slack.com/api/auth.test`.",
+      "Screenshot the response with the account/user it belongs to (redact the secret itself) as your PoC.",
     ],
-    confirmsIf: "The key authenticates (identity call succeeds) — it's a live, valid credential, not a placeholder.",
-    safe: "Read-only validity check ONLY (STS get-caller-identity, token introspection). Never touch data or resources.",
+    confirmsIf: "The identity/whoami call returns your account or user (a 200 with real account data) — proving a live, valid credential, not a placeholder or revoked key.",
+    safe: "Identity/validity call ONLY (get-caller-identity, auth.test, /user). Never list, read, write, or delete any resource with the key.",
   },
   subdomain_takeover: {
     title: "Confirm subdomain takeover",
