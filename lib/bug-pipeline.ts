@@ -11,6 +11,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { fetchPrograms, fetchScope } from "@/lib/hackerone";
 import { exploitActions } from "@/lib/exploit-core";
 import { worthAutomating } from "@/lib/bb-engine";
+import { extractEndpoints, parameterizedUrls } from "@/lib/recon-extract";
 
 // Recon tools whose findings should trigger automated exploit validation.
 // (Excludes searchsploit/sslscan etc. so exploit results don't re-trigger.)
@@ -232,6 +233,55 @@ export async function queueExploitJobs(
       queuedBy: queuedBy || "auto-exploit",
     });
     if (data.length >= cap) break;
+  }
+  if (data.length > 0) await prisma.job.createMany({ data });
+  return data.length;
+}
+
+/**
+ * Iterative-recon feedback: given URLs discovered by a crawl (katana/gau/…), take
+ * the PARAMETERIZED ones (the injection/fuzzing surface) and queue targeted
+ * follow-up scans on each — dalfox (reflected/DOM XSS on params) and a nuclei DAST
+ * pass (fuzzing). This is the "re-scan the newly discovered surface" loop. Deduped
+ * against pending jobs and capped so a big crawl can't flood the runner. Returns
+ * the number of jobs queued.
+ */
+export async function queueEndpointScans(
+  engagementId: string,
+  runnerId: string,
+  urls: string[],
+  queuedBy: string,
+  cap = 15,
+): Promise<number> {
+  const params = parameterizedUrls(urls).slice(0, cap);
+  if (params.length === 0) return 0;
+
+  const pending = await prisma.job.findMany({
+    where: { engagementId, status: { in: ["queued", "running"] } },
+    select: { tool: true, target: true },
+  });
+  const pendingKey = new Set(pending.map((j) => `${j.tool}|${j.target}`));
+
+  const steps: { tool: string; args: string }[] = [
+    { tool: "dalfox", args: "--skip-bav --silence --no-spinner" },
+    { tool: "nuclei", args: "-dast -rl 100 -timeout 8 -retries 1 -jsonl" },
+  ];
+  const data = [];
+  for (const url of params) {
+    const target = normalizeTarget("nuclei", url); // URL tools keep the full URL
+    if (!validateTarget("nuclei", target)) continue;
+    for (const step of steps) {
+      if (pendingKey.has(`${step.tool}|${target}`)) continue;
+      data.push({
+        engagementId,
+        runnerId,
+        tool: step.tool,
+        target,
+        args: step.args,
+        autoImport: true,
+        queuedBy: queuedBy || "recon-loop",
+      });
+    }
   }
   if (data.length > 0) await prisma.job.createMany({ data });
   return data.length;

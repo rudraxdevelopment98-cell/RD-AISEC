@@ -73,10 +73,13 @@ same body/length/status where it should be denied ⇒ IDOR/BOLA. Deterministic,
 testable, and it finds the class that actually pays. Foundation module:
 `lib/idor-core.ts` (pure diff logic) → runner-executed replay → findings.
 
-**Phase 2 — Iterative recon pipeline.** Turn the one-shot stages into a loop:
-katana/gau crawl → extract JS → mine endpoints + secrets + parameters → feed the
-new URLs/params back into targeted nuclei/dalfox/sqlmap passes until the surface
-stops growing. This multiplies coverage without new tools.
+**Phase 2 — Iterative recon pipeline.** ✅ _Done (first cut)._ `lib/recon-extract.ts`
+mines a crawl's output (absolute URLs + JS-embedded relative paths, assets
+dropped, paths resolved to the host) into an endpoint + parameter inventory. On a
+crawl result (katana/gau/…), the run-result route now feeds the PARAMETERIZED URLs
+back into targeted follow-up scans — dalfox + nuclei DAST per URL (`queueEndpointScans`,
+deduped + capped). Same miner enriches the IDOR candidate pool. Next: loop until
+the surface stops growing + arjun-style param discovery + secret mining in JS.
 
 **Phase 3 — The reasoning loop (leverage the runner as the sandbox).** Add an
 agent orchestrator on the portal that calls Claude (the app is already wired for

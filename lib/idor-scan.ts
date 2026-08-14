@@ -14,27 +14,24 @@
 // Pure (no IO); the server action / job-parser call these. Authorized testing only.
 
 import { assessAccess, prioritizeForIdor, type Resp } from "@/lib/idor-core";
+import { extractEndpoints } from "@/lib/recon-extract";
 
 export const IDOR_TOOL = "idorprobe";
 const MAX_ENDPOINTS = 40; // keep a replay job bounded (3 requests each)
 
 export type IdorEndpoint = { method: string; url: string };
 
-const URL_RE = /https?:\/\/[^\s"'<>)]+/gi;
-
-/** Pull candidate object-id endpoints out of an engagement's findings. Dedupes by
- *  URL, keeps only URLs with a testable object reference, ranks enumerable numeric
- *  ids on sensitive paths first, and caps the count so the replay stays bounded. */
+/** Pull candidate object-id endpoints out of an engagement's findings. Uses the
+ *  recon-extract miner (resolves relative paths, drops assets), dedupes by URL,
+ *  keeps only URLs with a testable object reference, ranks enumerable numeric ids
+ *  on sensitive paths first, and caps the count so the replay stays bounded. */
 export function buildIdorEndpoints(
   findings: { title?: string | null; description?: string | null }[],
 ): IdorEndpoint[] {
   const urls = new Set<string>();
   for (const f of findings) {
-    const text = `${f.title ?? ""} ${f.description ?? ""}`;
-    for (const u of text.match(URL_RE) ?? []) {
-      // Strip a trailing query — we test the path object id, not query state.
-      urls.add(u.split("#")[0]);
-    }
+    // Per-finding so relative paths resolve against that finding's own host.
+    for (const u of extractEndpoints(`${f.title ?? ""}\n${f.description ?? ""}`)) urls.add(u);
   }
   const ranked = prioritizeForIdor([...urls].map((url) => ({ endpoint: `GET ${url}`, url })));
   const out: IdorEndpoint[] = [];

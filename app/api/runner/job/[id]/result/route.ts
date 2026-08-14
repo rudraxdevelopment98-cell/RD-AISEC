@@ -10,7 +10,11 @@ import { loadRules, recordSuppressions } from "@/lib/suppression";
 import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
-import { queueHostScans, queueExploitJobs, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { queueHostScans, queueExploitJobs, queueEndpointScans, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { extractEndpoints } from "@/lib/recon-extract";
+
+// Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
+const CRAWL_TOOLS = new Set(["katana", "gau", "gospider", "waybackurls", "hakrawler"]);
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
 import { selfHealFailedJob } from "@/lib/self-heal";
 import { notifyFindings } from "@/lib/notify";
@@ -87,6 +91,14 @@ export async function POST(
         );
       }
     } else {
+      // Iterative recon: a crawl (katana/gau/…) reveals a new URL surface. Mine
+      // its parameterized endpoints and re-scan them (dalfox + nuclei DAST) — the
+      // feedback loop that turns one-shot recon into real coverage. Findings from
+      // the crawl are still parsed below; this only ADDS the follow-up scans.
+      if (CRAWL_TOOLS.has(job.tool) && !pipelineJob) {
+        const urls = extractEndpoints(output, job.target);
+        await queueEndpointScans(job.engagementId, job.runnerId ?? runner.id, urls, job.queuedBy, 15);
+      }
       // Parse results into findings, then run every candidate through the
       // accuracy gate (freshness + proof engines) so patched/banner-only false
       // positives are dropped or de-confirmed BEFORE they become findings.
