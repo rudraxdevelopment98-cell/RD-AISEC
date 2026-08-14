@@ -56,14 +56,14 @@ export default async function Home() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -left-24 top-0 h-80 w-80 rounded-full bg-sev-low/15 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-sev-crit/15 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 top-0 h-80 w-80 rounded-full bg-brand/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-brand-dark/12 blur-3xl" />
 
         <div className="relative mx-auto flex max-w-3xl flex-col items-center px-6 pb-10 pt-16 text-center">
           <p className="tag">Forensics · Pentesting · Consulting — AI-powered</p>
           <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-6xl">
             Your all-in-one{" "}
-            <span className="text-gradient">security operations portal</span>
+            <span className="text-brand-gradient">security operations portal</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg text-gray-400">
             Run digital forensics, penetration testing, and consulting from one
