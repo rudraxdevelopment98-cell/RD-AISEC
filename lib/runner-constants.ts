@@ -249,6 +249,13 @@ export const RUNNER_TOOLS: RunnerTool[] = [
     presets: [
       { id: "crawl", label: "Crawl (depth 2)", args: ["-silent", "-d", "2"] },
       { id: "jscrawl", label: "Crawl + JS parsing", args: ["-silent", "-d", "3", "-jc"] },
+      // Browser-driven crawl: drives a real headless Chrome so JavaScript-heavy
+      // apps and SPAs actually RENDER — surfacing XHR/fetch API endpoints, DOM
+      // forms, and client-side routes a static crawler never sees. -hns runs
+      // Chrome with --no-sandbox (required under root / in containers). Needs
+      // chromium on the runner (installable from the portal). Feeds the same
+      // recon feedback loop as any other crawl.
+      { id: "browser", label: "Browser crawl (headless — renders JS/SPA)", args: ["-silent", "-hl", "-hns", "-jc", "-d", "3", "-kf", "all"] },
     ],
   },
   {
@@ -504,6 +511,7 @@ export const INSTALLABLE_PKGS: Record<string, string> = {
   subfinder: "subfinder",
   naabu: "naabu",
   katana: "katana",
+  chromium: "chromium", // headless browser for katana's "Browser crawl" (JS/SPA render)
   dalfox: "dalfox",
   arjun: "arjun", // hidden-parameter discovery (Kali apt / pip)
   ffuf: "ffuf", // fast web fuzzer (Kali apt; go fallback elsewhere)
