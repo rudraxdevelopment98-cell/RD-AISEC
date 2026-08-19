@@ -19,6 +19,7 @@ import { JOB_PRIORITY } from "@/lib/runner-constants";
 import { logAudit } from "@/lib/audit";
 import { learnFromFinding } from "@/lib/suppression";
 import { ownerScope, viaEngagementScope } from "@/lib/ownership";
+import { aiReconBrief, type ReconBrief } from "@/lib/engine/ai-browse";
 
 async function requireUser() {
   const session = await auth();
@@ -383,4 +384,45 @@ export async function deleteFinding(formData: FormData) {
   const engagementId = String(formData.get("engagementId") ?? "");
   await prisma.finding.deleteMany({ where: { id, ...viaEngagementScope(email) } });
   revalidatePath(`/dashboard/engagements/${engagementId}`);
+}
+
+/**
+ * AI recon browse: let the engine's AI read the engagement's in-scope pages and
+ * return a structured recon brief (see lib/engine/ai-browse). Owner-gated and
+ * key-gated; the browse core enforces authorized + scope + SSRF safety. Returns
+ * the brief to the caller (a client component) rather than redirecting.
+ */
+export async function runAiRecon(engagementId: string): Promise<ReconBrief> {
+  const email = await requireUser();
+  const err = (error: string): ReconBrief => ({
+    enabled: false,
+    error,
+    summary: "",
+    techStack: [],
+    sensitiveEndpoints: [],
+    authModel: "",
+    suggestedTests: [],
+    suggestedTools: [],
+    pagesFetched: [],
+  });
+
+  const eng = await prisma.engagement.findFirst({
+    where: { id: engagementId, ...ownerScope(email) },
+    select: { name: true, scope: true, authorized: true, ownerEmail: true },
+  });
+  if (!eng) return err("Engagement not found.");
+  if (eng.ownerEmail && eng.ownerEmail !== email) {
+    return err("Only the engagement owner can run AI recon.");
+  }
+
+  const brief = await aiReconBrief({ name: eng.name, scope: eng.scope, authorized: eng.authorized });
+  if (brief.enabled) {
+    await logAudit({
+      type: "engagement.ai_recon",
+      actor: email,
+      summary: `Ran AI recon browse on engagement (read ${brief.pagesFetched.length} in-scope page(s))`,
+      target: engagementId,
+    });
+  }
+  return brief;
 }

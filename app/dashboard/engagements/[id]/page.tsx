@@ -36,6 +36,7 @@ import { EngagementWorkbench } from "@/components/engagement-workbench";
 import { ReconnaissanceScanner } from "@/components/reconnaissance-scanner";
 import { PipelinePanel } from "@/components/pipeline-panel";
 import { EngagementDiagnostics } from "@/components/engagement-diagnostics";
+import { AiRecon } from "@/components/ai-recon";
 import { createResource, deleteResource } from "@/lib/resources";
 import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { prisma } from "@/lib/db";
@@ -571,6 +572,9 @@ export default async function EngagementDetail({
             </p>
           </form>
         </div>
+
+        {/* AI recon — the AI reads in-scope pages and suggests what to test next. */}
+        <AiRecon engagementId={e.id} authorized={e.authorized} />
       </section>
       </TabPanel>
 
