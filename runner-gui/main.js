@@ -575,6 +575,23 @@ function registerIpc() {
   });
   ipcMain.handle("runner:status", () => getStatus());
   ipcMain.handle("runner:reconnect", () => httpJson("POST", "/reconnect", 4000));
+  // Re-enroll now: fetch a fresh token with the saved enrollment code. When the
+  // runner is stopped its status server is down, so start it instead — it enrolls
+  // with the saved code at boot (preflight self-heals a 401). When running, ask it
+  // to re-enroll in place via the local status server and surface the result.
+  ipcMain.handle("runner:reenroll", async () => {
+    if (!isRunning()) {
+      const r = await startRunner();
+      if (!r.ok) return { ok: false, message: r.error || "Couldn't start the runner." };
+      if (r.external) return { ok: false, message: r.message };
+      return { ok: true, started: true, message: "Runner started — enrolling with the saved code…" };
+    }
+    // enroll() has a 20s portal timeout; allow more than that before we give up.
+    const res = await httpJson("POST", "/reenroll", 25000);
+    if (!res.ok) return { ok: false, message: "Runner not reachable: " + res.error };
+    const j = res.json || {};
+    return { ok: !!j.ok, healed: !!j.healed, message: j.message || (j.ok ? "Re-enrolled." : "Re-enroll failed.") };
+  });
   ipcMain.handle("runner:log", (_e, n) => tailLog(n));
   ipcMain.handle("runner:isRunning", () => ({ running: !!isRunning() }));
   ipcMain.handle("tools:installEssentials", () => installEssentials());

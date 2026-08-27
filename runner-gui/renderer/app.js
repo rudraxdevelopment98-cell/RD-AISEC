@@ -109,6 +109,17 @@ function wireControls() {
     const r = await window.rd.reconnect();
     msg($("controlMsg"), r.ok ? "Reconnect requested." : "Runner not reachable.", r.ok ? "ok" : "err");
   });
+  $("reenrollBtn").addEventListener("click", async () => {
+    const btn = $("reenrollBtn");
+    btn.disabled = true;
+    msg($("controlMsg"), "Re-enrolling…");
+    try {
+      const r = await window.rd.reenroll();
+      msg($("controlMsg"), r.message || (r.ok ? "Re-enrolled." : "Re-enroll failed."), r.ok ? "ok" : "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
   $("statusPageBtn").addEventListener("click", () => window.rd.openStatusPage());
   wireUpdates();
   $("installBtn").addEventListener("click", async () => {

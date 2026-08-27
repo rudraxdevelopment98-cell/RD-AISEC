@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("rd", {
   stop: () => ipcRenderer.invoke("runner:stop"),
   restart: () => ipcRenderer.invoke("runner:restart"),
   reconnect: () => ipcRenderer.invoke("runner:reconnect"),
+  reenroll: () => ipcRenderer.invoke("runner:reenroll"),
   isRunning: () => ipcRenderer.invoke("runner:isRunning"),
 
   // Live data

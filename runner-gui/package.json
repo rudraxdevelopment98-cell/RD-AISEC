@@ -1,7 +1,7 @@
 {
   "name": "rdaisec-runner-gui",
   "productName": "RD-AISEC Runner",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Desktop control panel for the RD-AISEC runner — connect a machine, monitor it, and control it from a window.",
   "main": "main.js",
   "author": "Kuldeep J.",

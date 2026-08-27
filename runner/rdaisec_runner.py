@@ -3231,6 +3231,34 @@ def reenroll_on_401() -> bool:
     return ok
 
 
+def force_reenroll() -> dict:
+    """User-initiated re-enroll (desktop app → 'Re-enroll now'). Unlike
+    reenroll_on_401 this is NOT rate-limited — the user asked for it now — and it
+    returns a structured result the GUI can show. Re-runs enrollment with the saved
+    code + this machine's fingerprint, which reclaims the same runner row in place
+    (or mints a fresh token if the row was deleted). Then wakes the loop so the new
+    token is used immediately. Never raises."""
+    global _LAST_REENROLL
+    if not PORTAL_URL:
+        return {"ok": False, "healed": False, "message": "No portal is configured yet. Paste a connection code first."}
+    if not ENROLL_CODE:
+        return {"ok": False, "healed": False,
+                "message": "No enrollment code is saved. Paste a fresh connection code from the portal (Runners → Add a machine)."}
+    _LAST_REENROLL = time.time()  # count this as the last attempt so 401s don't pile on
+    try:
+        healed = enroll()
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "healed": False, "message": f"Re-enroll failed: {e}"}
+    if healed:
+        WAKE.set()  # use the fresh token right away
+        with _STATUS_LOCK:
+            _STATUS["last_error"] = ""
+        return {"ok": True, "healed": True, "message": "Re-enrolled — got a fresh token. Reconnecting…"}
+    return {"ok": False, "healed": False,
+            "message": "The saved enrollment code could no longer get a token (expired, revoked, or at its use limit). "
+                       "Paste a fresh connection code from the portal."}
+
+
 def preflight(_allow_reenroll: bool = True) -> bool:
     """Test portal connectivity once at startup and print a plain diagnosis. Never
     raises. Returns True if the portal answered."""
@@ -3340,7 +3368,9 @@ button{background:#1d64f2;color:#fff;border:0;border-radius:8px;padding:8px 14px
 <div class=card><div class=mut>Wi-Fi interfaces</div><div id=wifi>–</div></div>
 <div class=card id=errcard style=display:none><div class=mut>Last error</div><div class=err id=err></div></div>
 <div class=card><div style=display:flex;justify-content:space-between;align-items:center>
- <div class=mut>Recent activity</div><button onclick=reconnect()>Reconnect now</button></div>
+ <div class=mut>Recent activity</div><div style=display:flex;gap:8px>
+ <button onclick=reenroll() style=background:#0d9668>Re-enroll now</button>
+ <button onclick=reconnect()>Reconnect now</button></div></div>
  <pre id=log></pre></div>
 <div class=sub>Auto-refreshes every 2s · served locally on this machine only</div>
 </div><script>
@@ -3359,6 +3389,7 @@ var jl=s.jobs.map(function(j){return '▸ '+j.tool+'  '+(j.target||'')}).join('\
 document.getElementById('log').textContent=(jl?jl+'\\n\\n':'')+(s.log||[]).join('\\n');
 }catch(e){document.getElementById('state').textContent='status server…'}}
 async function reconnect(){try{await fetch('/reconnect',{method:'POST'})}catch(e){}tick()}
+async function reenroll(){try{var r=await fetch('/reenroll',{method:'POST'});var j=await r.json();alert(j.message||(j.ok?'Re-enrolled.':'Re-enroll failed.'))}catch(e){alert('Re-enroll failed: '+e)}tick()}
 tick();setInterval(tick,2000);
 </script></body></html>"""
 
@@ -3388,6 +3419,10 @@ class _StatusHandler(http.server.BaseHTTPRequestHandler):
             WAKE.set()
             note("reconnect requested from local dashboard")
             self._send(200, json.dumps({"ok": True}), "application/json")
+        elif self.path.startswith("/reenroll"):
+            note("re-enroll requested from local dashboard")
+            res = force_reenroll()
+            self._send(200, json.dumps(res), "application/json")
         else:
             self._send(404, "not found")
 
