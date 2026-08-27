@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "64"
+RUNNER_VERSION = "65"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1232,15 +1232,39 @@ def heartbeat_loop():
             # Kill any jobs canceled from the portal so their worker slots free up.
             check_cancellations()
         except Exception as e:  # noqa: BLE001 — the heartbeat must NEVER die
-            # A failed ping just counts; the connection_guardian thread owns all
-            # local-network recovery (it probes + escalates continuously), so the
-            # heartbeat stays a pure, lightweight pinger and the two never fight.
-            if PING_FAILS == 0:
-                note(f"can't reach the portal — machine will show OFFLINE. ({e})", err=True)
-                _notify("Runner offline", "Lost connection to the portal — trying to reconnect.")
-            with _STATUS_LOCK:
-                _STATUS["connected"] = False
-            PING_FAILS += 1
+            if getattr(e, "code", None) == 401:
+                # A 401 means the portal is REACHABLE but rejected our token
+                # (rotated/wiped/orphaned). That's a self-heal case, NOT a network
+                # outage — and while every worker is busy this heartbeat is often the
+                # only live request, so it must recover the token itself instead of
+                # sitting "offline" forever. reenroll_on_401() is internally
+                # rate-limited, so calling it each beat is safe. (Previously this
+                # path logged the raw "can't reach the portal (HTTP 401)" and never
+                # re-enrolled — the machine stayed dark until a human re-pasted.)
+                healed = reenroll_on_401()
+                msg = (
+                    "token rejected (401) — re-enrolled; reconnecting…"
+                    if healed
+                    else "token rejected (401): paste a fresh connection code from the "
+                    "portal (Runners → Add a machine) — the saved enrollment code can no "
+                    "longer get a token (expired, revoked, or at its use limit)."
+                )
+                if PING_FAILS == 0:
+                    note(msg, err=True)
+                with _STATUS_LOCK:
+                    _STATUS["connected"] = False
+                    _STATUS["last_error"] = msg
+                PING_FAILS += 1
+            else:
+                # A failed ping just counts; the connection_guardian thread owns all
+                # local-network recovery (it probes + escalates continuously), so the
+                # heartbeat stays a pure, lightweight pinger and the two never fight.
+                if PING_FAILS == 0:
+                    note(f"can't reach the portal — machine will show OFFLINE. ({e})", err=True)
+                    _notify("Runner offline", "Lost connection to the portal — trying to reconnect.")
+                with _STATUS_LOCK:
+                    _STATUS["connected"] = False
+                PING_FAILS += 1
         time.sleep(PING_SECONDS)
 
 
