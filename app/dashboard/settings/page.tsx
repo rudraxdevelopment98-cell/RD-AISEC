@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { HelpBanner } from "@/components/hint";
 import { prisma } from "@/lib/db";
 import { saveNotifySetting, testNotify, saveWorkspace } from "@/lib/notify-actions";
+import { saveHackerOneCreds, getHackerOneStatus } from "@/lib/integrations";
 import { Tabs, TabPanel } from "@/components/tabs";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function SettingsPage({
   }
 
   const cfg = await prisma.notifySetting.findFirst();
+  const h1 = await getHackerOneStatus();
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -49,6 +51,7 @@ export default async function SettingsPage({
         tabs={[
           { id: "notify", label: "🔔 Notifications" },
           { id: "workspace", label: "🗂 Workspace" },
+          { id: "integrations", label: "🔗 Integrations" },
         ]}
       >
       <TabPanel id="notify">
@@ -124,6 +127,54 @@ export default async function SettingsPage({
           />
         </div>
         <button className="btn-primary text-sm">Save workspace</button>
+      </form>
+      </TabPanel>
+
+      <TabPanel id="integrations">
+      <h2 className="text-lg font-bold">HackerOne</h2>
+      <HelpBanner>
+        <p>• Create an API token: HackerOne → <b>Settings → API Tokens</b>. Copy the <b>API username</b> and the <b>token</b>.</p>
+        <p>• Reports are created as <b>drafts</b> (report intents) and only submitted after you approve each one.</p>
+        <p>• The token is stored <b>encrypted</b> and never leaves the server.</p>
+      </HelpBanner>
+      <form action={saveHackerOneCreds} className="card mt-4 space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-400">API username</label>
+          <input
+            name="username"
+            type="text"
+            defaultValue={h1.username}
+            placeholder="your-h1-api-username"
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-400">
+            API token {h1.configured && <span className="text-brand">· saved (enter a new one to replace)</span>}
+          </label>
+          <input
+            name="token"
+            type="password"
+            placeholder={h1.configured ? "•••••••• (leave blank to keep)" : "paste your HackerOne API token"}
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-400">Default program handle <span className="text-gray-600">(optional)</span></label>
+          <input
+            name="handle"
+            type="text"
+            defaultValue={h1.handle}
+            placeholder="e.g. security  (from hackerone.com/<handle>)"
+            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="btn-primary text-sm">Verify &amp; save</button>
+          {h1.configured && (
+            <button name="clear" value="1" className="btn-ghost text-sm">Remove</button>
+          )}
+        </div>
       </form>
       </TabPanel>
       </Tabs>

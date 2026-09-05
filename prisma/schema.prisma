@@ -439,6 +439,13 @@ model Finding {
   state          String     @default("")
   confScore      Int?
   bbProb         Int?
+  // HackerOne submission state (Phase 5). h1State: "" | "draft" | "submitted".
+  // The draft is a HackerOne "report intent"; submission is human-approved.
+  h1State        String     @default("")
+  h1IntentId     String     @default("")
+  h1ReportId     String     @default("")
+  h1Url          String     @default("")
+  submittedAt    DateTime?
   createdAt      DateTime   @default(now())
 
   // Rank the findings list by real risk, worst first.
@@ -703,4 +710,20 @@ model WifiSurvey {
   data       String   @default("")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// Owner-scoped credentials for an external platform (e.g. HackerOne). The API
+// token is stored ENCRYPTED (lib/crypto); the username/handle are not secret.
+// Used by the report draft-and-submit flow — never exposed to the client.
+model Integration {
+  id         String   @id @default(cuid())
+  ownerEmail String
+  kind       String   // "hackerone"
+  username   String   @default("") // API username (identifier, not secret)
+  secret     String   @default("") // API token, ENCRYPTED at rest
+  handle     String   @default("") // default program/team handle
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([ownerEmail, kind])
 }
