@@ -426,3 +426,49 @@ export async function runAiRecon(engagementId: string): Promise<ReconBrief> {
   }
   return brief;
 }
+
+/**
+ * Turn autopilot on/off for an engagement. Owner-gated and requires written
+ * authorization first — autopilot only ever runs against an authorized, in-scope
+ * engagement. When on, the cron orchestrator keeps a self-approving pipeline
+ * running and restarts a fresh cycle every `everyH` hours (submission stays
+ * human-approved).
+ */
+export async function setEngagementAutopilot(formData: FormData) {
+  const email = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const back = `/dashboard/engagements/${id}`;
+
+  const eng = await prisma.engagement.findUnique({
+    where: { id },
+    select: { ownerEmail: true, authorized: true, scope: true },
+  });
+  if (!eng) redirect(`${back}?error=${encodeURIComponent("Engagement not found.")}`);
+  if (eng!.ownerEmail && eng!.ownerEmail !== email) {
+    redirect(`${back}?error=${encodeURIComponent("Only the engagement owner can change autopilot.")}`);
+  }
+
+  const on = String(formData.get("autopilot") ?? "") === "on";
+  if (on && !eng!.authorized) {
+    redirect(`${back}?error=${encodeURIComponent("Record written authorization before enabling autopilot.")}`);
+  }
+  if (on && !eng!.scope.trim()) {
+    redirect(`${back}?error=${encodeURIComponent("Add in-scope targets before enabling autopilot.")}`);
+  }
+  const everyRaw = parseInt(String(formData.get("everyH") ?? "24"), 10);
+  const everyH = Number.isFinite(everyRaw) ? Math.min(168, Math.max(1, everyRaw)) : 24;
+
+  await prisma.engagement.update({
+    where: { id },
+    data: { autopilot: on, autopilotEveryH: everyH, ...(on ? {} : { autopilotAt: null }) },
+  });
+  await logAudit({
+    type: on ? "engagement.autopilot.on" : "engagement.autopilot.off",
+    actor: email,
+    summary: on ? `Enabled autopilot (fresh cycle every ${everyH}h)` : "Disabled autopilot",
+    target: id,
+  });
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(on ? `Autopilot ON — running authorized cycles every ${everyH}h.` : "Autopilot off.")}`);
+}

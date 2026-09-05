@@ -41,6 +41,13 @@ model Engagement {
   authorized   Boolean   @default(false)
   authorizedBy String    @default("")
   ownerEmail   String    @default("")
+  // Autopilot: when authorized AND autopilot, the cron orchestrator keeps a
+  // self-approving pipeline running on this engagement and restarts a fresh cycle
+  // every autopilotEveryH hours for continuous coverage. Owner-gated; only ever
+  // runs against an authorized, in-scope engagement. autopilotAt = last cycle start.
+  autopilot     Boolean   @default(false)
+  autopilotAt   DateTime?
+  autopilotEveryH Int     @default(24)
   findings     Finding[]
   resources    Resource[]
   jobs         Job[]
@@ -56,6 +63,7 @@ model Engagement {
 
   // Multi-owner isolation: list/scoped queries filter by owner.
   @@index([ownerEmail])
+  @@index([autopilot])
 }
 
 // A guided, approval-gated assessment run for one engagement. Stages execute in

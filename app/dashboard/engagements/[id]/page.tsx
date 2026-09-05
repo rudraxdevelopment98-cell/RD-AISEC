@@ -26,6 +26,7 @@ import {
   setEngagementAuthSession,
   setEngagementIdorAccount,
   launchIdorScan,
+  setEngagementAutopilot,
 } from "@/lib/engagements";
 import {
   ENGAGEMENT_STATUSES,
@@ -575,6 +576,54 @@ export default async function EngagementDetail({
 
         {/* AI recon — the AI reads in-scope pages and suggests what to test next. */}
         <AiRecon engagementId={e.id} authorized={e.authorized} />
+
+        {/* Autopilot — the engine runs this authorized engagement by itself:
+            a self-approving recon→scan→exploit→report pipeline, restarted on a
+            cadence for continuous coverage. Submission stays human-approved. */}
+        <div className="card mt-4">
+          <div className="flex items-center gap-2">
+            <Icon name="bolt" className="h-4 w-4 text-brand" />
+            <h3 className="text-sm font-semibold text-white">Autopilot</h3>
+            {e.autopilot ? (
+              <span className="tag border-brand/50 text-brand text-[10px]">ON · every {e.autopilotEveryH ?? 24}h</span>
+            ) : (
+              <span className="tag text-[10px]">off</span>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-gray-500">
+            When on, the engine keeps a self-approving pipeline (recon → scan → exploit → triage →
+            report) running against this engagement and starts a fresh cycle on the cadence below.
+            Only runs on an <b>authorized</b>, in-scope engagement; report <b>submission stays
+            human-approved</b>. Needs a machine online.
+          </p>
+          <form action={setEngagementAutopilot} className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="id" value={e.id} />
+            <input type="hidden" name="autopilot" value={e.autopilot ? "off" : "on"} />
+            <label className="flex items-center gap-1.5 text-xs text-gray-400">
+              fresh cycle every
+              <input
+                type="number"
+                name="everyH"
+                min={1}
+                max={168}
+                defaultValue={e.autopilotEveryH ?? 24}
+                className="glass-input w-16 text-xs"
+              />
+              hours
+            </label>
+            <button
+              type="submit"
+              className={`text-sm ${e.autopilot ? "btn-ghost" : "btn-primary"}`}
+              disabled={!e.authorized}
+            >
+              <Icon name={e.autopilot ? "lock" : "bolt"} className="mr-1 inline h-4 w-4" />
+              {e.autopilot ? "Turn autopilot off" : "Turn autopilot on"}
+            </button>
+            {!e.authorized && (
+              <span className="text-[11px] text-sev-med">Record authorization first.</span>
+            )}
+          </form>
+        </div>
       </section>
       </TabPanel>
 
