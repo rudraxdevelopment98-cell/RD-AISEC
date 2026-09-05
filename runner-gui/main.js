@@ -620,7 +620,7 @@ function registerIpc() {
   // connection code is the happy path; the manual fields are the fallback.
   ipcMain.handle(
     "runner:connect",
-    (_e, { connectCode, portalUrl, enrollCode, token, maxWorkers }) => {
+    (_e, { connectCode, portalUrl, enrollCode, token, maxWorkers, mirror }) => {
     const updates = {};
     // A connection code carries both the portal and the enroll code — decode first,
     // then let any explicit manual field override it.
@@ -638,6 +638,8 @@ function registerIpc() {
     if (enrollCode) updates.RUNNER_ENROLL_CODE = String(enrollCode).trim();
     if (token) updates.RUNNER_TOKEN = String(token).trim();
     if (maxWorkers) updates.MAX_WORKERS = String(parseInt(maxWorkers, 10) || 3);
+    // External-drive mirror path for the research workspace (empty string clears it).
+    if (mirror != null) updates.RDAISEC_MIRROR = String(mirror).trim();
     // Fresh enroll/connection code but no explicit token → the user is
     // (re)establishing this machine's identity. Clear any stale RUNNER_TOKEN
     // ("" deletes the key) so the runner enrolls cleanly with the new code

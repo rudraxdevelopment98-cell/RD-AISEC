@@ -25,6 +25,7 @@ async function loadConfig() {
   const cfg = await window.rd.getConfig();
   if (cfg.PORTAL_URL) $("portalUrl").value = cfg.PORTAL_URL;
   if (cfg.MAX_WORKERS) $("maxWorkers").value = cfg.MAX_WORKERS;
+  if (cfg.RDAISEC_MIRROR) $("mirrorPath").value = cfg.RDAISEC_MIRROR;
   const chip = $("tokenChip");
   if (cfg.hasToken) {
     chip.textContent = "✓ token stored";
@@ -58,6 +59,7 @@ async function connect() {
     enrollCode: $("enrollCode").value.trim(),
     token: $("token").value.trim(),
     maxWorkers: $("maxWorkers").value.trim(),
+    mirror: $("mirrorPath").value.trim(),
   };
   const r = await window.rd.connect(opts);
   btn.disabled = false;

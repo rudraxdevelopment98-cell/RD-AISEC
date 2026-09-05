@@ -76,7 +76,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "65"
+RUNNER_VERSION = "66"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -357,6 +357,14 @@ ENROLL_CODE = os.environ.get("RUNNER_ENROLL_CODE", "").strip()
 # also one of the config files _load_env_files reads at startup).
 TOKEN_STORE = os.path.expanduser("~/.config/rdaisec/runner.env")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
+# The engine's persistent research workspace on THIS machine — where raw job
+# output / loot / study data is kept (Vercel+Neon storage is ephemeral, so the
+# durable "brain" lives here). RDAISEC_MIRROR is an optional external-drive path;
+# when it's actually mounted, every write is mirrored there too. Both configurable
+# from the desktop app. Stdlib-only, best-effort — a workspace failure never
+# affects a job's result.
+WORKSPACE = os.path.expanduser(os.environ.get("RDAISEC_WORKSPACE", "~/.rdaisec/workspace"))
+MIRROR = os.environ.get("RDAISEC_MIRROR", "").strip()
 # Read timeout for the live command stream. The endpoint keeps a connection ~25s
 # and pings every ~2.5s, so a stall longer than this means the link is dead →
 # reconnect. Longer than the stream's own lifetime so a healthy stream never trips it.
@@ -2890,6 +2898,45 @@ def run_job(job):
     return out, proc.returncode if proc.returncode is not None else 0
 
 
+def _ws_slug(s: str) -> str:
+    """Filesystem-safe slug for a path segment."""
+    return (re.sub(r"[^A-Za-z0-9._-]+", "_", str(s or "")) or "x")[:80]
+
+
+def _workspace_bases() -> list:
+    """The base dirs to write to: always the local workspace, plus the external
+    mirror WHEN it's actually mounted (a configured-but-unplugged drive is skipped
+    so we never write into an empty mountpoint)."""
+    bases = [WORKSPACE]
+    if MIRROR and os.path.isdir(MIRROR):
+        bases.append(os.path.join(MIRROR, "rdaisec-workspace"))
+    return bases
+
+
+def save_to_workspace(engagement_id: str, tool: str, target: str, output: str) -> None:
+    """Persist one job's raw output to the research workspace (+ external mirror
+    when present), filed under its engagement and tool. Best-effort; never raises
+    — a disk/permission problem must never fail the job whose result we already
+    have. Skips trivially-empty output."""
+    if not output or not output.strip():
+        return
+    try:
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        rel = os.path.join("engagements", _ws_slug(engagement_id or "adhoc"), _ws_slug(tool))
+        fname = f"{ts}_{_ws_slug(target)}.txt"
+        header = f"# tool={tool} target={target} engagement={engagement_id or 'adhoc'} at={ts}\n\n"
+        for base in _workspace_bases():
+            try:
+                d = os.path.join(base, rel)
+                os.makedirs(d, exist_ok=True)
+                with open(os.path.join(d, fname), "w", encoding="utf-8", errors="replace") as f:
+                    f.write(header + output)
+            except Exception:  # noqa: BLE001 — one base failing must not stop the other
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def post_result(job_id, output, exit_code):
     status = "done" if exit_code == 0 else "failed"
     post_with_retry(
@@ -3117,6 +3164,8 @@ def worker(job):
         print(f"▶ job {job['id']}: {job['tool']} {job.get('args','')} {job['target']}")
         output, code = run_job(job)
         post_result(job["id"], output, code)
+        # Keep a durable local copy in the research workspace (+ external mirror).
+        save_to_workspace(job.get("engagementId", ""), job.get("tool", ""), job.get("target", ""), output)
         print(f"  done {job['id']} (exit {code})\n")
     except Exception as e:  # noqa: BLE001 — never let a worker crash silently
         try:

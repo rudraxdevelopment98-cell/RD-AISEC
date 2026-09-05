@@ -163,6 +163,10 @@ export async function GET(req: Request) {
           tool: next.tool,
           target: next.target,
           args: next.args,
+          // Lets the runner file this job's output under the right engagement in
+          // its local research workspace (and external-drive mirror). Internal id
+          // only — no secrets. Empty for ad-hoc (non-engagement) jobs.
+          engagementId: next.engagementId ?? "",
           ...(authArgv.length > 0 ? { authArgv } : {}),
           ...(idorSpec ? { idorSpec } : {}),
         }),
