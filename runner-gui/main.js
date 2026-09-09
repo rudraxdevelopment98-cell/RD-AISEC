@@ -575,22 +575,33 @@ function registerIpc() {
   });
   ipcMain.handle("runner:status", () => getStatus());
   ipcMain.handle("runner:reconnect", () => httpJson("POST", "/reconnect", 4000));
-  // Re-enroll now: fetch a fresh token with the saved enrollment code. When the
-  // runner is stopped its status server is down, so start it instead — it enrolls
-  // with the saved code at boot (preflight self-heals a 401). When running, ask it
-  // to re-enroll in place via the local status server and surface the result.
+  // Re-enroll now: fetch a fresh token with the saved enrollment code. Ask WHOEVER
+  // holds the machine — app-managed OR an externally-installed instance — via the
+  // shared local status server (127.0.0.1:8787), so the button works regardless of
+  // who started the runner. If nothing is listening, start our own (it enrolls
+  // with the saved code at boot). enroll() has a 20s portal timeout, so allow more.
   ipcMain.handle("runner:reenroll", async () => {
-    if (!isRunning()) {
-      const r = await startRunner();
-      if (!r.ok) return { ok: false, message: r.error || "Couldn't start the runner." };
-      if (r.external) return { ok: false, message: r.message };
-      return { ok: true, started: true, message: "Runner started — enrolling with the saved code…" };
-    }
-    // enroll() has a 20s portal timeout; allow more than that before we give up.
     const res = await httpJson("POST", "/reenroll", 25000);
-    if (!res.ok) return { ok: false, message: "Runner not reachable: " + res.error };
-    const j = res.json || {};
-    return { ok: !!j.ok, healed: !!j.healed, message: j.message || (j.ok ? "Re-enrolled." : "Re-enroll failed.") };
+    if (res.ok && res.json && typeof res.json.ok !== "undefined") {
+      const j = res.json;
+      return { ok: !!j.ok, healed: !!j.healed, message: j.message || (j.ok ? "Re-enrolled." : "Re-enroll failed.") };
+    }
+    if (res.ok) {
+      // A runner answered but doesn't know /reenroll — it's an OLD build (pre-v65)
+      // that can't be updated while it's rejected. It must be stopped so the app
+      // can manage a fresh instance.
+      return {
+        ok: false,
+        message:
+          "The runner on this machine is too old to re-enroll itself. Stop it " +
+          "(sudo systemctl stop rdaisec-runner), then paste a fresh connection code and Connect & start.",
+      };
+    }
+    // Nothing listening → start our own instance (enrolls with the saved code).
+    const r = await startRunner();
+    if (!r.ok) return { ok: false, message: r.error || "Couldn't start the runner." };
+    if (r.external) return { ok: false, message: r.message };
+    return { ok: true, started: true, message: "Runner started — enrolling with the saved code…" };
   });
   ipcMain.handle("runner:log", (_e, n) => tailLog(n));
   ipcMain.handle("runner:isRunning", () => ({ running: !!isRunning() }));
