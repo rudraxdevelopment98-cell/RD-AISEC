@@ -38,6 +38,7 @@ import termios
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import collections
 import http.server
@@ -76,7 +77,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "66"
+RUNNER_VERSION = "67"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2571,6 +2572,26 @@ PROCS_LOCK = threading.Lock()
 CANCELED_IDS: set = set()
 
 
+def kill_job_local(jid: str) -> bool:
+    """Kill a running job by id on THIS machine (from the desktop app's Jobs panel).
+    Marks it canceled so the worker posts a canceled result. Returns True if a
+    matching running process was found + signalled. Best-effort; never raises."""
+    try:
+        with PROCS_LOCK:
+            proc = RUNNING_PROCS.get(jid)
+            if proc is None:
+                return False
+            CANCELED_IDS.add(jid)
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+        note(f"job {jid} canceled from the desktop app")
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def check_cancellations():
     """Kill any running job the portal has marked canceled. Best-effort; this must
     never raise — both the heartbeat and the main loop call it."""
@@ -2835,7 +2856,7 @@ def run_job(job):
     # local status page can show what's running).
     with PROCS_LOCK:
         RUNNING_PROCS[job_id] = proc
-        RUNNING_JOBS[job_id] = {"tool": job.get("tool", ""), "target": job.get("target", ""), "at": time.time()}
+        RUNNING_JOBS[job_id] = {"id": job_id, "tool": job.get("tool", ""), "target": job.get("target", ""), "at": time.time()}
 
     # Watchdog kills the process if it runs past the (per-tool) timeout.
     killed = {"v": False}
@@ -3472,6 +3493,22 @@ class _StatusHandler(http.server.BaseHTTPRequestHandler):
             note("re-enroll requested from local dashboard")
             res = force_reenroll()
             self._send(200, json.dumps(res), "application/json")
+        elif self.path.startswith("/cancel"):
+            # Cancel one running job locally (desktop app Jobs panel). Job id comes
+            # as ?job=<id> or in the JSON body.
+            jid = ""
+            q = urllib.parse.urlparse(self.path).query
+            if q:
+                jid = urllib.parse.parse_qs(q).get("job", [""])[0]
+            if not jid:
+                try:
+                    n = int(self.headers.get("Content-Length", 0) or 0)
+                    body = self.rfile.read(n).decode("utf-8", "replace") if n else ""
+                except Exception:  # noqa: BLE001
+                    body = ""
+                jid = _cjson(body).get("job", "")
+            ok = kill_job_local(jid) if jid else False
+            self._send(200, json.dumps({"ok": ok}), "application/json")
         else:
             self._send(404, "not found")
 

@@ -319,6 +319,57 @@ function httpJson(method, urlPath, timeoutMs) {
   });
 }
 
+// ── Machine process control (no terminal needed) ────────────────────────────
+// Run a command synchronously; returns {code, out}. Never throws.
+function runCmd(argv, timeout = 20000) {
+  try {
+    const r = spawnSync(argv[0], argv.slice(1), { timeout, encoding: "utf8" });
+    return { code: r.status == null ? -1 : r.status, out: (r.stdout || "") + (r.stderr || ""), error: r.error ? r.error.message : "" };
+  } catch (e) {
+    return { code: -1, out: "", error: String(e && e.message ? e.message : e) };
+  }
+}
+function hasCmd(name) {
+  if (IS_WIN) return false;
+  return runCmd(["sh", "-c", `command -v ${name}`]).code === 0;
+}
+// Run a privileged command. On Linux desktops pkexec shows a graphical password
+// prompt (PolicyKit) — so removing a root-owned systemd runner needs no terminal.
+// Falls back to running unprivileged (works when the target is user-owned).
+function pkexec(argv) {
+  if (IS_WIN || IS_MAC) return { ok: false, out: "privileged actions aren't supported on this OS" };
+  if (hasCmd("pkexec")) {
+    const r = runCmd(["pkexec", ...argv], 60000);
+    return { ok: r.code === 0, out: (r.out || r.error || "").trim() };
+  }
+  const r = runCmd(argv);
+  return { ok: r.code === 0, out: (r.out || r.error || "").trim() };
+}
+// Enumerate RD-AISEC runner processes on this machine + the systemd service state.
+function listRunnerProcs() {
+  if (IS_WIN) return { procs: [], systemd: "absent" };
+  const r = runCmd(["pgrep", "-af", "rdaisec_runner"]);
+  const procs = (r.out || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const sp = line.indexOf(" ");
+      const pid = parseInt(sp > 0 ? line.slice(0, sp) : line, 10);
+      return { pid, cmd: sp > 0 ? line.slice(sp + 1) : "" };
+    })
+    // Never list the GUI process itself.
+    .filter((p) => Number.isFinite(p.pid) && p.pid !== process.pid && !/electron|runner-gui/i.test(p.cmd));
+  let systemd = "absent";
+  const active = runCmd(["systemctl", "is-active", "rdaisec-runner"]);
+  if (active.code === 0) systemd = "active";
+  else {
+    const enabled = runCmd(["systemctl", "is-enabled", "rdaisec-runner"]);
+    if (enabled.code === 0 || /disabled|enabled|masked/.test(enabled.out)) systemd = active.out.trim() || "inactive";
+  }
+  return { procs, systemd };
+}
+
 // GET an absolute http(s) URL and parse JSON. Used for the portal update check —
 // distinct from httpJson (which only talks to the local runner status server).
 function httpsGetJson(absUrl, timeoutMs) {
@@ -605,6 +656,46 @@ function registerIpc() {
   });
   ipcMain.handle("runner:log", (_e, n) => tailLog(n));
   ipcMain.handle("runner:isRunning", () => ({ running: !!isRunning() }));
+
+  // Machine process control — list / kill / cancel-job / stop-everything, all
+  // from the app so the user never needs a terminal.
+  ipcMain.handle("runner:processes", () => listRunnerProcs());
+  ipcMain.handle("runner:killPid", (_e, pid) => {
+    const p = parseInt(pid, 10);
+    if (!Number.isFinite(p)) return { ok: false, message: "bad pid" };
+    if (runCmd(["kill", "-9", String(p)]).code === 0) return { ok: true, message: `Killed ${p}` };
+    const esc = pkexec(["kill", "-9", String(p)]); // root-owned → escalate
+    return { ok: esc.ok, message: esc.ok ? `Killed ${p}` : `Couldn't kill ${p}: ${esc.out}` };
+  });
+  ipcMain.handle("runner:cancelJob", async (_e, jobId) => {
+    const res = await httpJson("POST", "/cancel?job=" + encodeURIComponent(String(jobId || "")), 8000);
+    if (res.ok && res.json) return { ok: !!res.json.ok, message: res.json.ok ? "Job canceled." : "Job not found (already finished?)." };
+    return { ok: false, message: "Runner not reachable — is it running?" };
+  });
+  // Stop EVERYTHING on this machine and take over: the app instance, the systemd
+  // service (stopped + disabled via a graphical prompt), and any stray process.
+  ipcMain.handle("runner:stopAll", async () => {
+    const steps = [];
+    try {
+      const s = stopRunner();
+      if (s && s.ok && !s.already) steps.push("stopped app-managed runner");
+    } catch {
+      /* ignore */
+    }
+    const before = listRunnerProcs();
+    if (before.systemd && before.systemd !== "absent" && before.systemd !== "inactive" && before.systemd !== "disabled") {
+      const stop = pkexec(["systemctl", "stop", "rdaisec-runner"]);
+      pkexec(["systemctl", "disable", "rdaisec-runner"]);
+      steps.push(stop.ok ? "stopped + disabled the systemd service" : "systemd stop failed: " + stop.out);
+    }
+    // Kill anything left (user first, escalate for root-owned).
+    for (const pr of listRunnerProcs().procs) {
+      if (runCmd(["kill", "-9", String(pr.pid)]).code !== 0) pkexec(["kill", "-9", String(pr.pid)]);
+    }
+    const remaining = listRunnerProcs().procs.length;
+    steps.push(remaining === 0 ? "no runner processes remain" : `${remaining} process(es) still running`);
+    return { ok: remaining === 0, message: steps.join("; "), remaining };
+  });
   ipcMain.handle("tools:installEssentials", () => installEssentials());
   ipcMain.handle("app:checkUpdate", () => checkForUpdate());
   ipcMain.handle("app:startAutoUpdate", () => startAutoUpdate());

@@ -101,10 +101,32 @@
         <div class="msg" id="controlMsg"></div>
       </section>
 
-      <!-- Running jobs -->
+      <!-- Jobs -->
       <section class="card" id="jobsCard">
-        <h2>Running now</h2>
+        <div class="cardhead">
+          <h2>Jobs running</h2>
+          <span class="muted" id="jobsCount"></span>
+        </div>
         <div id="jobsList" class="jobs"><span class="muted">nothing running</span></div>
+      </section>
+
+      <!-- Processes on this machine -->
+      <section class="card" id="procCard">
+        <div class="cardhead">
+          <h2>Runner processes on this machine</h2>
+          <button id="procRefreshBtn" class="ghost small">Refresh</button>
+        </div>
+        <p class="hint">
+          Every RD-AISEC runner process running here — including one installed as a
+          service. Use this to remove a duplicate that&apos;s fighting for the token,
+          without a terminal.
+        </p>
+        <div id="procSystemd" class="muted" style="margin:6px 0"></div>
+        <div id="procList" class="jobs"><span class="muted">click Refresh</span></div>
+        <div class="btnrow wrap" style="margin-top:10px">
+          <button id="stopAllBtn" class="danger">Stop everything &amp; take over</button>
+        </div>
+        <div class="msg" id="procMsg"></div>
       </section>
 
       <!-- Tools / setup -->

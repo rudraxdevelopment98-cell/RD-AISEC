@@ -123,6 +123,42 @@ function wireControls() {
     }
   });
   $("statusPageBtn").addEventListener("click", () => window.rd.openStatusPage());
+
+  // Cancel a running job (delegated — jobs re-render on every poll).
+  $("jobsList").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".jcancel");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "…";
+    const r = await window.rd.cancelJob(btn.dataset.job);
+    if (!r.ok) {
+      btn.disabled = false;
+      btn.textContent = "Cancel";
+      msg($("controlMsg"), r.message, "err");
+    }
+  });
+
+  // Processes panel.
+  $("procRefreshBtn").addEventListener("click", refreshProcesses);
+  $("procList").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".pkill");
+    if (!btn) return;
+    btn.disabled = true;
+    msg($("procMsg"), "Stopping process…");
+    const r = await window.rd.killPid(btn.dataset.pid);
+    msg($("procMsg"), r.message, r.ok ? "ok" : "err");
+    refreshProcesses();
+  });
+  $("stopAllBtn").addEventListener("click", async () => {
+    const btn = $("stopAllBtn");
+    btn.disabled = true;
+    msg($("procMsg"), "Stopping every runner on this machine… (approve the password prompt if it appears)");
+    const r = await window.rd.stopAll();
+    msg($("procMsg"), r.message, r.ok ? "ok" : "err");
+    btn.disabled = false;
+    refreshProcesses();
+  });
+  refreshProcesses();
   wireUpdates();
   $("installBtn").addEventListener("click", async () => {
     const btn = $("installBtn");
@@ -209,6 +245,45 @@ async function wireUpdates() {
   });
 }
 
+// ── Processes on this machine ────────────────────────────────────────────────
+async function refreshProcesses() {
+  const list = $("procList");
+  const sd = $("procSystemd");
+  let info;
+  try {
+    info = await window.rd.processes();
+  } catch {
+    list.innerHTML = '<span class="muted">couldn\'t read processes</span>';
+    return;
+  }
+  const sysState = info.systemd || "absent";
+  if (sysState === "absent") {
+    sd.textContent = "systemd service: not installed";
+  } else {
+    sd.innerHTML =
+      "systemd service: <b>" +
+      escapeHtml(sysState) +
+      "</b>" +
+      (sysState === "active" ? ' <span class="warn-text">(a service runner is running — stop it to let the app manage its own)</span>' : "");
+  }
+  if (!info.procs || info.procs.length === 0) {
+    list.innerHTML = '<span class="muted">no runner processes running here</span>';
+    return;
+  }
+  list.innerHTML = info.procs
+    .map(
+      (p) =>
+        '<div class="job"><span class="jtool">pid ' +
+        p.pid +
+        '</span><span class="jtarget mono">' +
+        escapeHtml((p.cmd || "").slice(0, 90)) +
+        '</span><button class="jcancel pkill" data-pid="' +
+        p.pid +
+        '">Kill</button></div>',
+    )
+    .join("");
+}
+
 // ── Status poll ────────────────────────────────────────────────────────────────
 function renderStatus(res) {
   const dot = $("stateDot");
@@ -239,9 +314,11 @@ function renderStatus(res) {
   $("cVer").textContent = s.version ? "v" + s.version : "";
   $("cWifi").textContent = s.wifi ? s.wifi.length : "0";
 
-  // Running jobs
+  // Running jobs (with a per-job Cancel when the runner reports an id — v67+).
   const jl = $("jobsList");
+  const jc = $("jobsCount");
   if (s.jobs && s.jobs.length) {
+    if (jc) jc.textContent = s.jobs.length + " running";
     jl.innerHTML = s.jobs
       .map(
         (j) =>
@@ -249,10 +326,13 @@ function renderStatus(res) {
           escapeHtml(j.tool || "?") +
           '</span><span class="jtarget">' +
           escapeHtml(j.target || "") +
-          "</span></div>",
+          "</span>" +
+          (j.id ? '<button class="jcancel" data-job="' + escapeHtml(j.id) + '">Cancel</button>' : "") +
+          "</div>",
       )
       .join("");
   } else {
+    if (jc) jc.textContent = "";
     jl.innerHTML = '<span class="muted">nothing running</span>';
   }
 
