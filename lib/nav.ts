@@ -95,6 +95,7 @@ export const NAV: NavGroup[] = [
       { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
       { href: "/dashboard/history", label: "Monitoring", icon: "clock" },
       { href: "/dashboard/siem", label: "Activity & SIEM", icon: "activity", access: "owner" },
+      { href: "/dashboard/audit", label: "Engine Self-Audit", icon: "radar", access: "owner" },
       { href: "/dashboard/assistant", label: "AI Assistant", icon: "bot" },
       { href: "/dashboard/shiva", label: "Shiva — MCP", icon: "eye" },
     ],
