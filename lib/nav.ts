@@ -57,6 +57,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/engine", label: "Command Center", icon: "engine", access: "always" },
       { href: "/dashboard/engagements", label: "Engagements", icon: "briefcase" },
+      { href: "/dashboard/discovery", label: "Program Discovery", icon: "target" },
       { href: "/dashboard/engagements/map", label: "Engagement Map", icon: "globe" },
       { href: "/dashboard/findings", label: "Findings", icon: "alert" },
       // Exploitation + Exploit Lab are one tabbed section (see EXPLOIT_TABS); Lab

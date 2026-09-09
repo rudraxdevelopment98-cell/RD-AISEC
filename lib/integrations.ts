@@ -182,3 +182,62 @@ export async function submitHackerOneDraft(formData: FormData) {
   revalidatePath(back);
   redirect(`${back}?ok=${encodeURIComponent("Submitted to HackerOne." + (res.data.url ? ` ${res.data.url}` : ""))}`);
 }
+
+// ── Program discovery (Phase 3) ──────────────────────────────────────────────
+import { fetchPrograms, fetchProgramScopes } from "@/lib/report/hackerone-api";
+import { rankPrograms, type ProgramScore } from "@/lib/discovery/score";
+
+export type DiscoverResult = { ok: boolean; error?: string; programs: ProgramScore[] };
+
+/**
+ * Discover & rank bug-bounty programs using the owner's HackerOne creds. Suggests
+ * only — a human still engages + authorizes each. Owner-gated + key-gated.
+ */
+export async function discoverPrograms(): Promise<DiscoverResult> {
+  const email = await requireUser();
+  const loaded = await loadCreds(email);
+  if (!loaded) {
+    return { ok: false, error: "Add your HackerOne API credentials in Settings first.", programs: [] };
+  }
+  const res = await fetchPrograms(loaded.creds);
+  if (!res.ok) return { ok: false, error: `HackerOne: ${res.error}`, programs: [] };
+  return { ok: true, programs: rankPrograms(res.data).slice(0, 50) };
+}
+
+/**
+ * Create an engagement from a discovered program: pulls the program's
+ * submission-eligible scopes and pre-fills a NEW, UNAUTHORIZED engagement. The
+ * human then records authorization (and optionally flips autopilot). Owner-gated.
+ */
+export async function engageProgram(formData: FormData) {
+  const email = await requireUser();
+  const handle = String(formData.get("handle") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim() || handle;
+  if (!handle) redirect("/dashboard/discovery?error=" + encodeURIComponent("No program handle."));
+
+  const loaded = await loadCreds(email);
+  if (!loaded) redirect("/dashboard/discovery?error=" + encodeURIComponent("HackerOne credentials are missing."));
+
+  const scopeRes = await fetchProgramScopes(loaded!.creds, handle);
+  const scope = scopeRes.ok ? scopeRes.data.join("\n") : "";
+
+  const eng = await prisma.engagement.create({
+    data: {
+      name: name.slice(0, 120),
+      client: handle,
+      type: "pentest",
+      category: "HackerOne",
+      scope,
+      authorized: false, // human must authorize before anything runs
+      ownerEmail: email,
+    },
+  });
+  await logAudit({
+    type: "discovery.engage",
+    actor: email,
+    summary: `Created engagement from HackerOne program "${handle}" (${scope ? "scope pre-filled" : "no auto scope"})`,
+    target: eng.id,
+  });
+  revalidatePath("/dashboard/engagements");
+  redirect(`/dashboard/engagements/${eng.id}?ok=${encodeURIComponent("Engagement created from HackerOne. Record authorization, then it can run.")}`);
+}
