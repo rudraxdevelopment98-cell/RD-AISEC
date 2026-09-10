@@ -19,7 +19,7 @@ export function PillarView({
       <PageHeader title={pillar.title} subtitle={pillar.tagline} />
       {/* Intro card — no repeated title (PageHeader owns it); just the icon,
           what this discipline is, and the primary actions. */}
-      <header className="card relative mt-3 overflow-hidden">
+      <header className="card-lux relative mt-3 overflow-hidden">
         <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ring-${pillar.accent}`} />
         <div className="flex items-start gap-3">
           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ring-${pillar.accent} accent-${pillar.accent}`}>
@@ -49,7 +49,7 @@ export function PillarView({
 
       {/* Your engagements in this discipline — the real work, not a brochure. */}
       <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+        <h2 className="eyebrow">
           Your {pillar.title.toLowerCase()} engagements
         </h2>
         <Link href="/dashboard/engagements" className="text-xs text-brand hover:underline">All →</Link>
@@ -87,7 +87,7 @@ export function PillarView({
       )}
 
       {/* Tailored workflow for this discipline */}
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wider text-gray-500">
+      <h2 className="eyebrow mt-8">
         {pillar.title} workflow · {pillar.stages.length} stages
       </h2>
       <Workflow stages={pillar.stages} engagements={engagements.map((e) => ({ id: e.id, name: e.name }))} />
