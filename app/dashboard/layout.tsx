@@ -66,20 +66,21 @@ export default async function DashboardLayout({
       </div>
 
       <SidebarShell>
-        {/* Sidebar header — brand, centered (text hides when collapsed) */}
-        <div className="flex h-[4.5rem] shrink-0 flex-col items-center justify-center gap-1 border-b border-surface-border px-4 text-center group-data-[collapsed=true]:px-2">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-sm font-black text-black">
+        {/* Sidebar header — brand, centered (text hides when collapsed). A gold
+            hairline seats the header, and the emblem carries a gold rim. */}
+        <div className="relative flex h-[4.5rem] shrink-0 flex-col items-center justify-center gap-1 px-4 text-center group-data-[collapsed=true]:px-2">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-glow via-brand to-brand-dark text-sm font-black text-[#04140d] shadow-[0_6px_18px_-8px_rgba(52,211,153,0.7)] ring-1 ring-gold/30">
               R
             </span>
-            <span className="font-mono text-base font-bold group-data-[collapsed=true]:hidden">
+            <span className="font-display text-lg font-semibold tracking-tight group-data-[collapsed=true]:hidden">
               RD<span className="text-brand">-AISEC</span>
             </span>
           </Link>
-          <p className="text-[10px] leading-tight text-gray-600 group-data-[collapsed=true]:hidden">
-            AI Security Operating System — by{" "}
-            <span className="text-gray-400">Kuldeep J</span>
+          <p className="eyebrow !text-[9px] group-data-[collapsed=true]:hidden">
+            AI Security OS
           </p>
+          <span aria-hidden className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
         </div>
 
         {/* Nav — scrolls if it overflows */}

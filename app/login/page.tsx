@@ -39,13 +39,14 @@ export default function LoginPage({
       <div className="relative w-full max-w-sm fade-up">
         {/* Brand lockup */}
         <div className="flex flex-col items-center text-center">
-          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-glow via-brand to-brand-dark text-[#04140d] shadow-[0_10px_30px_-8px_rgba(52,211,153,0.6)]">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-glow via-brand to-brand-dark text-[#04140d] shadow-[0_10px_30px_-8px_rgba(52,211,153,0.6)] ring-1 ring-gold/30">
             <Icon name="shield" className="h-7 w-7" />
           </span>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">
+          <h1 className="display mt-5 text-3xl text-white">
             <span className="text-brand-gradient">RD-AISEC</span>
           </h1>
-          <p className="mt-1 text-sm text-gray-400">AI-powered security operations</p>
+          <hr className="hairline mt-4 w-16" />
+          <p className="eyebrow mt-4">AI-powered security operations</p>
         </div>
 
         {errorMessage && (

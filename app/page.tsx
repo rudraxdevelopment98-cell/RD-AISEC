@@ -38,11 +38,11 @@ export default async function Home() {
     <main>
       {/* Nav */}
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <span className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-black text-black">
+        <span className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-glow via-brand to-brand-dark text-sm font-black text-[#04140d] shadow-[0_6px_18px_-8px_rgba(52,211,153,0.7)] ring-1 ring-gold/30">
             R
           </span>
-          <span className="font-mono text-base font-bold">
+          <span className="font-display text-lg font-semibold tracking-tight">
             RD<span className="text-brand">-AISEC</span>
           </span>
         </span>
@@ -60,12 +60,13 @@ export default async function Home() {
         <div className="pointer-events-none absolute -right-24 top-10 h-80 w-80 rounded-full bg-brand-dark/12 blur-3xl" />
 
         <div className="relative mx-auto flex max-w-3xl flex-col items-center px-6 pb-10 pt-16 text-center">
-          <p className="tag">Forensics · Pentesting · Consulting — AI-powered</p>
-          <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-6xl">
+          <p className="eyebrow">Forensics · Pentesting · Consulting — AI-powered</p>
+          <h1 className="display mt-6 text-5xl leading-[1.03] text-white sm:text-6xl">
             Your all-in-one{" "}
             <span className="text-brand-gradient">security operations portal</span>
           </h1>
-          <p className="mt-5 max-w-xl text-lg text-gray-400">
+          <hr className="hairline mt-6 w-24" />
+          <p className="mt-6 max-w-xl text-lg text-gray-400">
             Run digital forensics, penetration testing, and consulting from one
             place — every workflow guided step by step, with AI and your own
             knowledge base alongside.
@@ -113,7 +114,7 @@ export default async function Home() {
             <span className="text-glow-red">could reach</span>. Forensics shows
             you what they <span className="text-glow-blue">already touched</span>.&rdquo;
           </p>
-          <Link href={target} className="btn-primary mt-6 inline-flex">
+          <Link href={target} className="btn-gold mt-6 inline-flex">
             Enter the portal <Icon name="arrow" className="h-4 w-4" />
           </Link>
         </blockquote>

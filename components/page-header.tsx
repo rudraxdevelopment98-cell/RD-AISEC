@@ -35,7 +35,9 @@ export function PageHeader({
       <div
         className={`sticky top-0 z-30 -mx-4 flex h-[var(--app-header-h)] items-center justify-between gap-3 border-b border-surface-border bg-surface px-4 pr-14 sm:-mx-6 sm:px-6 sm:pr-16 ${className}`}
       >
-        <h1 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold tracking-tight">
+        <h1 className="flex min-w-0 flex-1 items-center gap-2.5 text-lg font-semibold tracking-tight">
+          {/* Champagne accent bar — the small luxe touch that brands every header. */}
+          <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full bg-gradient-to-b from-gold-glow to-gold-deep shadow-[0_0_8px_rgba(214,183,122,0.5)]" />
           <span className="truncate">{title}</span>
           {subtitle && (
             <button
