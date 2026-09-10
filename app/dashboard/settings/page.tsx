@@ -55,7 +55,7 @@ export default async function SettingsPage({
         ]}
       >
       <TabPanel id="notify">
-      <h2 className="text-lg font-bold">Notifications</h2>
+      <h2 className="section-title text-lg">Notifications</h2>
       <HelpBanner>
         <p>• Get a free <b>Discord</b> webhook: Server Settings → Integrations → Webhooks → New Webhook → Copy URL.</p>
         <p>• Slack works too (Incoming Webhook URL).</p>
@@ -100,7 +100,7 @@ export default async function SettingsPage({
       </TabPanel>
 
       <TabPanel id="workspace">
-      <h2 className="text-lg font-bold">Research &amp; exploit workspace</h2>
+      <h2 className="section-title text-lg">Research &amp; exploit workspace</h2>
       <HelpBanner>
         <p>• <b>Google Drive folder</b> — a link to where you keep research/notes (opened from the Exploit Lab).</p>
         <p>• <b>Kali exploit folder</b> — an absolute path on your runner where generated exploits are saved (e.g. <code>/root/rdaisec-exploits</code>).</p>
@@ -131,7 +131,7 @@ export default async function SettingsPage({
       </TabPanel>
 
       <TabPanel id="integrations">
-      <h2 className="text-lg font-bold">HackerOne</h2>
+      <h2 className="section-title text-lg">HackerOne</h2>
       <HelpBanner>
         <p>• Create an API token: HackerOne → <b>Settings → API Tokens</b>. Copy the <b>API username</b> and the <b>token</b>.</p>
         <p>• Reports are created as <b>drafts</b> (report intents) and only submitted after you approve each one.</p>
