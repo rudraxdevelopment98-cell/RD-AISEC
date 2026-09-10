@@ -336,10 +336,12 @@ export default async function DashboardOverview({
           Members page.
         </div>
       )}
-      {/* Galaxy hero */}
-      <section className="galaxy relative overflow-hidden rounded-2xl border border-surface-border p-6 sm:p-8">
+      {/* Galaxy hero — luxe: eyebrow, serif display title, gold hairline. */}
+      <section className="galaxy relative overflow-hidden rounded-2xl border border-gold/15 p-6 sm:p-9">
         <div className="galaxy-stars" aria-hidden />
         <div className="scanline" aria-hidden />
+        {/* Gold hairline along the very top edge — the jeweller's line. */}
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" aria-hidden />
         <svg
           className="wave-svg pointer-events-none absolute inset-x-0 bottom-0 h-16"
           viewBox="0 0 1200 120"
@@ -353,16 +355,17 @@ export default async function DashboardOverview({
         </svg>
         <div className="relative flex flex-wrap items-center justify-between gap-6">
           <div>
-            <span className="tag ring-emerald accent-emerald">
-              <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-emerald-400" /> Authorized session
+            <span className="eyebrow">
+              <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-brand" /> Authorized session
             </span>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h1 className="display mt-4 text-4xl leading-[1.05] text-white sm:text-5xl">
               Welcome back, <span className="text-brand-gradient">{firstName}</span>
             </h1>
-            <p className="mt-1 max-w-md text-gray-400">
+            <p className="mt-3 max-w-md text-[15px] text-gray-400">
               Your security operations, live — across testing, scanning, and reporting.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <hr className="hairline my-5 max-w-[18rem]" />
+            <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/engagements" className="btn-primary">
                 <Icon name="briefcase" className="h-4 w-4" /> New engagement
               </Link>
@@ -372,8 +375,8 @@ export default async function DashboardOverview({
             </div>
           </div>
 
-          {/* Neural orb emblem */}
-          <div className="float-slow relative hidden h-32 w-32 shrink-0 overflow-hidden rounded-full border border-surface-border bg-surface/40 shadow-[0_0_30px_rgba(52,211,153,0.2)] sm:block">
+          {/* Neural orb emblem — gold rim for the premium touch. */}
+          <div className="float-slow relative hidden h-32 w-32 shrink-0 overflow-hidden rounded-full border border-gold/25 bg-surface/40 shadow-[0_0_40px_rgba(214,183,122,0.18)] sm:block">
             <NeuralBg />
           </div>
         </div>
@@ -417,7 +420,7 @@ export default async function DashboardOverview({
       {/* Pipeline */}
       <section className="card fade-up">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-brand-glow">Workflow</h2>
+          <h2 className="section-title">Workflow</h2>
           <span className="text-xs text-gray-500">scan → findings → report</span>
         </div>
         <div className="mt-2">
@@ -428,7 +431,7 @@ export default async function DashboardOverview({
       {/* Build progress — where the platform is, at a glance */}
       <section className="card fade-up">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-brand-glow">Build progress</h2>
+          <h2 className="section-title">Build progress</h2>
           <Link href="/dashboard/progress" className="text-xs text-brand hover:underline">
             Full breakdown →
           </Link>
@@ -455,7 +458,7 @@ export default async function DashboardOverview({
       {/* Charts: severity donut + activity */}
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="card fade-up">
-          <h2 className="font-semibold text-brand-glow">Open findings by severity</h2>
+          <h2 className="section-title">Open findings by severity</h2>
           <div className="mt-2 flex items-center gap-5">
             <SeverityDonut data={bySeverity} total={openFindings} />
             <ul className="space-y-1.5 text-sm">
@@ -472,7 +475,7 @@ export default async function DashboardOverview({
 
         <div className="card fade-up">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-brand-glow">Activity — 14 days</h2>
+            <h2 className="section-title">Activity — 14 days</h2>
             <span className="text-xs text-gray-500">{activity14} scans + jobs</span>
           </div>
           <div className="mt-4">
@@ -487,7 +490,7 @@ export default async function DashboardOverview({
       {/* Recent findings + jobs */}
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="card fade-up">
-          <h2 className="font-semibold text-brand-glow">Recent findings</h2>
+          <h2 className="section-title">Recent findings</h2>
           {recentFindings.length === 0 ? (
             <p className="mt-4 text-sm text-gray-500">No findings yet.</p>
           ) : (
@@ -507,7 +510,7 @@ export default async function DashboardOverview({
 
         <div className="card fade-up">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-brand-glow">Recent jobs</h2>
+            <h2 className="section-title">Recent jobs</h2>
             <Link href="/dashboard/history" className="text-xs text-gray-500 hover:text-brand">Monitoring →</Link>
           </div>
           {recentJobs.length === 0 ? (

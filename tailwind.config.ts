@@ -21,6 +21,13 @@ const config: Config = {
           dark: "rgb(var(--brand-dark) / <alpha-value>)",
           glow: "rgb(var(--brand-glow) / <alpha-value>)",
         },
+        // Champagne gold — the luxe micro-accent (dividers, eyebrows, KPI numerals).
+        gold: {
+          DEFAULT: "rgb(var(--gold) / <alpha-value>)",
+          soft: "rgb(var(--gold-soft) / <alpha-value>)",
+          deep: "rgb(var(--gold-deep) / <alpha-value>)",
+          glow: "rgb(var(--gold-glow) / <alpha-value>)",
+        },
         surface: {
           DEFAULT: "rgb(var(--surface) / <alpha-value>)",
           card: "rgb(var(--surface-card) / <alpha-value>)",
