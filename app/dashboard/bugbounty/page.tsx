@@ -132,6 +132,8 @@ export default async function BugBountyPage({
         </div>
       )}
 
+      <hr className="hairline my-6" />
+
       <div className="mt-6">
       <Tabs
         tabs={[

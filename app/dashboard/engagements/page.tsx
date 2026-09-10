@@ -30,6 +30,8 @@ export default async function EngagementsPage({
         </div>
       )}
 
+      <hr className="hairline my-6" />
+
       {/* Create */}
       <details className="card mt-6" open={!!presetType}>
         <summary className="cursor-pointer font-semibold text-brand">

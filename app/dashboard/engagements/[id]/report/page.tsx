@@ -101,10 +101,8 @@ export default async function ReportPage({
       {/* Report — also the print surface */}
       <article className="card mt-4 print:border-0 print:bg-white print:text-black">
         <header className="border-b border-surface-border pb-4 print:border-gray-300">
-          <p className="text-xs uppercase tracking-wider text-gray-500">
-            Security Assessment Report
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">{e.name}</h1>
+          <p className="eyebrow print:text-gray-500">Security Assessment Report</p>
+          <h1 className="display mt-1 text-3xl text-white print:text-black">{e.name}</h1>
           <div className="mt-3 grid grid-cols-2 gap-1 text-sm text-gray-400 print:text-gray-700 sm:grid-cols-4">
             <p><span className="text-gray-500">Client:</span> {e.client || "—"}</p>
             <p className="capitalize"><span className="text-gray-500">Type:</span> {e.type}</p>
@@ -124,7 +122,7 @@ export default async function ReportPage({
 
         <section className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Executive Summary</h2>
+            <h2 className="section-title text-lg print:text-black">Executive Summary</h2>
             <span className="flex items-center gap-2 print:hidden">
               <span className="tag">
                 <Icon name="bot" className="h-3 w-3" /> AI-drafted
@@ -200,7 +198,7 @@ export default async function ReportPage({
           <>
             {/* Executive Dashboard */}
             <section className="mt-6">
-              <h2 className="text-lg font-semibold">Executive Dashboard</h2>
+              <h2 className="section-title text-lg print:text-black">Executive Dashboard</h2>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { label: "Findings", value: dash.total },
@@ -228,7 +226,7 @@ export default async function ReportPage({
             {/* Asset Summary */}
             {assets.length > 0 && (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">Asset Summary</h2>
+                <h2 className="section-title text-lg print:text-black">Asset Summary</h2>
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="text-xs uppercase tracking-wide text-gray-500">
@@ -267,7 +265,7 @@ export default async function ReportPage({
             {/* Remediation Roadmap */}
             {roadmap.length > 0 && (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">Remediation Roadmap</h2>
+                <h2 className="section-title text-lg print:text-black">Remediation Roadmap</h2>
                 <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
                   Prioritized by severity then confidence — fix in this order.
                 </p>
@@ -307,7 +305,7 @@ export default async function ReportPage({
                 what we re-verified. This is the pentest deliverable's outcome. */}
             {retestedFindings.length > 0 && (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">Remediation Status</h2>
+                <h2 className="section-title text-lg print:text-black">Remediation Status</h2>
                 <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
                   Retest outcomes after remediation — verified fixes vs. issues still exploitable.
                 </p>
@@ -355,7 +353,7 @@ export default async function ReportPage({
             {/* Attack Paths — findings correlated into plausible kill-chains. */}
             {chains.length > 0 && (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">Attack Paths</h2>
+                <h2 className="section-title text-lg print:text-black">Attack Paths</h2>
                 <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
                   Individual findings correlated into multi-step attack chains — the real risk is
                   often the combination, not any single issue.
@@ -393,7 +391,7 @@ export default async function ReportPage({
 
         {e.scope && (
           <section className="mt-6">
-            <h2 className="text-lg font-semibold">Scope</h2>
+            <h2 className="section-title text-lg print:text-black">Scope</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300 print:text-black">
               {e.scope}
             </p>
@@ -481,7 +479,7 @@ export default async function ReportPage({
           const Section = ({ title, note, rows }: { title: string; note: string; rows: GradedFinding[] }) =>
             rows.length === 0 ? null : (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">{title}</h2>
+                <h2 className="section-title text-lg print:text-black">{title}</h2>
                 <p className="mt-1 text-xs text-gray-500 print:text-gray-600">{note}</p>
                 <ol className="mt-3 space-y-4">{rows.map(renderItem)}</ol>
               </section>
@@ -491,7 +489,7 @@ export default async function ReportPage({
           if (total === 0) {
             return (
               <section className="mt-6">
-                <h2 className="text-lg font-semibold">Findings</h2>
+                <h2 className="section-title text-lg print:text-black">Findings</h2>
                 <p className="mt-2 text-sm text-gray-500">No findings recorded.</p>
               </section>
             );
@@ -503,7 +501,7 @@ export default async function ReportPage({
               <Section title="Suspected Findings" note="Detected but not yet validated — reproduce/exploit before relying on these." rows={graded.suspected} />
               {graded.informational.length > 0 && (
                 <section className="mt-6">
-                  <h2 className="text-lg font-semibold">Informational &amp; Reconnaissance Artifacts</h2>
+                  <h2 className="section-title text-lg print:text-black">Informational &amp; Reconnaissance Artifacts</h2>
                   <p className="mt-1 text-xs text-gray-500 print:text-gray-600">
                     No direct security impact; excluded from the risk score.
                   </p>
@@ -521,7 +519,7 @@ export default async function ReportPage({
         {/* Security Posture Assessment (consulting) */}
         {assessments.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-lg font-semibold">Security Posture Assessment</h2>
+            <h2 className="section-title text-lg print:text-black">Security Posture Assessment</h2>
             <div className="mt-3 space-y-4">
               {assessments.map((a) => (
                 <div key={a.id} className="rounded-xl border border-surface-border p-3 print:border-gray-300">
@@ -579,7 +577,7 @@ export default async function ReportPage({
         {/* Evidence & Chain of Custody (forensics) */}
         {evidence.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-lg font-semibold">Evidence &amp; Chain of Custody</h2>
+            <h2 className="section-title text-lg print:text-black">Evidence &amp; Chain of Custody</h2>
             <div className="mt-3 space-y-3">
               {evidence.map((ev) => (
                 <div key={ev.id} className="rounded-xl border border-surface-border p-3 print:border-gray-300">

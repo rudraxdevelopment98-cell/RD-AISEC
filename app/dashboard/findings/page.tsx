@@ -286,6 +286,8 @@ export default async function FindingsPage({
         <p>• Export/Import findings as CSV. Confirmed-exploitable findings glow red.</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       {/* Learned false positives — the self-improving accuracy loop. */}
       {suppressions.length > 0 && (
         <details className="card mt-4">
