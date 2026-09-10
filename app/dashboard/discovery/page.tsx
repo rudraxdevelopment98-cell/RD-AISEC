@@ -35,6 +35,8 @@ export default async function DiscoveryPage({
         <p>• Uses your HackerOne API credentials from Settings → Integrations.</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       <div className="card mt-4">
         {h1.configured ? (
           <DiscoveryPanel />

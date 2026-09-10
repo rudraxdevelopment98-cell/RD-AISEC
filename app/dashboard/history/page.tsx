@@ -163,6 +163,8 @@ export default async function HistoryPage() {
             ))}
           </section>
 
+          <hr className="hairline my-6" />
+
           {/* Activity over time */}
           <section className="card mt-6">
             <div className="flex items-center justify-between">

@@ -162,6 +162,8 @@ export default async function RunnersPage({
         <p>• Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       {/* Fleet matrix — every machine at a glance: status, resources, tools, and
           what each is running right now. One place to see the whole fleet. */}
       {runners.length > 0 && (

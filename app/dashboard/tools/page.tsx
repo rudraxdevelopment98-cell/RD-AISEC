@@ -9,6 +9,7 @@ export default function ToolsPage() {
         title="Tool Catalog"
         subtitle="Modern open-source and paid security tools. Search by name, or filter by category."
       />
+      <hr className="hairline my-6" />
       <ToolCatalog tools={TOOLS} categories={CATEGORIES} />
     </div>
   );

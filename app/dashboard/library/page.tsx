@@ -37,6 +37,8 @@ export default async function LibraryPage() {
         subtitle="Your catalog of cybersecurity resources — links, books, exploits, tools, and cheatsheets. Big files stay offline on your drive; the vault stores the index and a drive location, so you find it here and open it from your external drive."
       />
 
+      <hr className="hairline my-6" />
+
       {/* Add resource */}
       <details className="card mt-6">
         <summary className="cursor-pointer font-semibold text-brand">

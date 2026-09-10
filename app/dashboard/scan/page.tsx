@@ -52,8 +52,10 @@ export default async function ScanPage({
 
       <Scanner engagements={engOptions} defaultTarget={searchParams.target ?? ""} />
 
+      <hr className="hairline my-6" />
+
       {/* ── Scheduled scans ─────────────────────────────── */}
-      <h2 className="mt-12 flex items-center gap-2 text-lg font-bold">
+      <h2 className="section-title mt-12 flex items-center gap-2 text-lg font-bold">
         <Icon name="clock" className="h-5 w-5 text-brand" />
         Scheduled scans
       </h2>

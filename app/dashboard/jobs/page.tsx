@@ -156,6 +156,8 @@ export default async function JobsPage({
         </div>
       )}
 
+      <hr className="hairline my-6" />
+
       <div className="mt-6">
         <Tabs
           defaultTab={searchParams.cmd ? "create" : archivedView ? "history" : "active"}
@@ -217,7 +219,7 @@ export default async function JobsPage({
           <TabPanel id="active">
       {/* ── Active (live) ───────────────────────────────── */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold">
+        <h2 className="section-title flex items-center gap-2 text-lg font-bold">
           Active
           {active.length > 0 && (
             <span className="tag ring-sky accent-sky">{active.length} running/queued</span>
@@ -345,7 +347,7 @@ export default async function JobsPage({
           <TabPanel id="history">
       {/* ── History (searchable / sortable table) ───────── */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold">{archivedView ? "Archived jobs" : "History"}</h2>
+        <h2 className="section-title text-lg font-bold">{archivedView ? "Archived jobs" : "History"}</h2>
         <Link
           href={archivedView ? "/dashboard/jobs" : "/dashboard/jobs?view=archived"}
           className="text-xs text-brand hover:underline"

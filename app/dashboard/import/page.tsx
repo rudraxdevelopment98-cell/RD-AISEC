@@ -29,6 +29,8 @@ export default async function ImportPage({
         <p>• Pick the engagement, upload the XML, and the issues become findings (tagged to ATT&amp;CK/OWASP).</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" />

@@ -97,6 +97,8 @@ export default async function NetworkPage({
         </div>
       )}
 
+      <hr className="hairline my-6" />
+
       {/* One-click: scan the runner's own network */}
       <div className="mt-6">
         <LocalScanForm runners={runners} engagements={engagementRows} />
@@ -179,7 +181,7 @@ export default async function NetworkPage({
       {engId ? (
         // ── Full-engagement map (all nmap scans merged) ──
         <>
-          <h2 className="mt-4 flex items-center gap-2 text-lg font-semibold">
+          <h2 className="section-title mt-4 flex items-center gap-2 text-lg font-semibold">
             <Icon name="globe" className="h-4 w-4 text-brand" /> {engName} — full map
             <span className="text-sm font-normal text-gray-500">({engJobs.length} scan{engJobs.length === 1 ? "" : "s"} merged)</span>
           </h2>

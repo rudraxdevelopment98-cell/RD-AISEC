@@ -23,11 +23,13 @@ export default function FrameworksPage() {
         }
       />
 
+      <hr className="hairline my-6" />
+
       {/* MITRE ATT&CK */}
       <section>
         <div className="flex items-center gap-2">
           <Icon name="skull" className="h-5 w-5 text-sev-crit" />
-          <h2 className="text-lg font-bold">MITRE ATT&amp;CK — Enterprise tactics</h2>
+          <h2 className="section-title text-lg font-bold">MITRE ATT&amp;CK — Enterprise tactics</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">
           The adversary&apos;s goals across the attack lifecycle. Map each finding
@@ -50,7 +52,7 @@ export default function FrameworksPage() {
       <section>
         <div className="flex items-center gap-2">
           <Icon name="alert" className="h-5 w-5 text-sev-med" />
-          <h2 className="text-lg font-bold">OWASP Top 10 (2021)</h2>
+          <h2 className="section-title text-lg font-bold">OWASP Top 10 (2021)</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">The most critical web-app security risks.</p>
         <div className="mt-4 space-y-2">
@@ -70,7 +72,7 @@ export default function FrameworksPage() {
       <section>
         <div className="flex items-center gap-2">
           <Icon name="shield" className="h-5 w-5 text-sev-low" />
-          <h2 className="text-lg font-bold">NIST Cybersecurity Framework 2.0</h2>
+          <h2 className="section-title text-lg font-bold">NIST Cybersecurity Framework 2.0</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">The six core functions of a security program.</p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -88,7 +90,7 @@ export default function FrameworksPage() {
       <section>
         <div className="flex items-center gap-2">
           <Icon name="wrench" className="h-5 w-5 text-brand" />
-          <h2 className="text-lg font-bold">Tooling &amp; detection frameworks</h2>
+          <h2 className="section-title text-lg font-bold">Tooling &amp; detection frameworks</h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">What the runner and detections build on.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

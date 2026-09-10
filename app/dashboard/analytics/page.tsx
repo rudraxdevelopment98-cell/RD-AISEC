@@ -171,6 +171,8 @@ export default async function AnalyticsPage({
         ))}
       </section>
 
+      <hr className="hairline my-6" />
+
       <section className="mt-6 grid gap-5 lg:grid-cols-2">
         {/* Findings by severity */}
         <div className="card">

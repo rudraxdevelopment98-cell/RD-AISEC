@@ -78,6 +78,8 @@ export default async function MembersPage({
         <p>• Owners (set via AUTHORIZED_EMAILS) always have full access and aren&apos;t listed here.</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
@@ -123,7 +125,7 @@ export default async function MembersPage({
       </form>
 
       {/* Members list */}
-      <h2 className="mt-8 text-lg font-bold">
+      <h2 className="section-title mt-8 text-lg font-bold">
         Team {members.length > 0 && <span className="text-sm font-normal text-gray-500">({members.length})</span>}
       </h2>
       {members.length === 0 ? (

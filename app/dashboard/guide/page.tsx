@@ -44,8 +44,10 @@ export default function GuidePage() {
         </p>
       </div>
 
+      <hr className="hairline my-6" />
+
       {/* Prereqs */}
-      <h2 className="mt-8 text-lg font-semibold">Before you start (one time)</h2>
+      <h2 className="section-title mt-8 text-lg font-semibold">Before you start (one time)</h2>
       <div className="card mt-3 space-y-2 text-sm text-gray-400">
         <p>
           <Icon name="server" className="mr-1 inline h-4 w-4 text-brand" />
@@ -65,7 +67,7 @@ export default function GuidePage() {
       </div>
 
       {/* The flow */}
-      <h2 className="mt-8 text-lg font-semibold">The flow, step by step</h2>
+      <h2 className="section-title mt-8 text-lg font-semibold">The flow, step by step</h2>
       <div className="card mt-3">
         <Step n="1" title="Add the program">
           <p>
@@ -145,7 +147,7 @@ export default function GuidePage() {
       </div>
 
       {/* Tips */}
-      <h2 className="mt-8 text-lg font-semibold">Tips that matter</h2>
+      <h2 className="section-title mt-8 text-lg font-semibold">Tips that matter</h2>
       <div className="card mt-3 space-y-2 text-sm text-gray-400">
         <p>• <b>CDN/cloud targets</b> (Cloudflare/Fastly, like big SaaS): full port scans find little — lean on web scans (nuclei/nikto/gobuster) and app-layer tests.</p>
         <p>• <b>Nothing found?</b> Open Readiness → look for job <b>timeouts</b> or failures. Re-pull the runner (latest = bounded, longer scans).</p>

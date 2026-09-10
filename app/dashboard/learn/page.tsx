@@ -33,6 +33,8 @@ export default async function LearnPage() {
         <p>• Practice only on targets you own or are authorized to test.</p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       <LearnBoard topics={LEARN_TOPICS} progress={progress} />
     </div>
   );
