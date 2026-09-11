@@ -42,7 +42,7 @@ export default function ShivaIndex() {
     <div className="mx-auto max-w-6xl">
       <PageHeader title="Shiva" />
       {/* Hero / header */}
-      <header className="card relative mt-3 overflow-hidden">
+      <header className="card-lux relative mt-3 overflow-hidden">
         <div className="relative flex flex-wrap items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand">
             <Icon name="shield" className="h-7 w-7" />
@@ -78,6 +78,8 @@ export default function ShivaIndex() {
           ))}
         </div>
       </header>
+
+      <hr className="hairline my-6" />
 
       <div className="mt-5">
         <Tabs

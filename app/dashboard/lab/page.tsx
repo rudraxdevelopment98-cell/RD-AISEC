@@ -75,6 +75,8 @@ export default async function LabPage({
         )}
       </div>
 
+      <hr className="hairline my-6" />
+
       {findingTitle && (
         <p className="mt-4 text-sm text-gray-400">
           Pre-filled from finding: <span className="text-white">{findingTitle}</span>

@@ -146,6 +146,8 @@ export default async function WifiPage({
         </p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-2 text-sm text-sev-crit">
           <Icon name="alert" className="mr-1 inline h-4 w-4" /> {searchParams.error}

@@ -84,6 +84,8 @@ export default async function SensingPage() {
         </p>
       </HelpBanner>
 
+      <hr className="hairline my-6" />
+
       <Tabs
         defaultTab="setup"
         tabs={[

@@ -39,6 +39,8 @@ export default async function EditEngagementPage({
         </div>
       )}
 
+      <hr className="hairline my-6" />
+
       <form action={updateEngagement} className="card mt-6 grid gap-4 sm:grid-cols-2">
         <input type="hidden" name="id" value={e.id} />
 
@@ -142,7 +144,7 @@ export default async function EditEngagementPage({
 
       {/* Danger zone */}
       <div className="card mt-6 border-sev-crit/30">
-        <h2 className="font-semibold text-sev-crit">Delete engagement</h2>
+        <h2 className="section-title font-semibold text-sev-crit">Delete engagement</h2>
         <p className="mt-1 text-sm text-gray-400">
           Permanently deletes this engagement and its findings. This can&apos;t be
           undone.

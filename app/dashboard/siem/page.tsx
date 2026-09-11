@@ -119,6 +119,8 @@ export default async function SiemPage({ searchParams }: { searchParams: SP }) {
         {events.length === 300 && " (showing latest 300)"}
       </p>
 
+      <hr className="hairline my-6" />
+
       {events.length === 0 ? (
         <div className="mt-4">
           <EmptyState icon="clock" title="No activity yet">

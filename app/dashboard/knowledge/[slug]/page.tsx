@@ -37,10 +37,12 @@ export default function KnowledgeTopicPage({
         )}
       </PageHeader>
 
+      <hr className="hairline my-6" />
+
       <div className="mt-5 space-y-5">
         {topic.sections.map((s) => (
           <section key={s.heading} className="card">
-            <h2 className="font-semibold text-brand-glow">{s.heading}</h2>
+            <h2 className="section-title font-semibold text-brand-glow">{s.heading}</h2>
             <div className={PROSE} dangerouslySetInnerHTML={{ __html: s.html }} />
           </section>
         ))}

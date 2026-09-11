@@ -34,6 +34,8 @@ export default function ProgressPage() {
         </div>
       </div>
 
+      <hr className="hairline my-6" />
+
       <div className="mt-4 space-y-4">
         {PROGRESS.map((a) => {
           const pct = Math.round((a.done.length / (a.done.length + a.todo.length)) * 100);
