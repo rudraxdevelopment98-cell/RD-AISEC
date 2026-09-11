@@ -1,5 +1,6 @@
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 import {
   MITRE_TACTICS,
   OWASP_TOP10,
@@ -11,20 +12,20 @@ export const dynamic = "force-dynamic";
 
 export default function FrameworksPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <PageHeader
-        title={<>Frameworks &amp; standards</>}
-        subtitle={
-          <span className="block max-w-2xl">
-            The references RD-AISEC works from — attacker tactics, common web risks,
-            a governance model, and the tooling our scans build on. The knowledge
-            base and assistant draw on these, and findings can be mapped to them.
-          </span>
-        }
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title={<>Frameworks &amp; standards</>} />
 
-      <hr className="hairline my-6" />
-
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Frameworks">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                The references RD-AISEC works from — attacker tactics, common web risks, a governance model, and the tooling our scans build on. The assistant draws on these, and findings can be mapped to them.
+              </p>
+            </RailPanel>
+          }
+        >
+      <div className="space-y-8">
       {/* MITRE ATT&CK */}
       <section>
         <div className="flex items-center gap-2">
@@ -119,6 +120,9 @@ export default function FrameworksPage() {
         References to MITRE ATT&amp;CK®, OWASP, NIST, and the listed tools belong to
         their respective owners. Shown for authorized testing and education.
       </p>
+      </div>
+        </Console>
+      </div>
     </div>
   );
 }

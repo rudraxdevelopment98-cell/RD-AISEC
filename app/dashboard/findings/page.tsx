@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { ownerScope, viaEngagementScope } from "@/lib/ownership";
 import { Icon } from "@/components/icons";
-import { HelpBanner } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import { EmptyState } from "@/components/empty-state";
 import { FindingsBulk } from "@/components/findings-bulk";
 import { NavSelect } from "@/components/nav-select";
@@ -223,10 +223,9 @@ export default async function FindingsPage({
   const shown = reportableOnly ? sorted.filter(isReportable) : sorted;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Findings"
-        subtitle="Every finding across all engagements. Filter by framework, severity, or status to triage."
         actions={
           <>
           {findings.length > 0 && (
@@ -279,12 +278,23 @@ export default async function FindingsPage({
         </div>
       )}
 
-      <HelpBanner>
-        <p>• Click a framework / severity / category chip to filter; click again to clear.</p>
-        <p>• Select findings to bulk delete, set status, or tag a category.</p>
-        <p>• Mark a finding <b>false positive</b> and the engine <b>learns</b> to suppress that class on future scans (see Learned rules below).</p>
-        <p>• Export/Import findings as CSV. Confirmed-exploitable findings glow red.</p>
-      </HelpBanner>
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Findings">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Every finding across all engagements — filter by framework, severity, or status to triage.
+              </p>
+              <hr className="hairline my-3" />
+              <ul className="space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>Click a framework / severity / category chip to filter; click again to clear.</li>
+                <li>Select findings to bulk delete, set status, or tag a category.</li>
+                <li>Mark a finding <b className="text-gray-300">false positive</b> and the engine <b className="text-gray-300">learns</b> to suppress that class on future scans (see Learned rules below).</li>
+                <li>Export/Import findings as CSV. Confirmed-exploitable findings glow red.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
 
       <hr className="hairline my-6" />
 
@@ -569,6 +579,8 @@ export default async function FindingsPage({
           }))}
         />
       )}
+        </Console>
+      </div>
     </div>
   );
 }

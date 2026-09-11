@@ -8,7 +8,8 @@ import { EnrollCodeForm } from "@/components/runner-enroll";
 import { RunnerDownloadCard } from "@/components/runner-download";
 import { MaintenanceBadge } from "@/components/maintenance-indicator";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { HelpBanner, Hint } from "@/components/hint";
+import { Hint } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import { deleteRunner, setRunnerAnonymity, setRunnerWorkers, setRunnerMaintenance, requestInstall, installAllTools, revokeEnrollCode } from "@/lib/runners";
 import {
   RUNNER_ONLINE_WINDOW_MS,
@@ -140,27 +141,28 @@ export default async function RunnersPage({
     );
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-7xl">
       {anyLive && <AutoRefresh seconds={10} />}
 
-      <PageHeader
-        title="Machines"
-        subtitle={
-          <>
-            Connect machines you control (e.g. Kali in UTM/Parallels) as runners. Each
-            polls over HTTPS, executes tools locally, and posts results back — nothing
-            offensive runs in the cloud. Anything the portal needs to run goes to the
-            machine you select. See{" "}
-            <code className="font-mono text-xs text-brand">runner/README.md</code>.
-          </>
-        }
-      />
+      <PageHeader title="Machines" />
 
-      <HelpBanner>
-        <p>• <strong>Add a machine</strong> below → generate an enrollment code → run the one command on your machine. It comes online and stays online (self-heals a lost token).</p>
-        <p>• A green dot = online (polled recently). Install missing tools right from a machine&apos;s card.</p>
-        <p>• Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</p>
-      </HelpBanner>
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Machines">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Connect machines you control (e.g. Kali in UTM/Parallels) as runners — each polls over HTTPS, executes tools locally, and posts results back, so nothing offensive runs in the cloud.
+              </p>
+              <hr className="hairline my-3" />
+              <ul className="space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li><b className="text-gray-300">Add a machine</b> below → generate an enrollment code → run the one command on your machine. It comes online and stays online (self-heals a lost token).</li>
+                <li>A green dot = online (polled recently). Install missing tools right from a machine&apos;s card.</li>
+                <li>Toggle Tor per machine to route tool traffic anonymously. Then queue work on the Jobs page.</li>
+                <li>See <code className="font-mono text-brand">runner/README.md</code> for the full guide.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
 
       <hr className="hairline my-6" />
 
@@ -775,6 +777,8 @@ curl -fsSL "https://rd-aisec.vercel.app/api/runner/bootstrap?code=rde_…" | sud
         </span>
         <Icon name="arrow" className="h-4 w-4 text-gray-500" />
       </Link>
+        </Console>
+      </div>
     </div>
   );
 }

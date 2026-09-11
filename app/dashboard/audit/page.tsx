@@ -1,7 +1,7 @@
 import { auth, isOwnerEmail } from "@/auth";
 import { PageHeader } from "@/components/page-header";
 import { Icon } from "@/components/icons";
-import { HelpBanner } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import { runSelfAudit, type AuditLevel } from "@/lib/self-audit";
 
 export const dynamic = "force-dynamic";
@@ -29,14 +29,23 @@ export default async function AuditPage() {
   const scoreTone = audit.score >= 80 ? "text-brand" : audit.score >= 50 ? "text-amber-300" : "text-sev-crit";
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader title="Engine self-audit" subtitle="Where the engine's coverage is thin — and what to teach it next." />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Engine self-audit" />
 
-      <HelpBanner>
-        <p>• The engine refreshes its detections (nuclei templates, EPSS, threat-intel, exploit-db) automatically in each machine&apos;s daily maintenance window.</p>
-        <p>• This page reports the gaps that still need a human or a rule change — the &quot;research list&quot; is what to fold back into the engine&apos;s knowledge.</p>
-      </HelpBanner>
-
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Self-audit">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Where the engine&apos;s coverage is thin — and what to teach it next.
+              </p>
+              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>The engine refreshes its detections (nuclei templates, EPSS, threat-intel, exploit-db) automatically in each machine&apos;s daily maintenance window.</li>
+                <li>This page reports the gaps that still need a human or a rule change — the &quot;research list&quot; is what to fold back into the engine&apos;s knowledge.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
       <div className="mt-4 grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className="card flex flex-col items-center justify-center py-6">
           <div className={`text-4xl font-bold ${scoreTone}`}>{audit.score}</div>
@@ -81,6 +90,8 @@ export default async function AuditPage() {
           </ul>
         </div>
       )}
+        </Console>
+      </div>
     </div>
   );
 }

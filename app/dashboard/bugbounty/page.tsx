@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
-import { HelpBanner, Hint } from "@/components/hint";
+import { Hint } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import {
   saveBugAccount,
   deleteBugAccount,
@@ -100,25 +101,8 @@ export default async function BugBountyPage({
   const engagedRows = programRows.filter((p) => p.engagement);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader
-        title="Bug Bounty"
-        subtitle={
-          <span className="block max-w-2xl">
-            Track the programs you hunt on HackerOne, Bugcrowd, and others. Paste a
-            program&apos;s scope, turn it into an authorized engagement, and let the
-            portal automate recon against the in-scope targets.
-          </span>
-        }
-      />
-
-      <HelpBanner>
-        <p>• Save your platform handles for quick links to your dashboards.</p>
-        <p>• Add a program and paste its in-scope targets (one per line).</p>
-        <p>• &quot;Run pipeline now&quot; scans every in-scope target (httpx + nuclei) on a machine; findings import automatically.</p>
-        <p>• Turn on <b>Enable automation</b> to run that pipeline daily and auto-sync HackerOne — fully hands-off.</p>
-        <p className="text-gray-500">Only test what each program&apos;s scope explicitly authorizes.</p>
-      </HelpBanner>
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Bug Bounty" />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
@@ -132,8 +116,23 @@ export default async function BugBountyPage({
         </div>
       )}
 
-      <hr className="hairline my-6" />
-
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Bug Bounty">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Track the programs you hunt on HackerOne, Bugcrowd, and others. Paste a program&apos;s scope, turn it into an authorized engagement, and let the portal automate recon against the in-scope targets.
+              </p>
+              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>Save your platform handles for quick links to your dashboards.</li>
+                <li>Add a program and paste its in-scope targets (one per line).</li>
+                <li>&quot;Run pipeline now&quot; scans every in-scope target (httpx + nuclei) on a machine; findings import automatically.</li>
+                <li>Turn on <b>Enable automation</b> to run that pipeline daily and auto-sync HackerOne — fully hands-off.</li>
+                <li>Only test what each program&apos;s scope explicitly authorizes.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
       <div className="mt-6">
       <Tabs
         tabs={[
@@ -314,6 +313,8 @@ export default async function BugBountyPage({
 
       </TabPanel>
       </Tabs>
+      </div>
+        </Console>
       </div>
     </div>
   );

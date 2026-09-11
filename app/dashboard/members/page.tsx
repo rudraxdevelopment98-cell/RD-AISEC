@@ -1,7 +1,7 @@
 import { auth, isOwnerEmail } from "@/auth";
 import { PageHeader } from "@/components/page-header";
 import { Icon } from "@/components/icons";
-import { HelpBanner } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import { listMembers, ownerEmails } from "@/lib/members";
 import { addMember, updateMemberAccess, setMemberStatus, removeMember } from "@/lib/member-actions";
 import { GRANTABLE_ITEMS } from "@/lib/access";
@@ -65,20 +65,8 @@ export default async function MembersPage({
   const owners = ownerEmails();
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <PageHeader
-        title="Members"
-        subtitle="Invite teammates by email and scope what they can see. They sign in with the same email (Google) — only approved members get in."
-      />
-
-      <HelpBanner>
-        <p>• Add a member by email and tick the sections they should access.</p>
-        <p>• They sign in via Google with that email; un-approved emails are blocked.</p>
-        <p>• Edit access anytime, suspend to revoke without deleting, or remove entirely.</p>
-        <p>• Owners (set via AUTHORIZED_EMAILS) always have full access and aren&apos;t listed here.</p>
-      </HelpBanner>
-
-      <hr className="hairline my-6" />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Members" />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
@@ -92,6 +80,22 @@ export default async function MembersPage({
         </div>
       )}
 
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Members">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Invite teammates by email and scope what they can see. They sign in with the same email (Google) — only approved members get in.
+              </p>
+              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>Add a member by email and tick the sections they should access.</li>
+                <li>They sign in via Google with that email; un-approved emails are blocked.</li>
+                <li>Edit access anytime, suspend to revoke without deleting, or remove entirely.</li>
+                <li>Owners (set via AUTHORIZED_EMAILS) always have full access and aren&apos;t listed here.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
       {owners.length > 0 && (
         <p className="mt-4 text-xs text-gray-500">
           Owners (full access): {owners.join(", ")}
@@ -177,6 +181,8 @@ export default async function MembersPage({
           })}
         </div>
       )}
+        </Console>
+      </div>
     </div>
   );
 }

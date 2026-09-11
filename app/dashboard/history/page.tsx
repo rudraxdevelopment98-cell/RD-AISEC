@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -134,12 +135,19 @@ export default async function HistoryPage() {
   const empty = scans.length === 0 && jobs.length === 0;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Monitoring"
-        subtitle="Activity across every engagement — cloud reconnaissance scans and Runner jobs executed on machines you control, over time."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Monitoring" />
 
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Monitoring">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Activity across every engagement — cloud reconnaissance scans and Runner jobs executed on machines you control, over time.
+              </p>
+            </RailPanel>
+          }
+        >
       {empty ? (
         <div className="card mt-6 text-center">
           <p className="text-gray-400">
@@ -260,6 +268,8 @@ export default async function HistoryPage() {
           </section>
         </>
       )}
+        </Console>
+      </div>
     </div>
   );
 }

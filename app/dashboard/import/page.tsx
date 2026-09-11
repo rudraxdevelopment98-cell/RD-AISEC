@@ -2,8 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { importBurpFindings } from "@/lib/burp-actions";
-import { HelpBanner } from "@/components/hint";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -18,18 +18,8 @@ export default async function ImportPage({
   });
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="Import findings"
-        subtitle="Bring results from tools you run by hand into an engagement. Burp Suite manual testing → export the issues as XML and import them here; they join the same findings list and report as your automated scans. No AI involved."
-      />
-
-      <HelpBanner>
-        <p>• In Burp: Target → Site map → right-click → Report issues (XML).</p>
-        <p>• Pick the engagement, upload the XML, and the issues become findings (tagged to ATT&amp;CK/OWASP).</p>
-      </HelpBanner>
-
-      <hr className="hairline my-6" />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Import findings" />
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
@@ -38,6 +28,20 @@ export default async function ImportPage({
         </div>
       )}
 
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Import findings">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Bring results from tools you run by hand into an engagement — they join the same findings list and report as your automated scans. No AI involved.
+              </p>
+              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>In Burp: Target → Site map → right-click → Report issues (XML).</li>
+                <li>Pick the engagement, upload the XML, and the issues become findings (tagged to ATT&amp;CK/OWASP).</li>
+              </ul>
+            </RailPanel>
+          }
+        >
       {engagements.length === 0 ? (
         <div className="card mt-6 text-center">
           <p className="text-gray-400">
@@ -107,6 +111,8 @@ export default async function ImportPage({
           have scanner issues to export — this is for Burp Pro issue exports, or
           any tool that produces Burp-format issues XML.
         </p>
+      </div>
+        </Console>
       </div>
     </div>
   );

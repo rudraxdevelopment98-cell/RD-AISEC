@@ -12,6 +12,7 @@ import {
 import { splitTargets, intervalMs } from "@/lib/scheduled-core";
 import { MAX_BULK_TARGETS } from "@/lib/scanner";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +38,8 @@ export default async function ScanPage({
   const engOptions = engagements.map((e) => ({ id: e.id, name: e.name }));
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="Auto Scan"
-        subtitle="Passive web posture check (HTTPS, security headers, cookie hardening) — no machine needed. Run one now, or schedule it to repeat and track posture over time. Every gap becomes a finding on the engagement."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Auto Scan" />
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
@@ -50,6 +48,16 @@ export default async function ScanPage({
         </div>
       )}
 
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Auto Scan">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Passive web posture check (HTTPS, security headers, cookie hardening) — no machine needed. Run one now, or schedule it to repeat; every gap becomes a finding on the engagement.
+              </p>
+            </RailPanel>
+          }
+        >
       <Scanner engagements={engOptions} defaultTarget={searchParams.target ?? ""} />
 
       <hr className="hairline my-6" />
@@ -183,6 +191,8 @@ export default async function ScanPage({
           })}
         </div>
       )}
+        </Console>
+      </div>
     </div>
   );
 }

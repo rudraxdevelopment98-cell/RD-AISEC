@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,19 @@ function Step({
 
 export default function GuidePage() {
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="How it works — full guide"
-        subtitle="End-to-end: from a bug-bounty program to a confirmed, reported bug. Follow the worked example, then do it on your own engaged program."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="How it works — full guide" />
 
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="How it works">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                End-to-end: from a bug-bounty program to a confirmed, reported bug. Follow the worked example, then do it on your own engaged program.
+              </p>
+            </RailPanel>
+          }
+        >
       {/* Worked example banner */}
       <div className="mt-5 rounded-xl border border-brand/30 bg-brand/5 p-4">
         <p className="text-sm font-semibold text-brand-glow">🧪 Worked example</p>
@@ -167,6 +175,8 @@ export default function GuidePage() {
       <p className="mt-8 text-center text-xs text-gray-600">
         AI Security Operating System — Founded, Architected &amp; Led by — Kuldeep J
       </p>
+        </Console>
+      </div>
     </div>
   );
 }

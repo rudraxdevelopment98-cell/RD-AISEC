@@ -4,6 +4,7 @@ import { RESOURCE_TYPES } from "@/lib/resource-constants";
 import { ResourceList, type ResourceItem } from "@/components/resource-list";
 import { DriveProvider, ConnectDriveButton } from "@/components/drive";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,19 @@ export default async function LibraryPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Resource Vault"
-        subtitle="Your catalog of cybersecurity resources — links, books, exploits, tools, and cheatsheets. Big files stay offline on your drive; the vault stores the index and a drive location, so you find it here and open it from your external drive."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Resource Vault" />
 
-      <hr className="hairline my-6" />
-
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Resource Vault">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Your catalog of cybersecurity resources — links, books, exploits, tools, and cheatsheets. Big files stay offline on your drive; the vault stores the index and a drive location, so you find it here and open it from your external drive.
+              </p>
+            </RailPanel>
+          }
+        >
       {/* Add resource */}
       <details className="card mt-6">
         <summary className="cursor-pointer font-semibold text-brand">
@@ -110,6 +116,8 @@ export default async function LibraryPage() {
         </div>
         <ResourceList resources={resources} />
       </DriveProvider>
+        </Console>
+      </div>
     </div>
   );
 }

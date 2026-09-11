@@ -10,7 +10,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { cancelJob, cancelQueuedJobs, prioritizeJob, deprioritizeJob } from "@/lib/runners";
 import { JobsTable } from "@/components/jobs-table";
 import { Tabs, TabPanel } from "@/components/tabs";
-import { HelpBanner, Hint } from "@/components/hint";
+import { Hint } from "@/components/hint";
+import { Console, RailPanel } from "@/components/console";
 import { RUNNER_ONLINE_WINDOW_MS, JOB_STALE_MS } from "@/lib/runner-constants";
 
 export const dynamic = "force-dynamic";
@@ -134,20 +135,11 @@ export default async function JobsPage({
   const queuedCount = active.filter((j) => j.status === "queued").length;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-7xl">
       {/* Only auto-refresh while something is live — so filtering History isn't reset. */}
       {active.length > 0 && <AutoRefresh seconds={5} />}
 
-      <PageHeader
-        title="Jobs"
-        subtitle="Queue tools to run on a connected machine, watch them live, and review completed runs with their results."
-      />
-
-      <HelpBanner>
-        <p>• Pick an engagement, machine, tool and preset, then a target (or pick one from the engagement&apos;s scope).</p>
-        <p>• Use <b>Run a custom command</b> for anything not in the tool list.</p>
-        <p>• Active jobs show live; completed ones go to History — expand a row to import findings, retry, or see output.</p>
-      </HelpBanner>
+      <PageHeader title="Jobs" />
 
       {searchParams.error && (
         <div className="mt-4 rounded-lg border border-sev-crit/40 bg-sev-crit/10 px-4 py-3 text-sm text-sev-crit">
@@ -155,6 +147,23 @@ export default async function JobsPage({
           {searchParams.error}
         </div>
       )}
+
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Jobs">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                Queue tools to run on a connected machine, watch them live, and review completed runs with their results.
+              </p>
+              <hr className="hairline my-3" />
+              <ul className="space-y-2 text-[11px] leading-relaxed text-gray-500">
+                <li>Pick an engagement, machine, tool and preset, then a target (or pick one from the engagement&apos;s scope).</li>
+                <li>Use <b className="text-gray-300">Run a custom command</b> for anything not in the tool list.</li>
+                <li>Active jobs show live; completed ones go to History — expand a row to import findings, retry, or see output.</li>
+              </ul>
+            </RailPanel>
+          }
+        >
 
       <hr className="hairline my-6" />
 
@@ -386,6 +395,8 @@ export default async function JobsPage({
       )}
           </TabPanel>
         </Tabs>
+      </div>
+        </Console>
       </div>
     </div>
   );

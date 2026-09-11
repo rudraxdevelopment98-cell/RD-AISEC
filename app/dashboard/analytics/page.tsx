@@ -6,6 +6,7 @@ import { SEVERITY_ORDER } from "@/lib/report";
 import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { backfillFrameworkTags } from "@/lib/finding-backfill";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -153,13 +154,20 @@ export default async function AnalyticsPage({
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Analytics"
-        subtitle="A live overview across every engagement."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Analytics" />
 
-      {/* Stat strip */}
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Analytics">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                A live overview of findings and engagements across every assessment.
+              </p>
+            </RailPanel>
+          }
+        >
+          {/* Stat strip */}
       <section className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="card">
@@ -313,6 +321,8 @@ export default async function AnalyticsPage({
           ))}
         </div>
       </section>
+        </Console>
+      </div>
     </div>
   );
 }

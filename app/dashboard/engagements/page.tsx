@@ -4,6 +4,7 @@ import { listEngagements, createEngagement } from "@/lib/engagements";
 import { ENGAGEMENT_TYPES } from "@/lib/engagement-constants";
 import { platformLabel } from "@/lib/bugbounty-core";
 import { EngagementsManager } from "@/components/engagements-manager";
+import { Console, RailPanel } from "@/components/console";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +19,25 @@ export default async function EngagementsPage({
     : undefined;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Engagements"
-        subtitle="The shared engine behind every service line — bug bounty, pentest, forensics and consulting. Scope, findings, exploitation and reports for each case in one place."
-      />
+    <div className="mx-auto max-w-7xl">
+      <PageHeader title="Engagements" />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
           ✓ {searchParams.ok}
         </div>
       )}
+
+      <div className="mt-4">
+        <Console
+          rail={
+            <RailPanel title="Engagements">
+              <p className="text-[13px] leading-relaxed text-gray-300">
+                The shared engine behind every service line — bug bounty, pentest, forensics and consulting. Scope, findings, exploitation and reports for each case in one place.
+              </p>
+            </RailPanel>
+          }
+        >
 
       <hr className="hairline my-6" />
 
@@ -105,6 +114,8 @@ export default async function EngagementsPage({
               : "Manual",
           }))}
         />
+      </div>
+        </Console>
       </div>
     </div>
   );
