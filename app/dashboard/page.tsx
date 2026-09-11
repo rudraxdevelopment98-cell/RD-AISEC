@@ -3,8 +3,8 @@ import { auth } from "@/auth";
 import { Icon } from "@/components/icons";
 import { Counter } from "@/components/counter";
 import { SeverityBadge } from "@/components/badges";
-import { NeuralBg } from "@/components/neural-bg";
 import { PageHeader } from "@/components/page-header";
+import { Console, RailPanel } from "@/components/console";
 import { PROGRESS } from "@/data/progress";
 import { prisma } from "@/lib/db";
 import { SEVERITY_ORDER } from "@/lib/report";
@@ -328,235 +328,210 @@ export default async function DashboardOverview({
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-7xl">
       <PageHeader title="Dashboard" />
       {searchParams?.denied && (
-        <div className="rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
+        <div className="mt-4 rounded-lg border border-sev-med/40 bg-sev-med/10 px-4 py-3 text-sm text-sev-med">
           You don&apos;t have access to that section. Ask an owner to grant it on the
           Members page.
         </div>
       )}
-      {/* Galaxy hero — luxe: eyebrow, serif display title, gold hairline. */}
-      <section className="galaxy relative overflow-hidden rounded-2xl border border-gold/15 p-6 sm:p-9">
-        <div className="galaxy-stars" aria-hidden />
-        <div className="scanline" aria-hidden />
-        {/* Gold hairline along the very top edge — the jeweller's line. */}
-        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" aria-hidden />
-        <svg
-          className="wave-svg pointer-events-none absolute inset-x-0 bottom-0 h-16"
-          viewBox="0 0 1200 120"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <path
-            d="M0,55 C200,95 400,15 600,55 C800,95 1000,20 1200,55 L1200,120 L0,120 Z"
-            fill="rgba(52,211,153,0.06)"
-          />
-        </svg>
-        <div className="relative flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <span className="eyebrow">
-              <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-brand" /> Authorized session
-            </span>
-            <h1 className="display mt-4 text-4xl leading-[1.05] text-white sm:text-5xl">
-              Welcome back, <span className="text-brand-gradient">{firstName}</span>
-            </h1>
-            <p className="mt-3 max-w-md text-[15px] text-gray-400">
-              Your security operations, live — across testing, scanning, and reporting.
-            </p>
-            <hr className="hairline my-5 max-w-[18rem]" />
-            <div className="flex flex-wrap gap-2">
-              <Link href="/dashboard/engagements" className="btn-primary">
-                <Icon name="briefcase" className="h-4 w-4" /> New engagement
-              </Link>
-              <Link href="/dashboard/network" className="btn-ghost">
-                <Icon name="globe" className="h-4 w-4" /> Scan a network
-              </Link>
-            </div>
-          </div>
 
-          {/* Neural orb emblem — gold rim for the premium touch. */}
-          <div className="float-slow relative hidden h-32 w-32 shrink-0 overflow-hidden rounded-full border border-gold/25 bg-surface/40 shadow-[0_0_40px_rgba(214,183,122,0.18)] sm:block">
-            <NeuralBg />
-          </div>
-        </div>
-      </section>
-
-      {engagementCount === 0 && (
-        <section className="card fade-up border-brand/30">
-          <h2 className="font-semibold text-brand">Get started</h2>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-300">
-            <li>Create an <Link href="/dashboard/engagements" className="text-brand hover:underline">engagement</Link> and mark it authorized.</li>
-            <li>Set up a <Link href="/dashboard/runners" className="text-brand hover:underline">runner</Link>, or run a passive <Link href="/dashboard/scan" className="text-brand hover:underline">Auto Scan</Link>.</li>
-            <li>Import results to findings → generate the report.</li>
-          </ol>
-        </section>
-      )}
-
-      {/* Metric tiles — uppercase label, large mono figure (modern stat-tile). */}
-      <section className="stagger-in grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {metrics.map((m, i) => (
-          <Link
-            key={m.label}
-            href={m.href}
-            className="card-hover fade-up group"
-            style={{ animationDelay: `${i * 70}ms` }}
-          >
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{m.label}</p>
-              <Icon name={m.icon} className="h-4 w-4 text-gray-600 transition-colors group-hover:text-brand" />
-            </div>
-            <p className={`mt-2 font-mono text-3xl font-semibold tabular-nums tracking-tight ${m.accent}`}>
-              <Counter value={m.value} />
-              {m.suffix && <span className="text-lg text-gray-500">{m.suffix}</span>}
-            </p>
-          </Link>
-        ))}
-      </section>
-
-      {/* Engine risk posture */}
-      <EngineWidget data={engineWidget} />
-
-      {/* Pipeline */}
-      <section className="card fade-up">
-        <div className="flex items-center justify-between">
-          <h2 className="section-title">Workflow</h2>
-          <span className="text-xs text-gray-500">scan → findings → report</span>
-        </div>
-        <div className="mt-2">
-          <Pipeline scans={jobCount + scanCount} findings={findings.length} reports={engagementCount} />
-        </div>
-      </section>
-
-      {/* Build progress — where the platform is, at a glance */}
-      <section className="card fade-up">
-        <div className="flex items-center justify-between">
-          <h2 className="section-title">Build progress</h2>
-          <Link href="/dashboard/progress" className="text-xs text-brand hover:underline">
-            Full breakdown →
-          </Link>
-        </div>
-        <div className="mt-2 flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-border">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${progressOverall}%` }} />
-          </div>
-          <span className="shrink-0 text-sm font-semibold text-brand">{progressOverall}%</span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-          {PROGRESS.map((a) => {
-            const pct = Math.round((a.done.length / (a.done.length + a.todo.length)) * 100);
-            return (
-              <div key={a.area} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate text-gray-400">{a.area}</span>
-                <span className={pct >= 70 ? "text-brand" : pct >= 40 ? "text-sev-med" : "text-gray-500"}>{pct}%</span>
+      <div className="mt-4">
+        <Console
+          rail={
+            <>
+              {/* Session — greeting, status, primary actions. */}
+              <div className="card-lux">
+                <span className="eyebrow">
+                  <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-brand" /> Authorized session
+                </span>
+                <h1 className="display mt-3 text-2xl leading-tight text-white">
+                  Welcome back,<br />
+                  <span className="text-brand-gradient">{firstName}</span>
+                </h1>
+                <p className="mt-2 text-[13px] leading-relaxed text-gray-400">
+                  Your operations, live — testing, scanning, reporting.
+                </p>
+                <hr className="hairline my-4" />
+                <div className="flex flex-col gap-2">
+                  <Link href="/dashboard/engagements" className="btn-primary w-full">
+                    <Icon name="briefcase" className="h-4 w-4" /> New engagement
+                  </Link>
+                  <Link href="/dashboard/network" className="btn-ghost w-full">
+                    <Icon name="globe" className="h-4 w-4" /> Scan a network
+                  </Link>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
 
-      {/* Charts: severity donut + activity */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="card fade-up">
-          <h2 className="section-title">Open findings by severity</h2>
-          <div className="mt-2 flex items-center gap-5">
-            <SeverityDonut data={bySeverity} total={openFindings} />
-            <ul className="space-y-1.5 text-sm">
-              {bySeverity.map((b) => (
-                <li key={b.key} className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: SEV_HEX[b.key] }} />
-                  <span className="w-16 capitalize text-gray-400">{b.key}</span>
-                  <span className="text-gray-200">{b.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="card fade-up">
-          <div className="flex items-center justify-between">
-            <h2 className="section-title">Activity — 14 days</h2>
-            <span className="text-xs text-gray-500">{activity14} scans + jobs</span>
-          </div>
-          <div className="mt-4">
-            <ActivitySpark buckets={buckets} />
-          </div>
-          <Link href="/dashboard/history" className="mt-2 inline-block text-xs text-gray-500 hover:text-brand">
-            Monitoring →
-          </Link>
-        </div>
-      </section>
-
-      {/* Recent findings + jobs */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="card fade-up">
-          <h2 className="section-title">Recent findings</h2>
-          {recentFindings.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">No findings yet.</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {recentFindings.map((f) => (
-                <div key={f.id} className="flex items-center justify-between gap-3 border-b border-surface-border/60 pb-2 last:border-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-gray-200">{f.title}</p>
-                    <p className="truncate text-xs text-gray-500">{f.engagement?.name ?? "—"}</p>
-                  </div>
-                  <SeverityBadge value={f.severity} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card fade-up">
-          <div className="flex items-center justify-between">
-            <h2 className="section-title">Recent jobs</h2>
-            <Link href="/dashboard/history" className="text-xs text-gray-500 hover:text-brand">Monitoring →</Link>
-          </div>
-          {recentJobs.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">No jobs yet.</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {recentJobs.map((j) => (
-                <div key={j.id} className="flex items-center justify-between gap-3 border-b border-surface-border/60 pb-2 text-sm last:border-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${JOB_DOT[j.status] ?? "bg-gray-500"}`} />
-                    <span className="truncate font-mono text-gray-200">
-                      {j.tool} <span className="text-gray-400">{j.target}</span>
+              {/* Key figures — the numbers that matter, as a compact ledger. */}
+              <RailPanel title="At a glance">
+                {metrics.map((m) => (
+                  <Link key={m.label} href={m.href} className="rail-row group">
+                    <span className="rail-label transition-colors group-hover:text-gray-200">{m.label}</span>
+                    <span className="stat-gold text-xl leading-none">
+                      <Counter value={m.value} />
+                      {m.suffix && <span className="text-sm text-gray-500">{m.suffix}</span>}
                     </span>
-                  </div>
-                  <span className="shrink-0 text-xs capitalize text-gray-500">{j.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+                  </Link>
+                ))}
+              </RailPanel>
 
-      {/* Launchpad — everything, grouped */}
-      <section className="space-y-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Go to
-        </h2>
-        {launch.map((group) => (
-          <div key={group.section}>
-            <p className="mb-2 text-xs font-semibold text-gray-400">{group.section}</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {group.items.map((j) => (
-                <Link key={j.href} href={j.href} className="card-hover flex items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
-                    <Icon name={j.icon} className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-white">{j.label}</p>
-                    <p className="truncate text-xs text-gray-500">{j.desc}</p>
+              {/* Build progress. */}
+              <RailPanel title="Build progress">
+                <div className="flex items-center gap-3">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-border">
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${progressOverall}%` }} />
                   </div>
+                  <span className="stat-gold shrink-0 text-base">{progressOverall}%</span>
+                </div>
+                <div className="mt-3 space-y-1">
+                  {PROGRESS.map((a) => {
+                    const pct = Math.round((a.done.length / (a.done.length + a.todo.length)) * 100);
+                    return (
+                      <div key={a.area} className="flex items-center justify-between gap-2 text-[11px]">
+                        <span className="truncate text-gray-400">{a.area}</span>
+                        <span className={pct >= 70 ? "text-brand" : pct >= 40 ? "text-sev-med" : "text-gray-500"}>{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Link href="/dashboard/progress" className="mt-3 inline-block text-xs text-brand hover:underline">
+                  Full breakdown →
                 </Link>
-              ))}
+              </RailPanel>
+            </>
+          }
+        >
+          {/* MAIN COLUMN — the work. */}
+          {engagementCount === 0 && (
+            <section className="card-lux fade-up">
+              <p className="eyebrow">First steps</p>
+              <h2 className="section-title mt-2">Get started</h2>
+              <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-gray-300">
+                <li>Create an <Link href="/dashboard/engagements" className="text-brand hover:underline">engagement</Link> and mark it authorized.</li>
+                <li>Set up a <Link href="/dashboard/runners" className="text-brand hover:underline">runner</Link>, or run a passive <Link href="/dashboard/scan" className="text-brand hover:underline">Auto Scan</Link>.</li>
+                <li>Import results to findings → generate the report.</li>
+              </ol>
+            </section>
+          )}
+
+          {/* Engine risk posture — the headline of the workspace. */}
+          <EngineWidget data={engineWidget} />
+
+          {/* Workflow */}
+          <section className="card fade-up">
+            <div className="flex items-center justify-between">
+              <h2 className="section-title">Workflow</h2>
+              <span className="text-xs text-gray-500">scan → findings → report</span>
             </div>
-          </div>
-        ))}
-      </section>
+            <div className="mt-2">
+              <Pipeline scans={jobCount + scanCount} findings={findings.length} reports={engagementCount} />
+            </div>
+          </section>
+
+          {/* Charts: severity donut + activity */}
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="card fade-up">
+              <h2 className="section-title">Open findings by severity</h2>
+              <div className="mt-2 flex items-center gap-5">
+                <SeverityDonut data={bySeverity} total={openFindings} />
+                <ul className="space-y-1.5 text-sm">
+                  {bySeverity.map((b) => (
+                    <li key={b.key} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: SEV_HEX[b.key] }} />
+                      <span className="w-16 capitalize text-gray-400">{b.key}</span>
+                      <span className="text-gray-200">{b.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="card fade-up">
+              <div className="flex items-center justify-between">
+                <h2 className="section-title">Activity — 14 days</h2>
+                <span className="text-xs text-gray-500">{activity14} scans + jobs</span>
+              </div>
+              <div className="mt-4">
+                <ActivitySpark buckets={buckets} />
+              </div>
+              <Link href="/dashboard/history" className="mt-2 inline-block text-xs text-gray-500 hover:text-brand">
+                Monitoring →
+              </Link>
+            </div>
+          </section>
+
+          {/* Recent findings + jobs */}
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="card fade-up">
+              <h2 className="section-title">Recent findings</h2>
+              {recentFindings.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-500">No findings yet.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {recentFindings.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between gap-3 border-b border-surface-border/60 pb-2 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-gray-200">{f.title}</p>
+                        <p className="truncate text-xs text-gray-500">{f.engagement?.name ?? "—"}</p>
+                      </div>
+                      <SeverityBadge value={f.severity} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card fade-up">
+              <div className="flex items-center justify-between">
+                <h2 className="section-title">Recent jobs</h2>
+                <Link href="/dashboard/history" className="text-xs text-gray-500 hover:text-brand">Monitoring →</Link>
+              </div>
+              {recentJobs.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-500">No jobs yet.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {recentJobs.map((j) => (
+                    <div key={j.id} className="flex items-center justify-between gap-3 border-b border-surface-border/60 pb-2 text-sm last:border-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${JOB_DOT[j.status] ?? "bg-gray-500"}`} />
+                        <span className="truncate font-mono text-gray-200">
+                          {j.tool} <span className="text-gray-400">{j.target}</span>
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-xs capitalize text-gray-500">{j.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Launchpad — everything, grouped */}
+          <section className="space-y-5">
+            <h2 className="eyebrow">Go to</h2>
+            {launch.map((group) => (
+              <div key={group.section}>
+                <p className="mb-2 text-xs font-semibold text-gray-400">{group.section}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.items.map((j) => (
+                    <Link key={j.href} href={j.href} className="card-hover flex items-center gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-surface-border text-brand">
+                        <Icon name={j.icon} className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white">{j.label}</p>
+                        <p className="truncate text-xs text-gray-500">{j.desc}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        </Console>
+      </div>
     </div>
   );
 }

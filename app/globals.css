@@ -256,6 +256,32 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 /* Numbers align in columns (stats, tables, counters). */
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* ── Console layout ──────────────────────────────────────────────────────────
+   The app's arrangement primitive: a slim left context/status rail beside a wide
+   main work column. Stacks to one column below lg. The rail sticks under the page
+   header on wide screens so context stays in view while the main column scrolls. */
+.console-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1024px) {
+  .console-grid {
+    grid-template-columns: 19rem minmax(0, 1fr);
+    align-items: start;
+  }
+  .console-rail {
+    position: sticky;
+    top: calc(var(--app-header-h) + 0.75rem);
+  }
+}
+/* A row in the rail: muted label on the left, value (often a gold numeral) right. */
+.rail-row {
+  @apply flex items-baseline justify-between gap-3 py-1.5;
+}
+.rail-row + .rail-row { border-top: 1px solid rgb(var(--surface-border) / 0.6); }
+.rail-label { @apply text-xs text-gray-400; }
+
 @layer components {
   /* ── Liquid glass surface ────────────────────────────────────────────────
      A frosted, translucent panel: heavy backdrop blur + saturation lift refracts
