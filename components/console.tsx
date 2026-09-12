@@ -28,7 +28,7 @@ export function RailPanel({
   className?: string;
 }) {
   return (
-    <div className={`card ${className}`}>
+    <div className={`rail-panel ${className}`}>
       {title && <p className="eyebrow mb-3">{title}</p>}
       {children}
     </div>

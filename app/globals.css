@@ -287,6 +287,13 @@ h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
     top: calc(var(--app-header-h) + 1rem);
   }
 }
+/* Rail panel — a LIGHTER surface than a full card (softer border, quieter fill),
+   so a sparse context rail reads as a calm aside, not an empty box. */
+.rail-panel {
+  @apply rounded-2xl p-5;
+  background: rgb(var(--surface-card) / 0.45);
+  border: 1px solid rgb(var(--surface-border) / 0.35);
+}
 /* A row in the rail: muted label on the left, value (often a gold numeral) right. */
 .rail-row {
   @apply flex items-baseline justify-between gap-3 py-2;
