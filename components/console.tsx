@@ -11,8 +11,8 @@ import type { ReactNode } from "react";
 export function Console({ rail, children }: { rail: ReactNode; children: ReactNode }) {
   return (
     <div className="console-grid">
-      <aside className="console-rail space-y-4">{rail}</aside>
-      <div className="min-w-0 space-y-6">{children}</div>
+      <aside className="console-rail space-y-5">{rail}</aside>
+      <div className="min-w-0 space-y-8">{children}</div>
     </div>
   );
 }

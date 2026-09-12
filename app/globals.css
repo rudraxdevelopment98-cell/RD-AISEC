@@ -71,9 +71,13 @@ html:has(.app-dashboard) {
   --white: 255 255 255;
   --black: 0 0 0;
 
-  --surface: 6 9 13;
-  --surface-card: 15 20 27;
-  --surface-border: 32 41 54;
+  /* Deep obsidian. The card sits only a hair above the canvas so panels read as
+     calm regions of one surface, not a grid of bright boxes. */
+  --surface: 8 10 14;
+  --surface-card: 14 17 23;
+  --surface-border: 32 40 52;
+  /* A slightly raised inner surface for nested elements (rows, wells). */
+  --surface-2: 18 22 29;
 
   --brand: 53 226 164;
   --brand-dark: 16 185 129;
@@ -99,9 +103,10 @@ html:has(.app-dashboard) {
   --sev-ok: 53 226 164;
   --sev-info: 148 163 184;
 
-  /* Modern elevation — a precise, flat-panel shadow (not heavy glass). */
-  --elev-1: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px -1px rgb(0 0 0 / 0.5), 0 12px 32px -20px rgb(0 0 0 / 0.6);
-  --elev-2: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6), 0 2px 6px -3px rgb(0 0 0 / 0.5);
+  /* Soft, premium elevation — a diffuse shadow that lifts a panel off the canvas
+     without a hard edge or a bright top rim (the rim read as "chip", not "panel"). */
+  --elev-1: 0 1px 2px -1px rgb(0 0 0 / 0.4), 0 10px 30px -18px rgb(0 0 0 / 0.55);
+  --elev-2: 0 2px 4px -2px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.6);
 
   --gray-50: 249 250 251;
   --gray-100: 243 244 246;
@@ -237,10 +242,16 @@ body {
   font-family: var(--font-sans), "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "ss01";
   letter-spacing: -0.006em;
+  line-height: 1.6;
 }
 
 /* Headings read tighter + crisper — a premium editorial feel. */
-h1, h2, h3 { letter-spacing: -0.02em; }
+h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
+
+/* A calm, consistent card header: the serif section title with quiet spacing
+   beneath, so every panel opens the same considered way. */
+.card > .section-title:first-child,
+.card > h2:first-child { margin-bottom: 0.75rem; }
 
 /* ── Luxe display type — Fraunces, a classic serif reserved for hero titles,
    section leads and headline numerals. The soft-light optical axis + tight
@@ -262,25 +273,26 @@ h1, h2, h3 { letter-spacing: -0.02em; }
    header on wide screens so context stays in view while the main column scrolls. */
 .console-grid {
   display: grid;
-  gap: 1.5rem;
+  gap: 2rem;
   grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 1024px) {
   .console-grid {
-    grid-template-columns: 19rem minmax(0, 1fr);
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 2.5rem;
     align-items: start;
   }
   .console-rail {
     position: sticky;
-    top: calc(var(--app-header-h) + 0.75rem);
+    top: calc(var(--app-header-h) + 1rem);
   }
 }
 /* A row in the rail: muted label on the left, value (often a gold numeral) right. */
 .rail-row {
-  @apply flex items-baseline justify-between gap-3 py-1.5;
+  @apply flex items-baseline justify-between gap-3 py-2;
 }
-.rail-row + .rail-row { border-top: 1px solid rgb(var(--surface-border) / 0.6); }
-.rail-label { @apply text-xs text-gray-400; }
+.rail-row + .rail-row { border-top: 1px solid rgb(var(--surface-border) / 0.5); }
+.rail-label { @apply text-[13px] text-gray-400; }
 
 @layer components {
   /* ── Liquid glass surface ────────────────────────────────────────────────
@@ -292,35 +304,25 @@ h1, h2, h3 { letter-spacing: -0.02em; }
      flat-elevation shadow. Reads sharper and more contemporary than the old
      frosted-gradient card, and repaints cheaply (no backdrop-filter). */
   .card {
-    @apply relative rounded-2xl p-5;
-    /* A subtle top-lit gradient over the solid surface — reads as light catching
-       the panel, richer than a flat fill but still cheap to paint. */
-    background:
-      linear-gradient(180deg, rgb(var(--brand-ambient) / 0.028), transparent 30%),
-      rgb(var(--surface-card));
-    border: 1px solid rgb(var(--surface-border));
+    @apply relative rounded-2xl p-6;
+    /* Flat, calm surface a hair above the canvas — no bright top rim (that read as
+       a "chip" and made the page look boxy). A soft diffuse shadow does the lift. */
+    background: rgb(var(--surface-card));
+    border: 1px solid rgb(var(--surface-border) / 0.55);
     box-shadow: var(--elev-1);
   }
-  /* A hairline top highlight so every card catches a sliver of light. */
-  .card::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 1px;
-    border-radius: inherit;
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.10) 25%, rgb(255 255 255 / 0.10) 75%, transparent);
-    pointer-events: none;
-  }
+  /* No top-highlight rim by default — kept only for the .card-lux hero panels,
+     where a faint gold line is intentional (defined in the luxe-accents block). */
+  .card::before { content: none; }
   .card-hover {
-    @apply card transition-all duration-300;
+    @apply card transition-all duration-200;
   }
   .card-hover:hover {
-    transform: translateY(-3px);
-    border-color: rgb(var(--brand) / 0.55);
+    transform: translateY(-2px);
+    border-color: rgb(var(--brand) / 0.35);
     box-shadow:
       var(--elev-2),
-      0 0 0 1px rgb(var(--brand) / 0.18),
-      0 18px 48px -22px rgb(var(--brand-ambient) / 0.4);
+      0 14px 40px -24px rgb(var(--brand-ambient) / 0.35);
   }
   /* Opt-in ambient emerald glow behind a hero/feature card. */
   .card-glow {
@@ -505,7 +507,13 @@ h1, h2, h3 { letter-spacing: -0.02em; }
       inset 0 0 0 1px rgb(var(--gold) / 0.04);
   }
   .card-lux::before {
-    background: linear-gradient(90deg, transparent, rgb(var(--gold) / 0.55) 25%, rgb(var(--gold) / 0.55) 75%, transparent);
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgb(var(--gold) / 0.5) 25%, rgb(var(--gold) / 0.5) 75%, transparent);
   }
 
   /* Champagne CTA — a rarer, more ceremonial action than the emerald primary
