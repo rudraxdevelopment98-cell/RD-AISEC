@@ -160,6 +160,12 @@ export async function submitHackerOneDraft(formData: FormData) {
   if (!finding!.reviewed) {
     redirect(`${back}?error=${encodeURIComponent("Sign off (review) this finding before submitting it.")}`);
   }
+  // Proof gate: in 2026 unproven reports are auto-rejected as duplicate/informative
+  // and hurt your reputation. Only submit findings proven by a validator (or your
+  // manual confirm). See docs/ENGINE-EARNING-RESEARCH.md.
+  if (!finding!.confirmed) {
+    redirect(`${back}?error=${encodeURIComponent("Prove it first — run validation (or confirm manually). Unproven findings get auto-rejected on the platform.")}`);
+  }
 
   const loaded = await loadCreds(email);
   if (!loaded) redirect(`${back}?error=${encodeURIComponent("HackerOne credentials are missing.")}`);

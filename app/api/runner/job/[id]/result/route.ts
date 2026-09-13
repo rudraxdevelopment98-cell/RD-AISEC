@@ -11,6 +11,7 @@ import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, queueParamDiscovery, RECON_TOOLS } from "@/lib/bug-pipeline";
+import { parseValidationProof, VALIDATE_PREFIX } from "@/lib/engine/validators";
 import { extractEndpoints, jsUrls } from "@/lib/recon-extract";
 
 // Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
@@ -70,6 +71,21 @@ export async function POST(
   });
   if (claimed.count !== 1) {
     return NextResponse.json({ ok: true, alreadyFinished: true });
+  }
+
+  // Exploit-validation ("prove it") jobs: parse the per-class proof and, ONLY if
+  // proven, mark the finding confirmed + record the evidence. Unproven findings
+  // stay unconfirmed (never surfaced as reportable). Not a normal import path.
+  if ((job.queuedBy ?? "").startsWith(VALIDATE_PREFIX)) {
+    const findingId = job.queuedBy!.slice(VALIDATE_PREFIX.length);
+    const verdict = parseValidationProof(job.tool, output);
+    if (verdict.proven && findingId) {
+      await prisma.finding.update({
+        where: { id: findingId },
+        data: { confirmed: true, proof: `${verdict.method}: ${verdict.evidence}`.slice(0, 300) },
+      }).catch(() => {});
+    }
+    return NextResponse.json({ ok: true, validated: verdict.proven, method: verdict.method });
   }
 
   // Bug-bounty automation (no human in the loop). Pipeline-staged jobs

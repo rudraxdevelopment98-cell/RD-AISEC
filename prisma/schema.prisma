@@ -400,6 +400,10 @@ model Finding {
   owasp          String     @default("")
   // Set when automated validation proved the issue is exploitable (glows in UI).
   confirmed      Boolean    @default(false)
+  // Proof of exploit (P1 validators): how it was proven + a short evidence line
+  // (e.g. "headless-execution: [V] payload executed"). "" = not yet proven. The
+  // report/submission gate promotes only proven findings.
+  proof          String     @default("")
   // Human-review sign-off: high-impact findings (RCE/auth/IDOR/SSRF/ATO/payment/
   // critical) must be approved by an owner before they're published/submitted.
   reviewed       Boolean    @default(false)
