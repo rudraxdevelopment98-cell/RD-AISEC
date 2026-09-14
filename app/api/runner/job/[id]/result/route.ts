@@ -12,6 +12,7 @@ import { dedupFindings } from "@/lib/dedup-core";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, queueParamDiscovery, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { parseValidationProof, VALIDATE_PREFIX } from "@/lib/engine/validators";
+import { autoValidateFindings } from "@/lib/engine/auto-validate";
 import { extractEndpoints, jsUrls } from "@/lib/recon-extract";
 
 // Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
@@ -188,6 +189,13 @@ export async function POST(
           if (RECON_TOOLS.has(job.tool) && job.runnerId && !pipelineJob) {
             await queueExploitJobs(job.engagementId, job.runnerId, fresh, job.queuedBy);
           }
+
+          // Auto-PROVE: on an authorized engagement, queue per-class proof jobs
+          // for the new validatable findings so proven+reportable comes out the
+          // end with NO human in the loop — the whole point of the autonomous
+          // pipeline. (finding-ingest.ts does this for the button paths; the
+          // runner result route reimplements ingest inline, so wire it here too.)
+          await autoValidateFindings(job.engagementId).catch(() => {});
         }
         // Recompute risk across the whole engagement so attack chains (e.g. this
         // new finding + an existing one on the same asset) elevate risk in triage.

@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { buildHackerOneReport } from "@/lib/report/hackerone";
 import { createReport, verifyCreds, type H1Creds } from "@/lib/report/hackerone-api";
 import { findingSignature, simhash, isDuplicate } from "@/lib/engine/novelty";
+import { publishState } from "@/lib/review-gate";
 
 async function requireUser(): Promise<string> {
   const session = await auth();
@@ -168,8 +169,20 @@ export async function submitHackerOneDraft(formData: FormData) {
   if (finding!.h1State !== "draft") {
     redirect(`${back}?error=${encodeURIComponent("Prepare a draft first.")}`);
   }
-  if (!finding!.reviewed) {
-    redirect(`${back}?error=${encodeURIComponent("Sign off (review) this finding before submitting it.")}`);
+  // Only BLOCK on sign-off when this finding actually needs human review (high-
+  // impact class / critical / sensitive-data context). A proven low-impact finding
+  // (e.g. a dalfox-verified reflected XSS, an open redirect) has no approval card,
+  // so requiring `reviewed` there would make it permanently unsubmittable.
+  if (
+    publishState({
+      title: finding!.title,
+      description: finding!.description,
+      severity: finding!.severity,
+      confirmedFlag: finding!.confirmed,
+      reviewed: finding!.reviewed,
+    }) === "pending_review"
+  ) {
+    redirect(`${back}?error=${encodeURIComponent("Sign off (review) this high-impact finding before submitting it.")}`);
   }
   // Proof gate: in 2026 unproven reports are auto-rejected as duplicate/informative
   // and hurt your reputation. Only submit findings proven by a validator (or your

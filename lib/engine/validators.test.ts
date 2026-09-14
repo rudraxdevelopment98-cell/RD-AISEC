@@ -77,4 +77,16 @@ t("unknown tool → never proven", () => {
   assert.strictEqual(parseValidationProof("nikto", "OSVDB stuff").proven, false);
 });
 
+t("nuclei redirect: a deterministic open-redirect template hit is proven (no OOB)", () => {
+  const hit = parseValidationProof(
+    "nuclei",
+    "[open-redirect] [http] [medium] https://acme.com/go?url=https://evil.example",
+  );
+  assert.strictEqual(hit.proven, true);
+  assert.strictEqual(hit.method, "deterministic");
+  // A plain nuclei run with no interaction and no redirect hit stays unproven.
+  const none = parseValidationProof("nuclei", "[info] [http] https://acme.com/ some banner");
+  assert.strictEqual(none.proven, false);
+});
+
 console.log(`\n${passed} passed`);

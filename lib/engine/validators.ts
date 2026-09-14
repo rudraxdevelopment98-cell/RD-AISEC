@@ -119,6 +119,11 @@ export function parseValidationProof(tool: string, output: string): Proof {
       const line = (out.match(/[^\n]*interact[^\n]*/i) || out.match(/\[[a-z0-9._-]+\]\s+\[[^\]]+\][^\n]*/i) || [""])[0];
       return { proven: true, method: "oast-callback", evidence: firstLine(line) || "out-of-band interaction observed" };
     }
+    // Open redirect is proven DETERMINISTICALLY (no OOB callback): a redirect DAST
+    // template that fired IS the proof. Match a nuclei hit whose template id names
+    // redirect, e.g. "[open-redirect] [http] [medium] https://…".
+    const redir = out.match(/\[[a-z0-9._-]*redirect[a-z0-9._-]*\]\s+\[https?\][^\n]*/i);
+    if (redir) return { proven: true, method: "deterministic", evidence: firstLine(redir[0]) };
     return { proven: false, method: "none", evidence: "no out-of-band interaction observed" };
   }
 

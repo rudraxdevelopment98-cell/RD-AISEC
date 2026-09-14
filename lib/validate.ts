@@ -7,6 +7,7 @@ import { findingTarget } from "@/data/exploit-playbook";
 import { validatableClass, validationJobFor, VALIDATE_PREFIX } from "@/lib/engine/validators";
 import { pickRunnerId } from "@/lib/pipeline-engine";
 import { JOB_PRIORITY } from "@/lib/runner-constants";
+import { hostInScope, scopeHosts } from "@/lib/engine/ai-browse";
 import { logAudit } from "@/lib/audit";
 
 async function requireUser(): Promise<string> {
@@ -29,7 +30,7 @@ export async function launchValidation(formData: FormData) {
 
   const finding = await prisma.finding.findUnique({
     where: { id },
-    include: { engagement: { select: { id: true, ownerEmail: true, authorized: true } } },
+    include: { engagement: { select: { id: true, ownerEmail: true, authorized: true, scope: true } } },
   });
   if (!finding) redirect(`${back}?error=${encodeURIComponent("Finding not found.")}`);
   const eng = finding!.engagement;
@@ -45,9 +46,20 @@ export async function launchValidation(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent("No automated validator exists for this finding's class yet — verify it manually.")}`);
   }
   const { host, url } = findingTarget(finding!);
-  const target = url || host;
+  // secretvalidate re-fetches the SOURCE URL to re-extract the key, so a leaked-
+  // secret finding needs the URL where the key was found (a bare host no-ops).
+  const target = cls === "secret" ? url : url || host;
   if (!target) {
-    redirect(`${back}?error=${encodeURIComponent("Couldn't derive a target URL/host to validate from this finding.")}`);
+    redirect(`${back}?error=${encodeURIComponent(
+      cls === "secret"
+        ? "This secret finding has no source URL to re-fetch — validate it manually (the finding must reference the URL/bundle where the key was found)."
+        : "Couldn't derive a target URL/host to validate from this finding.",
+    )}`);
+  }
+  // SAFETY: the target is grepped from the finding text and could be an out-of-
+  // scope host (e.g. an attacker URL in an SSRF payload). Never probe off-scope.
+  if (!hostInScope(host, scopeHosts(eng.scope))) {
+    redirect(`${back}?error=${encodeURIComponent("The target derived from this finding is not in the engagement scope — refusing to probe an out-of-scope host.")}`);
   }
   const job = validationJobFor(cls!, target);
   if (!job) {
@@ -96,7 +108,7 @@ export async function captureRuntimeSecrets(formData: FormData) {
 
   const finding = await prisma.finding.findUnique({
     where: { id },
-    include: { engagement: { select: { id: true, ownerEmail: true, authorized: true } } },
+    include: { engagement: { select: { id: true, ownerEmail: true, authorized: true, scope: true } } },
   });
   if (!finding) redirect(`${back}?error=${encodeURIComponent("Finding not found.")}`);
   const eng = finding!.engagement;
@@ -119,6 +131,12 @@ export async function captureRuntimeSecrets(formData: FormData) {
   if (!page && host) page = `https://${host}`;
   if (!page) {
     redirect(`${back}?error=${encodeURIComponent("Couldn't derive a page URL to capture from this finding.")}`);
+  }
+  // SAFETY: a runtime capture drives a real browser at the page — never at a host
+  // outside the engagement scope (the URL is grepped from the finding text).
+  const pageHost = host || (() => { try { return new URL(page!).hostname; } catch { return ""; } })();
+  if (!hostInScope(pageHost, scopeHosts(eng.scope))) {
+    redirect(`${back}?error=${encodeURIComponent("The page derived from this finding is not in the engagement scope — refusing to drive a browser at an out-of-scope host.")}`);
   }
 
   const runnerId = await pickRunnerId();

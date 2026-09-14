@@ -82,7 +82,10 @@ import tempfile
 # minimal stdlib WebSocket). Catches auth tokens that live in localStorage /
 # sessionStorage / cookies / XHR headers, never in the static JS. Value never
 # leaves the machine — reports class/last4/live-boolean only, like secretvalidate.
-RUNNER_VERSION = "69"
+# v70 — browsercapture CDP hardening: recv() branches on frame opcode (ping→pong,
+# close raises, control frames don't corrupt fragmented text); Runtime.evaluate
+# response matched by command id instead of positionally.
+RUNNER_VERSION = "70"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -3000,18 +3003,42 @@ class _WS:
         out, self.buf = self.buf[:n], self.buf[n:]
         return out
 
+    def _frame(self, opcode, data=b""):
+        """Send a masked control/data frame (opcode + short payload)."""
+        mask = os.urandom(4)
+        masked = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+        hdr = struct.pack("!BB", 0x80 | opcode, 0x80 | len(data))
+        self.sock.sendall(hdr + mask + masked)
+
     def recv(self):
-        """Return one complete text message as a dict (reassembles fragments)."""
+        """Return one complete text message as a dict (reassembles fragments).
+
+        Branches on the frame opcode: control frames (ping/pong/close) are handled
+        WITHOUT corrupting an in-progress fragmented text message — a close raises,
+        a ping is answered with a pong, and neither is accumulated as message data.
+        """
         payload = b""
         while True:
             b0, b1 = self._read(2)
             fin = b0 & 0x80
+            opcode = b0 & 0x0F
             ln = b1 & 0x7F
             if ln == 126:
                 ln = struct.unpack("!H", self._read(2))[0]
             elif ln == 127:
                 ln = struct.unpack("!Q", self._read(8))[0]
-            payload += self._read(ln)  # server->client frames are never masked
+            data = self._read(ln)  # server->client frames are never masked
+            if opcode == 0x8:  # close
+                raise OSError("ws: server sent close")
+            if opcode == 0x9:  # ping → pong (control frame; not message data)
+                try:
+                    self._frame(0xA, data[:125])
+                except Exception:  # noqa: BLE001
+                    pass
+                continue
+            if opcode == 0xA:  # pong — ignore, keep reading
+                continue
+            payload += data  # text (0x1), binary (0x2) or continuation (0x0)
             if fin:
                 break
         try:
@@ -3147,7 +3174,7 @@ def run_browsercapture(job):
                 budget = min(budget, time.time() + 5)
 
         # Dump runtime storage in one shot.
-        cmd("Runtime.evaluate", {
+        eval_id = cmd("Runtime.evaluate", {
             "returnByValue": True,
             "expression": (
                 "JSON.stringify({ls:Object.entries(localStorage),"
@@ -3162,14 +3189,16 @@ def run_browsercapture(job):
                 msg = ws.recv()
             except Exception:  # noqa: BLE001
                 break
-            if "result" in msg and isinstance(msg.get("result"), dict):
+            # Match the response to OUR evaluate id (not just the first value-
+            # bearing message) so a second command's reply can't be mistaken for it.
+            if msg.get("id") == eval_id and isinstance(msg.get("result"), dict):
                 val = msg["result"].get("result", {}).get("value")
                 if isinstance(val, str):
                     try:
                         store = json.loads(val)
                     except Exception:  # noqa: BLE001
                         store = {}
-                    break
+                break
         for where, entries in (("localStorage", store.get("ls") or []), ("sessionStorage", store.get("ss") or [])):
             for pair in entries:
                 if not isinstance(pair, list) or len(pair) < 2:

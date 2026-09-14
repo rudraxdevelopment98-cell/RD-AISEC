@@ -19,6 +19,7 @@ import { findingTarget } from "@/data/exploit-playbook";
 import { validatableClass, validationJobFor, VALIDATE_PREFIX } from "@/lib/engine/validators";
 import { pickRunnerId } from "@/lib/pipeline-engine";
 import { JOB_PRIORITY } from "@/lib/runner-constants";
+import { hostInScope, scopeHosts } from "@/lib/engine/ai-browse";
 import { logAudit } from "@/lib/audit";
 
 // Most proof jobs to queue in a single ingest, so one noisy scan can't bury the
@@ -38,7 +39,7 @@ export async function autoValidateFindings(engagementId: string): Promise<AutoVa
 
   const eng = await prisma.engagement.findUnique({
     where: { id: engagementId },
-    select: { id: true, authorized: true },
+    select: { id: true, authorized: true, scope: true },
   });
   // Validators are LIVE probes against the target — only ever run them on an
   // engagement with recorded written authorization.
@@ -62,6 +63,8 @@ export async function autoValidateFindings(engagementId: string): Promise<AutoVa
   });
   const validated = new Set(already.map((j) => j.queuedBy.slice(VALIDATE_PREFIX.length)));
 
+  const scope = scopeHosts(eng.scope);
+
   // Build the work list first (pure), then only touch the runner if there's work.
   const work: { id: string; cls: string; target: string; tool: string; args: string; method: string }[] = [];
   for (const f of candidates) {
@@ -70,8 +73,15 @@ export async function autoValidateFindings(engagementId: string): Promise<AutoVa
     const cls = validatableClass(f);
     if (!cls) continue;
     const { host, url } = findingTarget(f);
-    const target = url || host;
+    // secretvalidate re-fetches the SOURCE URL to re-extract the key, so it needs
+    // a real URL (a bare host makes it no-op). Other validators accept host too.
+    const target = cls === "secret" ? url : url || host;
     if (!target) continue;
+    // SAFETY: findingTarget just greps the first URL out of the finding text,
+    // which can be an attacker/callback host quoted in an SSRF/redirect payload
+    // (e.g. https://evil.com). Never fire a live validator at a host the
+    // engagement scope didn't name.
+    if (!hostInScope(host, scope)) continue;
     const job = validationJobFor(cls, target);
     if (!job) continue;
     work.push({ id: f.id, cls, target, tool: job.tool, args: job.args, method: job.method });
