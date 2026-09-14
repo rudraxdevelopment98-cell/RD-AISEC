@@ -19,6 +19,7 @@ import { filterSuppressed } from "@/lib/suppression-core";
 import { dedupFindings } from "@/lib/dedup-core";
 import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
 import { notifyFindings } from "@/lib/notify";
+import { autoValidateFindings } from "@/lib/engine/auto-validate";
 
 export type IngestResult = { created: number; merged: number; dropped: number; suppressed: number };
 
@@ -70,6 +71,12 @@ export async function ingestFindings(
       const eng = await prisma.engagement.findUnique({ where: { id: engagementId }, select: { name: true } });
       await notifyFindings(fresh, eng?.name ?? "");
     }
+
+    // 5. Auto-prove: on an AUTHORIZED engagement, the engine queues per-class proof
+    // jobs for the new validatable findings itself, so proven+reportable comes out
+    // the end without a human clicking "Prove it" on every candidate. Bounded and
+    // idempotent; never fails ingest if the runner is offline or anything throws.
+    await autoValidateFindings(engagementId).catch(() => {});
   }
 
   return { created, merged: merges.length, dropped: gated.dropped, suppressed: sup.suppressed.length };
