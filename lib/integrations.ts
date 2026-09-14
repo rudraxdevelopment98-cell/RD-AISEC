@@ -8,6 +8,7 @@ import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
 import { buildHackerOneReport } from "@/lib/report/hackerone";
 import { createReportIntent, submitReportIntent, verifyCreds, type H1Creds } from "@/lib/report/hackerone-api";
+import { findingSignature, simhash, isDuplicate } from "@/lib/engine/novelty";
 
 async function requireUser(): Promise<string> {
   const session = await auth();
@@ -114,6 +115,19 @@ export async function createHackerOneDraft(formData: FormData) {
   const teamHandle = teamHandleIn || loaded!.handle;
   if (!teamHandle) {
     redirect(`${back}?error=${encodeURIComponent("Enter the HackerOne program handle (or set a default in Settings).")}`);
+  }
+
+  // Novelty/dedupe gate (P2): never draft a near-duplicate of a finding we've
+  // already drafted/submitted — duplicates are auto-rejected and burn reputation.
+  const priors = await prisma.finding.findMany({
+    where: { engagement: { ownerEmail: email }, h1State: { not: "" }, id: { not: id } },
+    select: { title: true, description: true, category: true },
+    take: 2000,
+  });
+  const sig = simhash(findingSignature(finding!));
+  const priorHashes = priors.map((p) => simhash(findingSignature(p)));
+  if (isDuplicate(sig, priorHashes)) {
+    redirect(`${back}?error=${encodeURIComponent("This looks like a near-duplicate of a finding you've already submitted — skipped to protect your reputation. Override only if you're sure it's distinct.")}`);
   }
 
   const report = buildHackerOneReport(finding!, { asset: firstAsset(eng.scope) });
