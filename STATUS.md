@@ -84,6 +84,38 @@ results back; the portal parses them into findings.
   (`lib/assessment.ts`); **reports** use a human-voice engine + evidence-first
   graded structure + platform-aware submission.
 
+### Earning layer — prove it, dedupe it, price it (P1–P5, XBOW-grounded)
+Grounded in `docs/ENGINE-EARNING-RESEARCH.md` (2026 market reality: AI report
+volume up, duplicates auto-closed, unproven reports burn reputation). The goal:
+surface only **proven + novel + genuinely-payable** findings.
+- **P1 — exploit validators + hard proof gate** (`lib/engine/validators.ts`): per
+  class, a proof job (dalfox headless `[V]` for XSS; nuclei+interactsh OAST for
+  SSRF/SSTI/XXE/RCE; sqlmap differential for SQLi; runner-native live-key check
+  for secrets). The result route only sets `confirmed`+`proof` when the proof is
+  real. Unproven → not reportable.
+- **P2 — novelty / dedupe** (`lib/engine/novelty.ts`): SimHash signature (host +
+  class + path-shape, volatile ids collapsed) + Hamming dup detection + a
+  value-aware novelty score. Near-duplicates of our own findings are dropped.
+- **P3 — endpoint prioritization** (`lib/engine/endpoint-score.ts`): score every
+  crawled URL by attackable value (IDOR ids, SSRF/redirect/file params, admin/api
+  surface); `queueEndpointScans` scans the top-N first so runner budget is spent
+  where bugs pay.
+- **P5 — secret VALUE, not just exposure** (`lib/engine/secret-value.ts`): a
+  Google `AIza` / Firebase / Stripe-publishable / Sentry-DSN key is public-by-
+  design → scored ~12 and flagged "not payable"; privileged tokens (GitHub, Stripe
+  `sk_live_`, AWS, private keys, DB creds) keep the high score. Live secret proof
+  runs on the runner (`run_secretvalidate`) — the key value never leaves the box;
+  only live-boolean / identity / last-4 is reported.
+- **Auto-validation loop** (`lib/engine/auto-validate.ts`): on an **authorized**
+  engagement the pipeline queues the per-class proof job itself the moment it
+  ingests a validatable finding (bounded 6/ingest, idempotent) — proven+reportable
+  comes out the end with no per-finding clicking. Wired in `lib/finding-ingest.ts`.
+- **Browser runtime secret capture** (runner **v69** `run_browsercapture`): drives
+  headless Chromium over the DevTools Protocol (a minimal stdlib WebSocket client,
+  no deps) to catch auth tokens held at runtime in localStorage / sessionStorage /
+  cookies / XHR headers — the ones never in the static JS. Redacted metadata only.
+  Trigger: "Capture at runtime" on secret-class findings (`lib/validate.ts`).
+
 ## Other subsystems
 - **Shiva** (`/dashboard/shiva`): in-portal MCP-security dashboard — Scanner ·
   Gateway (+live proxy) · Attack Range · Benchmark, backed by TS ports
