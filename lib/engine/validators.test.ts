@@ -61,6 +61,18 @@ t("sqlmap: not confirmed → NOT proven", () => {
   assert.strictEqual(p.proven, false);
 });
 
+t("secret class → runner-native secretvalidate", () => {
+  assert.strictEqual(validatableClass({ title: "Exposed AWS key in bundle" }), "secret");
+  assert.strictEqual(validationJobFor("secret", "u")?.tool, "secretvalidate");
+});
+
+t("secretvalidate: a live credential → proven; placeholder/revoked → not", () => {
+  const live = parseValidationProof("secretvalidate", "github live=true who=octocat key=…ab12");
+  assert.strictEqual(live.proven, true);
+  const dead = parseValidationProof("secretvalidate", "github live=false who=- key=…ab12");
+  assert.strictEqual(dead.proven, false);
+});
+
 t("unknown tool → never proven", () => {
   assert.strictEqual(parseValidationProof("nikto", "OSVDB stuff").proven, false);
 });

@@ -17,7 +17,7 @@
 /** Marker on Job.queuedBy so the result route knows a job PROVES a finding. */
 export const VALIDATE_PREFIX = "validate:";
 
-export type VulnClass = "xss" | "ssrf" | "ssti" | "sqli" | "xxe" | "rce" | "redirect";
+export type VulnClass = "xss" | "ssrf" | "ssti" | "sqli" | "xxe" | "rce" | "redirect" | "secret";
 
 export type ValidationMethod = "headless-execution" | "oast-callback" | "differential" | "deterministic";
 
@@ -44,6 +44,7 @@ const CLASS_RULES: { re: RegExp; cls: VulnClass }[] = [
   { re: /sql\s*inj|sqli\b/i, cls: "sqli" },
   { re: /open redirect/i, cls: "redirect" },
   { re: /\bxss\b|cross.?site scripting/i, cls: "xss" },
+  { re: /exposed[^\n]*\b(secret|key|token|credential)|leaked[^\n]*\b(secret|key|token|credential)|api[ _-]?key|secret key|hard.?coded|credential leak/i, cls: "secret" },
 ];
 
 /** The validatable class of a finding, or null if we have no automated proof for it. */
@@ -76,6 +77,10 @@ export function validationJobFor(cls: VulnClass, _target: string): ValidationJob
       return { tool: "sqlmap", args: "--batch --level 2 --risk 2", method: "differential" };
     case "redirect":
       return { tool: "nuclei", args: "-dast -tags redirect", method: "deterministic" };
+    case "secret":
+      // Runner-native: re-fetch the source, re-extract the key locally, run ONE
+      // read-only identity call per provider, report only live/who (never the key).
+      return { tool: "secretvalidate", args: "", method: "deterministic" };
     default:
       return null;
   }
@@ -115,6 +120,13 @@ export function parseValidationProof(tool: string, output: string): Proof {
       return { proven: true, method: "oast-callback", evidence: firstLine(line) || "out-of-band interaction observed" };
     }
     return { proven: false, method: "none", evidence: "no out-of-band interaction observed" };
+  }
+
+  if (t === "secretvalidate") {
+    // Runner prints one line per key: "<provider> live=true who=<identity> key=…abcd".
+    const live = out.match(/^[^\n]*\blive=true\b[^\n]*$/im);
+    if (live) return { proven: true, method: "deterministic", evidence: firstLine(live[0]) };
+    return { proven: false, method: "none", evidence: "no live credential (placeholder/revoked)" };
   }
 
   if (t === "sqlmap") {

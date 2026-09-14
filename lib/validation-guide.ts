@@ -262,6 +262,7 @@ const REPRO: Record<string, Omit<ManualRepro, "classId">> = {
     title: "Confirm the exposed secret is live",
     tools: "Browser DevTools → Sources + a terminal (one read-only API call)",
     steps: [
+      "AUTOMATIC: click ‘Prove it (auto-validate)’ above — a runner re-fetches the source, extracts the key locally, runs the one read-only identity call itself, and reports live/whose-account. The key never leaves the machine. The manual steps below are the same thing by hand.",
       "In DevTools → Sources, open the JS bundle / response where the key was found and copy the exact value.",
       "Identify the provider from the prefix: `AKIA…` = AWS, `ghp_` / `github_pat_` = GitHub, `sk_live_` / `sk_test_` = Stripe, `xox…` = Slack, `AIza…` = Google, `eyJ…` = JWT.",
       "Run ONE read-only identity call to prove it authenticates — e.g. AWS: `aws sts get-caller-identity`; GitHub: `curl -H 'Authorization: token <T>' https://api.github.com/user`; Stripe: `curl https://api.stripe.com/v1/account -u <K>:`; Slack: `curl -H 'Authorization: Bearer <T>' https://slack.com/api/auth.test`.",

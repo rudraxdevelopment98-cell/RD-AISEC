@@ -77,7 +77,7 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "67"
+RUNNER_VERSION = "68"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2817,9 +2817,117 @@ def run_idor(job):
     return json.dumps({"probes": probes}), 0
 
 
+# ── Secret validation (P5) — prove a leaked key is LIVE, safely ──────────────
+# Re-fetch the source where a secret was found, re-extract keys LOCALLY, and run
+# exactly ONE read-only identity call per provider. The key never leaves this
+# machine; we report only "<provider> live=<bool> who=<identity> key=…<last4>".
+# STRICT allowlist: identity/validity endpoints ONLY — never list/read/write/delete.
+_SECRET_PROVIDERS = [
+    # (name, regex, builder(key)->(method,url,headers))  — read-only identity only
+    ("github",  re.compile(r"\b(gh[oprsu]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{60,255})\b"),
+        lambda k: ("GET", "https://api.github.com/user", {"Authorization": "token " + k, "User-Agent": "rdaisec"})),
+    ("gitlab",  re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b"),
+        lambda k: ("GET", "https://gitlab.com/api/v4/user", {"PRIVATE-TOKEN": k})),
+    ("slack",   re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
+        lambda k: ("GET", "https://slack.com/api/auth.test", {"Authorization": "Bearer " + k})),
+    ("stripe",  re.compile(r"\b[rs]k_live_[A-Za-z0-9]{16,}\b"),
+        lambda k: ("GET", "https://api.stripe.com/v1/account", {"Authorization": "Basic " + base64.b64encode((k + ":").encode()).decode()})),
+    ("sendgrid", re.compile(r"\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b"),
+        lambda k: ("GET", "https://api.sendgrid.com/v3/user/profile", {"Authorization": "Bearer " + k})),
+    ("openai",  re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b"),
+        lambda k: ("GET", "https://api.openai.com/v1/models", {"Authorization": "Bearer " + k})),
+    ("npm",     re.compile(r"\bnpm_[A-Za-z0-9]{36}\b"),
+        lambda k: ("GET", "https://registry.npmjs.org/-/whoami", {"Authorization": "Bearer " + k})),
+]
+# Detected-but-not-network-validatable here (need a second secret / signing / region).
+_SECRET_MANUAL = [
+    ("aws-akid", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("google-apikey", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
+    ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")),
+]
+
+
+def _who_from(provider, body):
+    """Pull a NON-secret identity string out of an identity response (best effort)."""
+    try:
+        j = json.loads(body)
+    except Exception:  # noqa: BLE001
+        return "authenticated"
+    if provider == "github" or provider == "gitlab":
+        return str(j.get("login") or j.get("username") or "user")
+    if provider == "slack":
+        return f"{j.get('user','?')}@{j.get('team','?')}" if j.get("ok") else ""
+    if provider == "stripe":
+        return str(j.get("id") or j.get("email") or "account")
+    if provider == "sendgrid":
+        return str(j.get("username") or j.get("email") or "account")
+    if provider == "openai":
+        return "models accessible"
+    if provider == "npm":
+        return str(j.get("username") or body.strip()[:40])
+    return "authenticated"
+
+
+def _identity_probe(method, url, headers, timeout=12):
+    """One read-only HTTPS identity call. Returns (status, body[:2000]). Never raises."""
+    try:
+        req = urllib.request.Request(url, method=method)
+        for k, v in headers.items():
+            req.add_header(k, _safe_header(v))
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read(4096).decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, ""
+    except Exception:  # noqa: BLE001
+        return 0, ""
+
+
+def run_secretvalidate(job):
+    """Prove any leaked credential at job['target'] (a source URL) is LIVE, safely."""
+    target = str(job.get("target") or "").strip()
+    if not target.lower().startswith(("http://", "https://")):
+        return "secretvalidate: need a source URL (where the secret was found) as the target.", 1
+    # Fetch the source (JS bundle / page) and extract candidate keys locally.
+    try:
+        req = urllib.request.Request(target, headers={"User-Agent": "rdaisec"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            body = r.read(3_000_000).decode("utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        return f"secretvalidate: could not fetch {target}: {e}", 1
+
+    lines = []
+    seen = set()
+    for name, rx, build in _SECRET_PROVIDERS:
+        for m in rx.findall(body):
+            key = m if isinstance(m, str) else (m[0] if m else "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            method, url, headers = build(key)
+            status, resp = _identity_probe(method, url, headers)
+            live = status == 200 and not (name == "slack" and '"ok":false' in resp)
+            who = _who_from(name, resp) if live else "-"
+            lines.append(f"{name} live={'true' if live else 'false'} who={who} key=…{key[-4:]} (HTTP {status})")
+    for name, rx in _SECRET_MANUAL:
+        for m in rx.findall(body):
+            key = m if isinstance(m, str) else (m[0] if m else "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            lines.append(f"{name} live=unknown who=manual key=…{key[-4:]} (needs manual validation)")
+
+    if not lines:
+        return f"secretvalidate: no recognizable provider keys found at {target}.", 0
+    header = ("Read-only identity probes (the key never left this machine; only its "
+              "last 4 chars are shown):\n\n")
+    return header + "\n".join(lines), 0
+
+
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
+    if job.get("tool") == "secretvalidate":
+        return run_secretvalidate(job)
     if job.get("tool") == "wifisense":
         return run_wifisense(job)
     if job.get("tool") == "wifisurvey":
