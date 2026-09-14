@@ -42,6 +42,7 @@ import urllib.parse
 import urllib.request
 import collections
 import http.server
+import tempfile
 
 # Bump when this script changes meaningfully; the portal flags older runners.
 #
@@ -77,7 +78,11 @@ import http.server
 # owner-granted, time-boxed unlock) can open a real PTY terminal, transfer files,
 # list processes, control services, and install any package — delivered as
 # "control" frames on the stream and streamed back via /api/runner/control/msg.
-RUNNER_VERSION = "68"
+# v69 — browsercapture: headless-Chromium runtime secret capture (CDP over a
+# minimal stdlib WebSocket). Catches auth tokens that live in localStorage /
+# sessionStorage / cookies / XHR headers, never in the static JS. Value never
+# leaves the machine — reports class/last4/live-boolean only, like secretvalidate.
+RUNNER_VERSION = "69"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2923,11 +2928,296 @@ def run_secretvalidate(job):
     return header + "\n".join(lines), 0
 
 
+# ── Browser runtime secret capture (headless Chromium via CDP) ───────────────
+# Many auth tokens/API keys never appear in the static JS bundle — they're minted
+# at runtime and live in localStorage / sessionStorage / cookies, or ride on XHR
+# Authorization headers. secretvalidate only sees static source, so it misses
+# these. This drives a headless Chromium with the DevTools Protocol (a hand-rolled
+# minimal WebSocket client, stdlib only) to capture what the page holds AT RUNTIME,
+# then classifies + (for known providers) live-probes the token.
+#
+# SAME rule as secretvalidate: the token VALUE never leaves this machine. Only
+# redacted metadata is reported — where it was found, its class, length, last 4
+# chars, and (if a known provider) a live-boolean + non-secret identity.
+
+def _find_chromium():
+    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome"):
+        p = shutil.which(name)
+        if p:
+            return p
+    for p in ("/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+              "/usr/bin/chromium", "/usr/bin/chromium-browser",
+              "/usr/lib/chromium/chromium", "/snap/bin/chromium"):
+        if os.path.exists(p):
+            return p
+    # Any playwright-managed chromium build.
+    import glob as _glob
+    for p in sorted(_glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome"), reverse=True):
+        return p
+    return ""
+
+
+class _WS:
+    """Minimal RFC6455 client — just enough for the DevTools Protocol. stdlib only."""
+
+    def __init__(self, host, port, path, timeout=20):
+        self.sock = socket.create_connection((host, port), timeout=timeout)
+        self.sock.settimeout(timeout)
+        self.buf = b""
+        key = base64.b64encode(os.urandom(16)).decode()
+        req = (f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nUpgrade: websocket\r\n"
+               f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
+        self.sock.sendall(req.encode())
+        # Read HTTP handshake response up to the blank line.
+        while b"\r\n\r\n" not in self.buf:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise OSError("ws handshake: connection closed")
+            self.buf += chunk
+        head, self.buf = self.buf.split(b"\r\n\r\n", 1)
+        if b"101" not in head.split(b"\r\n", 1)[0]:
+            raise OSError("ws handshake failed: " + head[:80].decode("latin1", "replace"))
+
+    def send(self, obj):
+        data = json.dumps(obj).encode()
+        mask = os.urandom(4)
+        masked = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+        n = len(data)
+        if n < 126:
+            hdr = struct.pack("!BB", 0x81, 0x80 | n)
+        elif n < 65536:
+            hdr = struct.pack("!BBH", 0x81, 0x80 | 126, n)
+        else:
+            hdr = struct.pack("!BBQ", 0x81, 0x80 | 127, n)
+        self.sock.sendall(hdr + mask + masked)
+
+    def _read(self, n):
+        while len(self.buf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise OSError("ws: connection closed")
+            self.buf += chunk
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def recv(self):
+        """Return one complete text message as a dict (reassembles fragments)."""
+        payload = b""
+        while True:
+            b0, b1 = self._read(2)
+            fin = b0 & 0x80
+            ln = b1 & 0x7F
+            if ln == 126:
+                ln = struct.unpack("!H", self._read(2))[0]
+            elif ln == 127:
+                ln = struct.unpack("!Q", self._read(8))[0]
+            payload += self._read(ln)  # server->client frames are never masked
+            if fin:
+                break
+        try:
+            return json.loads(payload.decode("utf-8", "replace"))
+        except Exception:  # noqa: BLE001
+            return {}
+
+    def close(self):
+        try:
+            self.sock.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+# Header names that carry auth material worth capturing off XHR/fetch requests.
+_AUTH_HEADERS = ("authorization", "x-api-key", "api-key", "x-auth-token",
+                 "x-access-token", "x-session-token", "cookie")
+_JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")
+# A long opaque bearer-ish token (avoid flagging short ids / css class strings).
+_OPAQUE_RE = re.compile(r"\b[A-Za-z0-9._~+/-]{28,}=*\b")
+
+
+def _classify_secret(value):
+    """(class, live_line_or_'') for a captured string — value never leaves here."""
+    v = str(value or "").strip()
+    if len(v) < 16:
+        return None
+    # Known providers → optional read-only live identity probe.
+    for name, rx, build in _SECRET_PROVIDERS:
+        m = rx.search(v)
+        if m:
+            key = m.group(0)
+            method, url, headers = build(key)
+            status, resp = _identity_probe(method, url, headers)
+            live = status == 200 and not (name == "slack" and '"ok":false' in resp)
+            who = _who_from(name, resp) if live else "-"
+            return f"{name} live={'true' if live else 'false'} who={who} …{key[-4:]}"
+    for name, rx in _SECRET_MANUAL:
+        m = rx.search(v)
+        if m:
+            return f"{name} live=unknown (manual) …{m.group(0)[-4:]}"
+    if _JWT_RE.search(v):
+        return f"jwt …{v[-4:]} (len {len(v)})"
+    # Opaque high-entropy token — likely a session/bearer minted at runtime.
+    if _OPAQUE_RE.fullmatch(v.strip('"')) and len(v) >= 28 and any(c.isdigit() for c in v) and any(c.isalpha() for c in v):
+        return f"opaque-token …{v[-4:]} (len {len(v)})"
+    return None
+
+
+def run_browsercapture(job):
+    """Capture runtime auth material at a page (localStorage/session/cookies + XHR
+    auth headers) via headless Chromium + CDP. Reports redacted metadata only."""
+    target = str(job.get("target") or "").strip()
+    if not target.lower().startswith(("http://", "https://")):
+        return "browsercapture: need a page URL (http/https) as the target.", 1
+    chrome = _find_chromium()
+    if not chrome:
+        return ("browsercapture: no Chromium found. Install one: `sudo apt install chromium` "
+                "(Kali) — then re-run.", 1)
+
+    # Pick a free debug port.
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    profile = tempfile.mkdtemp(prefix="rdaisec-cap-")
+    proc = None
+    ws = None
+    findings = []       # redacted lines
+    seen = set()
+    try:
+        proc = subprocess.Popen(
+            [chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
+             "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+             f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
+             "--remote-allow-origins=*", "about:blank"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Wait for the DevTools endpoint, then grab a page target's ws URL.
+        ws_url = ""
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=2) as r:
+                    tabs = json.loads(r.read().decode("utf-8", "replace"))
+                page = next((t for t in tabs if t.get("type") == "page" and t.get("webSocketDebuggerUrl")), None)
+                if page:
+                    ws_url = page["webSocketDebuggerUrl"]
+                    break
+            except Exception:  # noqa: BLE001
+                pass
+            time.sleep(0.4)
+        if not ws_url:
+            return "browsercapture: Chromium DevTools didn't come up in time.", 1
+
+        u = urllib.parse.urlparse(ws_url)
+        ws = _WS(u.hostname, u.port, u.path, timeout=20)
+        cid = [0]
+
+        def cmd(method, params=None):
+            cid[0] += 1
+            ws.send({"id": cid[0], "method": method, "params": params or {}})
+            return cid[0]
+
+        cmd("Network.enable")
+        cmd("Page.enable")
+        cmd("Runtime.enable")
+        nav_id = cmd("Page.navigate", {"url": target})
+
+        # Pump events until load fires (or a time budget elapses), collecting the
+        # auth headers off every request the page makes.
+        loaded = False
+        budget = time.time() + 25
+        while time.time() < budget:
+            try:
+                ws.sock.settimeout(max(1, budget - time.time()))
+                msg = ws.recv()
+            except Exception:  # noqa: BLE001
+                break
+            m = msg.get("method")
+            if m == "Network.requestWillBeSent":
+                headers = (msg.get("params", {}).get("request", {}).get("headers", {}) or {})
+                host = urllib.parse.urlparse(msg["params"]["request"].get("url", "")).hostname or "?"
+                for hk, hv in headers.items():
+                    if hk.lower() in _AUTH_HEADERS:
+                        line = _classify_secret(hv)
+                        if line and line not in seen:
+                            seen.add(line)
+                            findings.append(f"header {hk} → {host}: {line}")
+            elif m == "Page.loadEventFired":
+                loaded = True
+                # Let late XHRs (post-load auth calls) settle briefly.
+                budget = min(budget, time.time() + 5)
+
+        # Dump runtime storage in one shot.
+        cmd("Runtime.evaluate", {
+            "returnByValue": True,
+            "expression": (
+                "JSON.stringify({ls:Object.entries(localStorage),"
+                "ss:Object.entries(sessionStorage),ck:document.cookie})"
+            ),
+        })
+        store = {}
+        stop = time.time() + 8
+        while time.time() < stop:
+            try:
+                ws.sock.settimeout(max(1, stop - time.time()))
+                msg = ws.recv()
+            except Exception:  # noqa: BLE001
+                break
+            if "result" in msg and isinstance(msg.get("result"), dict):
+                val = msg["result"].get("result", {}).get("value")
+                if isinstance(val, str):
+                    try:
+                        store = json.loads(val)
+                    except Exception:  # noqa: BLE001
+                        store = {}
+                    break
+        for where, entries in (("localStorage", store.get("ls") or []), ("sessionStorage", store.get("ss") or [])):
+            for pair in entries:
+                if not isinstance(pair, list) or len(pair) < 2:
+                    continue
+                k, v = pair[0], pair[1]
+                line = _classify_secret(v)
+                if line and line not in seen:
+                    seen.add(line)
+                    findings.append(f"{where}[{str(k)[:40]}]: {line}")
+        for ck in str(store.get("ck") or "").split(";"):
+            ck = ck.strip()
+            if "=" in ck:
+                name, _, val = ck.partition("=")
+                line = _classify_secret(val)
+                if line and line not in seen:
+                    seen.add(line)
+                    findings.append(f"cookie[{name[:40]}]: {line}")
+
+        header = (f"Runtime capture of {target} (headless Chromium; the token value "
+                  f"never left this machine — only class/last4 shown):\n\n")
+        if not findings:
+            return (header + "No runtime auth tokens found in localStorage / sessionStorage "
+                    "/ cookies / XHR headers.", 0)
+        return header + "\n".join(findings), 0
+    except Exception as e:  # noqa: BLE001
+        return f"browsercapture: {type(e).__name__}: {e}", 1
+    finally:
+        if ws:
+            ws.close()
+        if proc:
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001
+                try:
+                    proc.kill()
+                except Exception:  # noqa: BLE001
+                    pass
+        shutil.rmtree(profile, ignore_errors=True)
+
+
 def run_job(job):
     if job.get("tool") == "savefile":
         return run_savefile(job)
     if job.get("tool") == "secretvalidate":
         return run_secretvalidate(job)
+    if job.get("tool") == "browsercapture":
+        return run_browsercapture(job)
     if job.get("tool") == "wifisense":
         return run_wifisense(job)
     if job.get("tool") == "wifisurvey":
