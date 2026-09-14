@@ -12,6 +12,8 @@
  * See docs/ENGINE-EARNING-RESEARCH.md.
  */
 
+import { classifySecretValue } from "@/lib/engine/secret-value";
+
 export type NoveltyInput = {
   title?: string;
   category?: string;
@@ -144,12 +146,33 @@ export function assessNovelty(
   const duplicate = isDuplicate(h, priorHashes);
   const cls = classOf(f);
   let novelty = CLASS_NOVELTY[cls] ?? 40;
-  if (f.confirmed) novelty = Math.min(100, novelty + 10); // proven → more worth reporting
+
+  // Not all secrets are equal: a public-by-design key (Google Maps/Firebase,
+  // Stripe publishable, Sentry DSN…) is commodity/informational, NOT the 78 a
+  // privileged token deserves. Judge the actual value so a browser API key never
+  // scores as an "88/100 reportable" finding.
+  let secretNote = "";
+  if (cls === "secret") {
+    const sv = classifySecretValue(`${f.title ?? ""} ${f.description ?? ""}`);
+    if (sv.value === "public") {
+      novelty = 12; // public-by-design → treat like a missing-header commodity
+      secretNote = sv.reason;
+    } else if (sv.value === "unknown") {
+      novelty = 45; // detected but value unclear — needs live proof before it's worth much
+      secretNote = sv.reason;
+    } else {
+      secretNote = sv.reason; // privileged → keep the high class score
+    }
+  }
+
+  if (f.confirmed && novelty >= 30) novelty = Math.min(100, novelty + 10); // proven → more worth reporting (but never rescue a commodity)
   if (duplicate) novelty = Math.round(novelty * 0.15);
   const reason = duplicate
     ? "near-duplicate of an existing finding — do not resubmit"
-    : cls === "headers" || novelty < 30
-      ? "commodity/low-value class — likely already reported or informative"
-      : "looks novel enough to be worth a proven report";
+    : secretNote
+      ? secretNote
+      : cls === "headers" || novelty < 30
+        ? "commodity/low-value class — likely already reported or informative"
+        : "looks novel enough to be worth a proven report";
   return { novelty, duplicate, reason };
 }

@@ -49,6 +49,25 @@ t("novelty: commodity class scores low, IDOR scores high", () => {
   assert.ok(idor.novelty >= 90, `idor novelty ${idor.novelty}`);
 });
 
+t("novelty: a public-by-design secret scores LOW even when confirmed", () => {
+  // The exact shape of the misleading "88/100" case: an exposed Google API key.
+  // Synthetic keys; recognizable prefixes are split across `+` so no complete
+  // secret-shaped token appears literally (GitHub push-protection scans source).
+  const pub = assessNovelty({
+    title: "Exposed Google API key on http://blog.ui.com",
+    description: "AI" + "za" + "0".repeat(35),
+    confirmed: true,
+  });
+  assert.ok(pub.novelty < 20, `public secret novelty ${pub.novelty}`);
+  // A privileged secret still scores high.
+  const priv = assessNovelty({
+    title: "Leaked credential",
+    description: "git" + "hub_pat_" + "1".repeat(70),
+    confirmed: true,
+  });
+  assert.ok(priv.novelty >= 70, `privileged secret novelty ${priv.novelty}`);
+});
+
 t("novelty: a detected duplicate is heavily penalized + flagged", () => {
   const prior = simhash(findingSignature({ title: "SSRF", asset: "https://acme.com/webhook" }));
   const v = assessNovelty({ title: "SSRF", asset: "https://acme.com/webhook", confirmed: true }, [prior]);
