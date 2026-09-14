@@ -12,6 +12,7 @@ import { fetchPrograms, fetchScope } from "@/lib/hackerone";
 import { exploitActions } from "@/lib/exploit-core";
 import { worthAutomating } from "@/lib/bb-engine";
 import { extractEndpoints, parameterizedUrls, jsUrls } from "@/lib/recon-extract";
+import { rankEndpoints } from "@/lib/engine/endpoint-score";
 
 // Recon tools whose findings should trigger automated exploit validation.
 // (Excludes searchsploit/sslscan etc. so exploit results don't re-trigger.)
@@ -253,7 +254,9 @@ export async function queueEndpointScans(
   queuedBy: string,
   cap = 15,
 ): Promise<number> {
-  const params = parameterizedUrls(urls).slice(0, cap);
+  // P3: scan the highest-value endpoints first (id-bearing / SSRF / file / admin /
+  // api surface) so the runner's budget goes where bugs pay, not on commodity URLs.
+  const params = rankEndpoints(parameterizedUrls(urls)).slice(0, cap);
   if (params.length === 0) return 0;
 
   const pending = await prisma.job.findMany({
