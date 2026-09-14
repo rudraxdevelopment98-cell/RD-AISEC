@@ -76,6 +76,34 @@ export async function createReportIntent(
   return { ok: true, data: { id } };
 }
 
+/**
+ * Create a report DIRECTLY (the core, always-available hacker endpoint —
+ * POST /hackers/reports). Report Intents (the draft API) is newer and 404s on
+ * accounts where it isn't enabled, so this is the reliable submission path.
+ * Files the report immediately, so it's the human-approved "submit" action.
+ */
+export async function createReport(
+  creds: H1Creds,
+  r: { teamHandle: string; title: string; vulnerabilityInformation: string; impact: string; severityRating: string },
+): Promise<H1Result<{ reportId: string; url: string }>> {
+  const res = await h1Fetch<H1Object>(creds, "POST", "/hackers/reports", {
+    data: {
+      type: "report",
+      attributes: {
+        team_handle: r.teamHandle,
+        title: r.title,
+        vulnerability_information: r.vulnerabilityInformation,
+        impact: r.impact || "See vulnerability information.",
+        severity_rating: r.severityRating,
+      },
+    },
+  });
+  if (!res.ok) return res;
+  const reportId = res.data?.data?.id ?? "";
+  const url = reportId ? `https://hackerone.com/reports/${reportId}` : "";
+  return { ok: true, data: { reportId, url } };
+}
+
 /** Submit a report intent → converts it into a real report. Returns report id + url. */
 export async function submitReportIntent(
   creds: H1Creds,

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
 import { buildHackerOneReport } from "@/lib/report/hackerone";
-import { createReportIntent, submitReportIntent, verifyCreds, type H1Creds } from "@/lib/report/hackerone-api";
+import { createReport, verifyCreds, type H1Creds } from "@/lib/report/hackerone-api";
 import { findingSignature, simhash, isDuplicate } from "@/lib/engine/novelty";
 
 async function requireUser(): Promise<string> {
@@ -130,24 +130,21 @@ export async function createHackerOneDraft(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent("This looks like a near-duplicate of a finding you've already submitted — skipped to protect your reputation. Override only if you're sure it's distinct.")}`);
   }
 
-  const report = buildHackerOneReport(finding!, { asset: firstAsset(eng.scope) });
-  const res = await createReportIntent(loaded!.creds, teamHandle, report.title, report.description);
-  if (!res.ok) {
-    redirect(`${back}?error=${encodeURIComponent(`HackerOne draft failed: ${res.error}`)}`);
-  }
-
+  // Draft is a LOCAL prep step — no API call, so it can never 404. The report is
+  // generated deterministically from the finding and shown for review; the actual
+  // API call happens only on human-approved submit.
   await prisma.finding.update({
     where: { id },
-    data: { h1State: "draft", h1IntentId: res.data.id, h1Url: "" },
+    data: { h1State: "draft", h1Handle: teamHandle, h1IntentId: "", h1Url: "" },
   });
   await logAudit({
     type: "finding.hackerone.draft",
     actor: email,
-    summary: `Created HackerOne draft for finding on program "${teamHandle}"`,
+    summary: `Prepared HackerOne draft for finding on program "${teamHandle}"`,
     target: id,
   });
   revalidatePath(back);
-  redirect(`${back}?ok=${encodeURIComponent("HackerOne draft created. Review it, then approve to submit.")}`);
+  redirect(`${back}?ok=${encodeURIComponent("Draft prepared for " + teamHandle + ". Review it, then approve to submit.")}`);
 }
 
 /**
@@ -162,14 +159,14 @@ export async function submitHackerOneDraft(formData: FormData) {
 
   const finding = await prisma.finding.findUnique({
     where: { id },
-    include: { engagement: { select: { ownerEmail: true } } },
+    include: { engagement: { select: { ownerEmail: true, scope: true } } },
   });
   if (!finding) redirect(`${back}?error=${encodeURIComponent("Finding not found.")}`);
   if (finding!.engagement.ownerEmail && finding!.engagement.ownerEmail !== email) {
     redirect(`${back}?error=${encodeURIComponent("Only the engagement owner can submit.")}`);
   }
-  if (finding!.h1State !== "draft" || !finding!.h1IntentId) {
-    redirect(`${back}?error=${encodeURIComponent("Create a draft first.")}`);
+  if (finding!.h1State !== "draft") {
+    redirect(`${back}?error=${encodeURIComponent("Prepare a draft first.")}`);
   }
   if (!finding!.reviewed) {
     redirect(`${back}?error=${encodeURIComponent("Sign off (review) this finding before submitting it.")}`);
@@ -180,13 +177,26 @@ export async function submitHackerOneDraft(formData: FormData) {
   if (!finding!.confirmed) {
     redirect(`${back}?error=${encodeURIComponent("Prove it first — run validation (or confirm manually). Unproven findings get auto-rejected on the platform.")}`);
   }
+  const teamHandle = finding!.h1Handle;
+  if (!teamHandle) {
+    redirect(`${back}?error=${encodeURIComponent("No program handle on this draft — rebuild the draft with a program handle.")}`);
+  }
 
   const loaded = await loadCreds(email);
   if (!loaded) redirect(`${back}?error=${encodeURIComponent("HackerOne credentials are missing.")}`);
 
-  const res = await submitReportIntent(loaded!.creds, finding!.h1IntentId);
+  // Direct report creation (reliable core endpoint) — files the report on approval.
+  const report = buildHackerOneReport(finding!, { asset: firstAsset(finding!.engagement.scope) });
+  const impactLine = (finding!.description || "").trim().split("\n")[0].slice(0, 300) || `Severity ${report.severityRating}.`;
+  const res = await createReport(loaded!.creds, {
+    teamHandle,
+    title: report.title,
+    vulnerabilityInformation: report.description,
+    impact: impactLine,
+    severityRating: report.severityRating,
+  });
   if (!res.ok) {
-    redirect(`${back}?error=${encodeURIComponent(`HackerOne submit failed: ${res.error}`)}`);
+    redirect(`${back}?error=${encodeURIComponent(`HackerOne submit failed (HTTP ${res.status}): ${res.error}. Check the program handle "${teamHandle}" and that your API token is valid.`)}`);
   }
 
   await prisma.finding.update({

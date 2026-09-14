@@ -449,6 +449,7 @@ model Finding {
   h1IntentId     String     @default("")
   h1ReportId     String     @default("")
   h1Url          String     @default("")
+  h1Handle       String     @default("") // program handle chosen at draft time
   submittedAt    DateTime?
   createdAt      DateTime   @default(now())
 
