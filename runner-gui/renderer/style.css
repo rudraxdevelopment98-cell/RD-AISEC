@@ -21,6 +21,12 @@
 
 * { box-sizing: border-box; }
 
+/* Nothing may push the window wider than the viewport. A single long job target
+   (e.g. "…&goal=0_1c1b02cb37-…") used to blow out a card → the grid → a
+   horizontal scrollbar, because flex/grid items don't shrink below their content
+   width without min-width:0. Guard it at the root and on every shrinkable item. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -98,6 +104,7 @@ h2 { margin: 0 0 10px; font-size: 15px; letter-spacing: -0.02em; }
 }
 .card {
   position: relative;
+  min-width: 0; /* let the grid track shrink instead of overflowing on long content */
   background:
     linear-gradient(180deg, rgba(52, 211, 153, 0.03), transparent 30%),
     var(--panel);
@@ -177,34 +184,46 @@ button.ghost { background: transparent; }
 .msg.err { color: var(--err); }
 
 /* Stat grid */
-.statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-@media (max-width: 520px) { .statgrid { grid-template-columns: repeat(2, 1fr); } }
+.statgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .statgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stat {
+  min-width: 0;
   background: var(--panel2);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
   padding: 11px 13px;
   transition: border-color 0.2s, transform 0.2s;
 }
+.stat-v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat:hover { border-color: rgba(52, 211, 153, 0.35); transform: translateY(-1px); }
 .stat-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .stat-v { font-size: 21px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .stat-s { font-size: 11px; color: var(--muted); }
 
 /* Jobs */
-.jobs { display: flex; flex-direction: column; gap: 6px; }
+.jobs { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .job {
-  display: flex; gap: 10px; align-items: baseline;
+  display: flex; gap: 10px; align-items: center;
+  min-width: 0; /* allow the row (and its truncating target) to shrink */
   background: var(--panel2);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 8px 12px;
 }
-.job { align-items: center; }
-.jtool { font-weight: 600; color: var(--brand-glow); }
-.jtarget { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jtool { font-weight: 600; color: var(--brand-glow); flex-shrink: 0; }
+/* THE overflow fix: a flex item only truncates (ellipsis) if it can shrink below
+   its content width, which needs min-width:0. Without it one long target string
+   forces the whole window wide. */
+.jtarget {
+  flex: 1; min-width: 0;
+  font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Process rows show the full command so you can spot the duplicate to kill — wrap
+   it (contained by min-width:0) instead of truncating like a job target. */
+.jtarget.mono { white-space: normal; overflow: visible; overflow-wrap: anywhere; word-break: break-word; }
 .jcancel {
-  margin-left: auto; padding: 3px 10px; font-size: 12px; border-radius: 8px;
+  flex-shrink: 0; margin-left: auto; padding: 3px 10px; font-size: 12px; border-radius: 8px;
   background: transparent; border: 1px solid var(--border-soft); color: var(--muted); cursor: pointer;
 }
 .jcancel:hover { border-color: var(--err); color: var(--err); background: rgba(255, 106, 125, 0.06); }

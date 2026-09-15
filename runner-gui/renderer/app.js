@@ -324,7 +324,9 @@ function renderStatus(res) {
         (j) =>
           '<div class="job"><span class="jtool">' +
           escapeHtml(j.tool || "?") +
-          '</span><span class="jtarget">' +
+          '</span><span class="jtarget" title="' +
+          escapeHtml(j.target || "") +
+          '">' +
           escapeHtml(j.target || "") +
           "</span>" +
           (j.id ? '<button class="jcancel" data-job="' + escapeHtml(j.id) + '">Cancel</button>' : "") +
