@@ -95,7 +95,7 @@ export function CommandPalette({ links }: { links: NavLink[] }) {
       {open && mounted &&
         createPortal(
         <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-[12vh]">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div aria-hidden="true" className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="glass-panel relative w-full max-w-lg rounded-xl border border-surface-border shadow-2xl">
             <div className="flex items-center gap-2 border-b border-surface-border px-3 py-2.5">
               <Icon name="search" className="h-4 w-4 text-gray-500" />
