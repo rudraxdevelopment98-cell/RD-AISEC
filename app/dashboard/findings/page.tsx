@@ -254,7 +254,7 @@ export default async function FindingsPage({
                 className="glass-panel absolute right-0 z-30 mt-2 w-72 space-y-2 rounded-lg border border-surface-border p-3"
               >
                 <p className="text-xs text-gray-400">Import findings from CSV into:</p>
-                <select name="engagementId" required className="w-full rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand">
+                <select aria-label="Engagement" name="engagementId" required className="w-full rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand">
                   {engagements.map((e) => (
                     <option key={e.id} value={e.id}>{e.name}</option>
                   ))}

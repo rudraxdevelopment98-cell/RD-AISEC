@@ -45,7 +45,7 @@ export function LocalScanForm({
 
       <form action={queueLocalScan} className="mt-4 grid gap-3 sm:grid-cols-2">
         <select
-          name="runnerId"
+          aria-label="Runner" name="runnerId"
           value={runnerId}
           onChange={(e) => setRunnerId(e.target.value)}
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
@@ -73,7 +73,7 @@ export function LocalScanForm({
         </select>
 
         <select
-          name="engagementId"
+          aria-label="Engagement" name="engagementId"
           defaultValue=""
           className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
         >

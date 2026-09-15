@@ -178,7 +178,7 @@ export function Scanner({
                 Save {totalFailed} issue{totalFailed === 1 ? "" : "s"} as findings to:
               </span>
               <select
-                name="engagementId"
+                aria-label="Engagement" name="engagementId"
                 required
                 className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
               >

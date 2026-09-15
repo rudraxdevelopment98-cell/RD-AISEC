@@ -574,7 +574,7 @@ export default async function WifiPage({
                                         <input type="hidden" name="clients" value={data.clients.length} />
                                         <input type="hidden" name="crackedKey" value={crackedKey} />
                                         <span className="text-[11px] text-gray-500">Save to engagement:</span>
-                                        <select name="engagementId" className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand">
+                                        <select aria-label="Engagement" name="engagementId" className="rounded-md border border-surface-border bg-surface px-2 py-1 text-xs outline-none focus:border-brand">
                                           {engagements.map((e) => (
                                             <option key={e.id} value={e.id}>{e.name}</option>
                                           ))}

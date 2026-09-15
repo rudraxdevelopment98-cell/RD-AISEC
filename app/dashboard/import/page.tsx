@@ -56,7 +56,7 @@ export default async function ImportPage({
           <div>
             <label className="text-sm font-medium text-gray-300">Engagement</label>
             <select
-              name="engagementId"
+              aria-label="Engagement" name="engagementId"
               defaultValue={engagements[0]?.id}
               className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
             >

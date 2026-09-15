@@ -152,7 +152,7 @@ export default async function BugBountyPage({
             <span className="font-semibold text-brand-glow">🤖 Hands-off mode:</span>
             <span className="text-gray-400">scan + auto-exploit daily on</span>
             <select
-              name="runnerId"
+              aria-label="Runner" name="runnerId"
               defaultValue={runners[0]?.id}
               className="rounded-lg border border-surface-border bg-surface px-2 py-1 outline-none focus:border-brand"
             >

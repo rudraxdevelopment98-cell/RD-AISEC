@@ -39,7 +39,7 @@ export function AutoscanFab({
             className="mt-2 w-full rounded-lg border border-surface-border bg-black/40 px-3 py-2 text-xs text-gray-200 outline-none focus:border-brand"
           />
           <select
-            name="runnerId"
+            aria-label="Runner" name="runnerId"
             className="mt-2 w-full rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-xs outline-none focus:border-brand"
           >
             {runners.length === 0 ? (
@@ -53,7 +53,7 @@ export function AutoscanFab({
             )}
           </select>
           <select
-            name="engagementId"
+            aria-label="Engagement" name="engagementId"
             defaultValue=""
             className="mt-2 w-full rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-xs outline-none focus:border-brand"
           >

@@ -365,7 +365,7 @@ export function ProgramsManager({
                     <form action={runProgramNow} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={p.id} />
                       <select
-                        name="runnerId"
+                        aria-label="Runner" name="runnerId"
                         defaultValue={p.autoRunnerId || runners[0]?.id}
                         className="rounded-lg border border-surface-border bg-surface px-2 py-1 text-[11px] outline-none focus:border-brand"
                       >
