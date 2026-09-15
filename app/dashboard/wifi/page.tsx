@@ -449,7 +449,7 @@ export default async function WifiPage({
                                 <form action={deauthClient}>
                                   <input type="hidden" name="runnerId" value={r.id} />
                                   <input type="hidden" name="bssid" value={target} />
-                                  <button className="px-2 py-1 text-sev-med hover:text-sev-med" title="Deauth all clients to force reconnect (authorized!)">
+                                  <button className="px-2 py-1 text-sev-med hover:text-sev-med/80" title="Deauth all clients to force reconnect (authorized!)">
                                     ⚡ Deauth all
                                   </button>
                                 </form>
@@ -508,7 +508,7 @@ export default async function WifiPage({
 
                               {/* Evil Twin — aggressive. One-click auto runs above; manual fallback here. */}
                               <details className="mt-2">
-                                <summary className="cursor-pointer text-xs font-semibold text-sev-med hover:text-sev-med">
+                                <summary className="cursor-pointer text-xs font-semibold text-sev-med hover:text-sev-med/80">
                                   🪤 Evil Twin / captive portal (how it works · manual command)
                                 </summary>
                                 <div className="mt-2 space-y-2 rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-2">
@@ -624,7 +624,7 @@ export default async function WifiPage({
                                               <input type="hidden" name="runnerId" value={r.id} />
                                               <input type="hidden" name="bssid" value={target} />
                                               <input type="hidden" name="client" value={c.mac} />
-                                              <button className="text-sev-med hover:text-sev-med" title="Deauth this device (authorized!)">⚡ Deauth</button>
+                                              <button className="text-sev-med hover:text-sev-med/80" title="Deauth this device (authorized!)">⚡ Deauth</button>
                                             </form>
                                           </td>
                                         </tr>

@@ -172,7 +172,7 @@ export default async function ScanPage({
                   <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
                     <form action={runScheduleNow}>
                       <input type="hidden" name="id" value={s.id} />
-                      <button className="text-sev-low hover:text-sev-low">Run now</button>
+                      <button className="text-sev-low hover:text-sev-low/80">Run now</button>
                     </form>
                     <form action={toggleSchedule}>
                       <input type="hidden" name="id" value={s.id} />

@@ -290,7 +290,7 @@ export default async function JobsPage({
                     {j.status === "queued" && canRunNext(j) && (
                       <form action={prioritizeJob}>
                         <input type="hidden" name="id" value={j.id} />
-                        <button className="text-xs text-sev-med hover:text-sev-med" title="Run this job before the others on its machine">
+                        <button className="text-xs text-sev-med hover:text-sev-med/80" title="Run this job before the others on its machine">
                           ↑ Run next
                         </button>
                       </form>

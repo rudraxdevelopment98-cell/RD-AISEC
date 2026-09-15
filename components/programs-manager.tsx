@@ -345,7 +345,7 @@ export function ProgramsManager({
                   ) : (
                     <form action={createEngagementFromProgram}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="text-brand hover:text-brand">Create engagement</button>
+                      <button className="text-brand hover:text-brand/80">Create engagement</button>
                     </form>
                   )}
 
@@ -375,7 +375,7 @@ export function ProgramsManager({
                           </option>
                         ))}
                       </select>
-                      <button className="text-sev-low hover:text-sev-low">Run pipeline now</button>
+                      <button className="text-sev-low hover:text-sev-low/80">Run pipeline now</button>
                     </form>
                   )}
 
@@ -404,7 +404,7 @@ export function ProgramsManager({
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="auto" value="false" />
                           <input type="hidden" name="autoRunnerId" value={p.autoRunnerId} />
-                          <button className="text-sev-med hover:text-sev-med">Pause automation</button>
+                          <button className="text-sev-med hover:text-sev-med/80">Pause automation</button>
                         </form>
                       </>
                     ) : (
@@ -423,7 +423,7 @@ export function ProgramsManager({
                             </option>
                           ))}
                         </select>
-                        <button className="text-brand hover:text-brand">Enable automation</button>
+                        <button className="text-brand hover:text-brand/80">Enable automation</button>
                       </form>
                     )}
                   </div>

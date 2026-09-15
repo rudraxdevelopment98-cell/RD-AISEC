@@ -717,7 +717,7 @@ curl -fsSL "https://rd-aisec.vercel.app/api/runner/bootstrap?code=rde_…" | sud
                       <form action={installAllTools}>
                         <input type="hidden" name="runnerId" value={r.id} />
                         <button
-                          className="text-xs text-sev-med hover:text-sev-med disabled:opacity-40"
+                          className="text-xs text-sev-med hover:text-sev-med/80 disabled:opacity-40"
                           disabled={!online}
                           title={online ? "" : "Machine is offline"}
                         >

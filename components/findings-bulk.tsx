@@ -191,7 +191,7 @@ export function FindingsBulk({ findings }: { findings: FindingRow[] }) {
               </span>
               <Link
                 href={`/dashboard/findings/${f.id}/exploit`}
-                className="font-medium text-sev-crit hover:text-sev-crit"
+                className="font-medium text-sev-crit hover:text-sev-crit/80"
               >
                 ⚔ Exploit it →
               </Link>

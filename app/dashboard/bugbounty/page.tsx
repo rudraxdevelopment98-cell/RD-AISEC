@@ -297,7 +297,7 @@ export default async function BugBountyPage({
                   {canSync && (
                     <form action={syncHackerOne}>
                       <input type="hidden" name="id" value={a.id} />
-                      <button className="text-sev-low hover:text-sev-low">Sync now</button>
+                      <button className="text-sev-low hover:text-sev-low/80">Sync now</button>
                     </form>
                   )}
                   <form action={deleteBugAccount}>

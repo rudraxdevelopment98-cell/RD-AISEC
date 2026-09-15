@@ -158,7 +158,7 @@ export default async function MembersPage({
                   <form action={setMemberStatus}>
                     <input type="hidden" name="id" value={m.id} />
                     <input type="hidden" name="status" value={m.status === "approved" ? "suspended" : "approved"} />
-                    <button className={m.status === "approved" ? "text-sev-med hover:text-sev-med" : "text-brand hover:text-brand"}>
+                    <button className={m.status === "approved" ? "text-sev-med hover:text-sev-med/80" : "text-brand hover:text-brand/80"}>
                       {m.status === "approved" ? "Suspend" : "Approve"}
                     </button>
                   </form>

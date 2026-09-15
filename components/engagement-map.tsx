@@ -560,7 +560,7 @@ function NodeDetail({ node, tab, setTab }: { node: GNode; tab: string; setTab: (
                   <span className="inline-block h-2 w-2 rounded-full" style={{ background: SEV_COLOR[f.severity] ?? "#64748b" }} />
                   <span className="ml-1.5 text-gray-300">{f.title.length > 40 ? f.title.slice(0, 39) + "…" : f.title}</span>
                 </span>
-                <Link href={`/dashboard/findings/${f.id}/exploit`} className="shrink-0 text-sev-crit hover:text-sev-crit">⚔</Link>
+                <Link href={`/dashboard/findings/${f.id}/exploit`} className="shrink-0 text-sev-crit hover:text-sev-crit/80">⚔</Link>
               </li>
             ))}
           </ul>
