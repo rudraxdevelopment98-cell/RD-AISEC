@@ -37,4 +37,18 @@ t("no secret → no finding; placeholder → skipped", () => {
   assert.strictEqual(parseSecrets("https://x.com", "AIzaEXAMPLE_YOUR_KEY_HERE_PLACEHOLDER0").length, 0);
 });
 
+t("newly-covered providers are detected at high/critical", () => {
+  const gitlab = parseSecrets("https://app.example.com/main.js", "glpat-" + "aB3dE5fG7hJ9kL1mN3pQ");
+  assert.strictEqual(gitlab.length, 1, "GitLab token detected");
+  assert.strictEqual(gitlab[0].severity, "critical");
+
+  const digitalocean = parseSecrets("https://x.com/a.js", "dop_v1_" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0".repeat(2));
+  assert.strictEqual(digitalocean.length, 1, "DigitalOcean token detected");
+  assert.strictEqual(digitalocean[0].severity, "critical");
+
+  const npmtok = parseSecrets("https://x.com/a.js", "npm_" + "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8");
+  assert.strictEqual(npmtok.length, 1, "npm token detected");
+  assert.strictEqual(npmtok[0].severity, "high");
+});
+
 console.log(`\n${passed} passed`);
