@@ -17,6 +17,7 @@ export type ParsedFinding = {
 import { parseNmapNetwork, hostLabel } from "@/lib/network";
 import { assessNetwork } from "@/lib/iot-core";
 import { parseSourceReconBlob, analyzeSource } from "@/lib/source-recon-core";
+import { classifySecretValue } from "@/lib/engine/secret-value";
 
 const SEVERITIES = new Set(["info", "low", "medium", "high", "critical"]);
 function normSeverity(s: string): string {
@@ -775,17 +776,27 @@ export function parseSecrets(target: string, output: string): ParsedFinding[] {
     if (SECRET_PLACEHOLDER.test(m[0])) continue;
     seen.add(p.name);
     const sample = m[0].slice(0, 8) + "…"; // redacted preview, never store the full secret
+    // Value-aware severity: a public-by-design key (Google AIza browser/Maps/
+    // Firebase key, etc.) is exposed-by-intent, not a payable leak — so it must
+    // NOT ride in at "high" and clutter triage / trip the review gate. Privileged
+    // creds keep the pattern's severity. See lib/engine/secret-value.ts.
+    const val = classifySecretValue(m[0]);
+    const isPublic = val.value === "public";
+    const severity = isPublic ? "low" : p.severity;
     out.push({
-      title: `Exposed ${p.name} on ${target}`,
-      severity: p.severity,
+      title: isPublic ? `Exposed ${p.name} on ${target} (public-by-design)` : `Exposed ${p.name} on ${target}`,
+      severity,
       status: "open",
       // A regex match is a strong hypothesis, not proof — it stays "reported"
       // until a read-only validity check confirms the key is live (see the
       // finding's "Confirm it in the browser" steps). Never auto-confirm.
       confirmed: false,
-      description:
-        `A ${p.name} appears to be exposed at ${target} (preview: ${sample}).\n\n` +
-        "Leaked credentials can grant direct access to cloud/services — run the read-only validity check to confirm it's live, then report immediately.",
+      description: isPublic
+        ? `A ${p.name} appears to be exposed at ${target} (preview: ${sample}).\n\n` +
+          `${val.reason}\n\n` +
+          "Only report this if you can show it grants a privileged, unrestricted scope (e.g. an unrestricted key that allows billing abuse)."
+        : `A ${p.name} appears to be exposed at ${target} (preview: ${sample}).\n\n` +
+          "Leaked credentials can grant direct access to cloud/services — run the read-only validity check to confirm it's live, then report immediately.",
       recommendation:
         "Revoke/rotate the exposed credential now, remove it from client-side code/responses, and move secrets to server-side config or a secrets manager. Audit for misuse.",
     });

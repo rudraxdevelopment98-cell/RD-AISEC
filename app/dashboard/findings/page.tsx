@@ -15,6 +15,8 @@ import { deleteSuppression } from "@/lib/suppression";
 import { rescoreFindingsIntel } from "@/lib/finding-backfill";
 import { classifyConfidence } from "@/lib/exploit-confidence";
 import { bySignalDesc, signalScore } from "@/lib/finding-signal";
+import { validatableClass } from "@/lib/engine/validators";
+import { classifySecretValue } from "@/lib/engine/secret-value";
 
 export const dynamic = "force-dynamic";
 
@@ -215,6 +217,17 @@ export default async function FindingsPage({
   // find anything to report": it hides the low-value flood so real leads surface.
   const isReportable = (f: (typeof findings)[number]) => {
     if (f.status !== "open") return false;
+    // Exposed-but-not-payable: a public-by-design key (Google AIza / Firebase /
+    // Stripe publishable / Sentry DSN) is never a reportable lead — hide it here
+    // so it can't masquerade as a bounty.
+    if (
+      validatableClass(f) === "secret" &&
+      classifySecretValue(`${f.title} ${f.description ?? ""}`).value === "public"
+    ) {
+      return false;
+    }
+    // A PROVEN finding is always a lead (a validator confirmed it).
+    if (f.confirmed) return true;
     const t = signalScore(f).tier;
     return t === "priority" || t === "review";
   };

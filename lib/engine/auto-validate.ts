@@ -17,6 +17,7 @@
 import { prisma } from "@/lib/db";
 import { findingTarget } from "@/data/exploit-playbook";
 import { validatableClass, validationJobFor, VALIDATE_PREFIX } from "@/lib/engine/validators";
+import { classifySecretValue } from "@/lib/engine/secret-value";
 import { pickRunnerId } from "@/lib/pipeline-engine";
 import { JOB_PRIORITY } from "@/lib/runner-constants";
 import { hostInScope, scopeHosts } from "@/lib/engine/ai-browse";
@@ -72,6 +73,10 @@ export async function autoValidateFindings(engagementId: string): Promise<AutoVa
     if (validated.has(f.id)) continue;
     const cls = validatableClass(f);
     if (!cls) continue;
+    // Don't spend a runner cycle live-probing a public-by-design key (Google
+    // AIza / Firebase / Stripe publishable / Sentry DSN…): it's not live-provable
+    // and not payable. Privileged/unknown secrets still get validated.
+    if (cls === "secret" && classifySecretValue(`${f.title ?? ""} ${f.description ?? ""}`).value === "public") continue;
     const { host, url } = findingTarget(f);
     // secretvalidate re-fetches the SOURCE URL to re-extract the key, so it needs
     // a real URL (a bare host makes it no-op). Other validators accept host too.
