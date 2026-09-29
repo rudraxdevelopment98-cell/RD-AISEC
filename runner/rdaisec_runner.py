@@ -96,7 +96,11 @@ import tempfile
 # saturated (CPU load per core or low free RAM), instead of piling on until it
 # thrashes into collapse / drops its heartbeat. The first job always runs, so work
 # never stalls — a busy small box now paces itself and stays online + in sync.
-RUNNER_VERSION = "74"
+# v75 — Target Knowledge Base: each job result now also grows a structured per-target
+# DOSSIER (facts.jsonl + notes.md + state.json) under targets/<host>/ in the workspace
+# and external mirror — the durable, per-target knowledge a hunter (or the correlation
+# engine / a local model) reads. `dossierdiscard` wipes one target's dossier on removal.
+RUNNER_VERSION = "75"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -3318,6 +3322,9 @@ def run_job(job):
         return run_secretvalidate(job)
     if job.get("tool") == "browsercapture":
         return run_browsercapture(job)
+    if job.get("tool") == "dossierdiscard":
+        # Save/discard on target removal — wipe this target's dossier from disk.
+        return discard_dossier(str(job.get("target") or "")), 0
     if job.get("tool") == "wifisense":
         return run_wifisense(job)
     if job.get("tool") == "wifisurvey":
@@ -3454,6 +3461,117 @@ def save_to_workspace(engagement_id: str, tool: str, target: str, output: str) -
                 continue
     except Exception:  # noqa: BLE001
         pass
+
+
+_DOSSIER_URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
+_DOSSIER_HOST_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$")
+
+
+def _dossier_host(target: str) -> str:
+    """The bare host this job is about — the per-target dossier key."""
+    t = (target or "").strip()
+    t = re.sub(r"^[a-z][a-z0-9+.-]*://", "", t, flags=re.I)  # scheme
+    t = t.split("/")[0].split("?")[0].split("#")[0].split(":")[0]  # path/query/port
+    return t.lower().strip(".")
+
+
+def update_dossier(engagement_id: str, tool: str, target: str, output: str) -> None:
+    """Maintain a structured, per-TARGET dossier next to the raw archive — the
+    durable knowledge substrate a human hunter (or the correlation engine / a local
+    model) reads: an append-only facts stream + a human-readable notes.md + state.
+    Works like a real hunter's per-target notebook. Best-effort; never raises.
+
+    Facts are deterministic extractions (endpoints, subdomains, ports) and — for any
+    leaked credential — REDACTED metadata only (provider + last-4), never the secret
+    value, even though this stays on the operator's own disk."""
+    if not output or not output.strip():
+        return
+    try:
+        host = _dossier_host(target)
+        if not host:
+            return
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        facts = []
+
+        # Endpoints (URLs) seen in the output.
+        for u in list(dict.fromkeys(_DOSSIER_URL_RE.findall(output)))[:300]:
+            facts.append({"kind": "endpoint", "url": u})
+        # Subdomains from enumeration tools.
+        if tool in ("amass", "subfinder"):
+            for line in output.splitlines():
+                h = line.strip().lower()
+                if _DOSSIER_HOST_RE.match(h):
+                    facts.append({"kind": "subdomain", "host": h})
+        # Open ports from nmap-style "22/tcp open ssh" lines.
+        for m in re.findall(r"^(\d{1,5})/(tcp|udp)\s+open\s+(\S+)", output, re.M):
+            facts.append({"kind": "port", "port": int(m[0]), "proto": m[1], "service": m[2]})
+        # Leaked credentials → REDACTED metadata only (provider + last-4), never the key.
+        seen_secret = set()
+        for name, rx, _b in _SECRET_PROVIDERS:
+            for mm in rx.findall(output):
+                key = mm if isinstance(mm, str) else (mm[0] if mm else "")
+                if key and key not in seen_secret:
+                    seen_secret.add(key)
+                    facts.append({"kind": "secret", "provider": name, "last4": key[-4:]})
+        if not facts:
+            facts.append({"kind": "scan", "tool": tool})  # record the pass even if nothing parsed
+
+        for base in _workspace_bases():
+            try:
+                d = os.path.join(base, "targets", _ws_slug(host))
+                os.makedirs(d, exist_ok=True)
+                # 1. Append the facts stream.
+                with open(os.path.join(d, "facts.jsonl"), "a", encoding="utf-8") as f:
+                    for fact in facts:
+                        f.write(json.dumps({**fact, "tool": tool, "at": ts}) + "\n")
+                # 2. Update the rolling state.
+                sp = os.path.join(d, "state.json")
+                try:
+                    with open(sp, encoding="utf-8") as f:
+                        state = json.load(f)
+                except Exception:  # noqa: BLE001
+                    state = {"host": host, "created": ts, "tools": [], "jobs": 0, "facts": 0}
+                state["updated"] = ts
+                state["engagement"] = engagement_id or "adhoc"
+                state["jobs"] = int(state.get("jobs", 0)) + 1
+                state["facts"] = int(state.get("facts", 0)) + len(facts)
+                if tool not in state.get("tools", []):
+                    state.setdefault("tools", []).append(tool)
+                with open(sp, "w", encoding="utf-8") as f:
+                    json.dump(state, f, indent=2)
+                # 3. Human-readable notes.md.
+                with open(os.path.join(d, "notes.md"), "w", encoding="utf-8") as f:
+                    f.write(
+                        f"# Target dossier — {host}\n\n"
+                        f"- Engagement: {state.get('engagement')}\n"
+                        f"- First seen: {state.get('created')}  ·  Last seen: {state['updated']}\n"
+                        f"- Tools run: {', '.join(state.get('tools', []))}\n"
+                        f"- Jobs: {state['jobs']}  ·  Facts collected: {state['facts']}\n\n"
+                        "Facts stream: `facts.jsonl` (endpoints, subdomains, ports, redacted secret refs).\n"
+                        "Raw tool output archived under `../../engagements/`.\n"
+                    )
+            except Exception:  # noqa: BLE001 — one base failing must not stop the other
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def discard_dossier(host: str) -> str:
+    """Delete a target's dossier from every base (save/discard on target removal).
+    Best-effort; returns a short summary."""
+    import shutil as _sh
+
+    removed = 0
+    slug = _ws_slug(_dossier_host(host))
+    for base in _workspace_bases():
+        d = os.path.join(base, "targets", slug)
+        if os.path.isdir(d):
+            try:
+                _sh.rmtree(d, ignore_errors=True)
+                removed += 1
+            except Exception:  # noqa: BLE001
+                continue
+    return f"dossier for {host}: discarded from {removed} location(s)."
 
 
 def post_result(job_id, output, exit_code):
@@ -3685,6 +3803,8 @@ def worker(job):
         post_result(job["id"], output, code)
         # Keep a durable local copy in the research workspace (+ external mirror).
         save_to_workspace(job.get("engagementId", ""), job.get("tool", ""), job.get("target", ""), output)
+        # Grow the structured per-target dossier (facts + notes) — the knowledge base.
+        update_dossier(job.get("engagementId", ""), job.get("tool", ""), job.get("target", ""), output)
         print(f"  done {job['id']} (exit {code})\n")
     except Exception as e:  # noqa: BLE001 — never let a worker crash silently
         try:
