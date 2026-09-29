@@ -100,7 +100,10 @@ import tempfile
 # DOSSIER (facts.jsonl + notes.md + state.json) under targets/<host>/ in the workspace
 # and external mirror — the durable, per-target knowledge a hunter (or the correlation
 # engine / a local model) reads. `dossierdiscard` wipes one target's dossier on removal.
-RUNNER_VERSION = "75"
+# v76 — optional LOCAL model reasoning: `llmreason` asks an on-machine Ollama model to
+# suggest testable hypotheses from a target's dossier — free, no API. Degrades cleanly
+# (clear "start Ollama" message) when no local model is running.
+RUNNER_VERSION = "76"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -3325,6 +3328,8 @@ def run_job(job):
     if job.get("tool") == "dossierdiscard":
         # Save/discard on target removal — wipe this target's dossier from disk.
         return discard_dossier(str(job.get("target") or "")), 0
+    if job.get("tool") == "llmreason":
+        return run_llmreason(job)
     if job.get("tool") == "wifisense":
         return run_wifisense(job)
     if job.get("tool") == "wifisurvey":
@@ -3572,6 +3577,100 @@ def discard_dossier(host: str) -> str:
             except Exception:  # noqa: BLE001
                 continue
     return f"dossier for {host}: discarded from {removed} location(s)."
+
+
+# ── Optional LOCAL model reasoning (Ollama on this machine — free, no API) ─────
+# The "brain" the operator can run at zero cost: a local LLM (Ollama) reasons over
+# the per-target dossier to suggest testable hypotheses. Entirely optional — if no
+# local model is running, the tool says so and the deterministic engine carries on.
+
+def _ollama_generate(prompt: str, timeout: int = 120) -> str:
+    """Call a LOCAL Ollama model. Returns the text, or "" if none is reachable.
+    Model + endpoint are configurable (RDAISEC_LLM_MODEL / RDAISEC_LLM_URL)."""
+    model = os.environ.get("RDAISEC_LLM_MODEL", "llama3.1")
+    base = os.environ.get("RDAISEC_LLM_URL", "http://127.0.0.1:11434").rstrip("/")
+    body = json.dumps({"model": model, "prompt": prompt, "stream": False}).encode()
+    try:
+        req = urllib.request.Request(
+            base + "/api/generate", data=body,
+            headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            j = json.loads(r.read().decode("utf-8", "replace"))
+            return str(j.get("response", "")).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _read_dossier_facts(host: str, cap: int = 500) -> list:
+    """Load a target's accumulated facts from the dossier (first base that has it)."""
+    slug = _ws_slug(_dossier_host(host))
+    for base in _workspace_bases():
+        p = os.path.join(base, "targets", slug, "facts.jsonl")
+        if not os.path.exists(p):
+            continue
+        out, seen = [], set()
+        try:
+            with open(p, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line in seen:
+                        continue
+                    seen.add(line)
+                    try:
+                        out.append(json.loads(line))
+                    except Exception:  # noqa: BLE001
+                        continue
+                    if len(out) >= cap:
+                        break
+        except Exception:  # noqa: BLE001
+            continue
+        return out
+    return []
+
+
+def run_llmreason(job):
+    """Ask the LOCAL model for testable hypotheses on a target, from its dossier.
+    Optional + free; degrades cleanly when no local model is running."""
+    host = _dossier_host(str(job.get("target") or ""))
+    if not host:
+        return "llmreason: need a target host.", 1
+    facts = _read_dossier_facts(host)
+    if not facts:
+        return f"llmreason: no dossier facts for {host} yet — run recon/scan first.", 0
+    endpoints = [f.get("url", "") for f in facts if f.get("kind") == "endpoint"][:40]
+    subs = [f.get("host", "") for f in facts if f.get("kind") == "subdomain"][:40]
+    ports = [f"{f.get('port')}/{f.get('proto')}({f.get('service')})" for f in facts if f.get("kind") == "port"][:30]
+    secrets = [f"{f.get('provider')}…{f.get('last4')}" for f in facts if f.get("kind") == "secret"][:15]
+    prompt = (
+        "You are an expert bug-bounty recon analyst. From the collected facts about "
+        f"the target host {host}, list the TOP 6 SPECIFIC, testable vulnerability "
+        "hypotheses, each as one line: <class> — <where/param/endpoint> — <why it may pay>. "
+        "Prioritise IDOR/BOLA, SSRF, broken access control, exposed secrets, subdomain "
+        "takeover, and business-logic bugs. Be concrete; no disclaimers, no preamble.\n\n"
+        f"Endpoints ({len(endpoints)}): {', '.join(e for e in endpoints if e)}\n"
+        f"Subdomains ({len(subs)}): {', '.join(s for s in subs if s)}\n"
+        f"Open ports: {', '.join(ports)}\n"
+        f"Leaked secret refs (redacted): {', '.join(secrets)}\n"
+    )
+    out = _ollama_generate(prompt)
+    base = os.environ.get("RDAISEC_LLM_URL", "http://127.0.0.1:11434")
+    if not out:
+        return (
+            f"llmreason: no local model responded at {base}. This step is OPTIONAL and FREE — "
+            "to enable it, install Ollama (https://ollama.com), run `ollama serve`, and "
+            "`ollama pull llama3.1` (or set RDAISEC_LLM_MODEL to a model you have). The "
+            "deterministic engine keeps working without it.", 0)
+    # Save the hypotheses into the dossier (advisory), and return them.
+    model = os.environ.get("RDAISEC_LLM_MODEL", "llama3.1")
+    for b in _workspace_bases():
+        try:
+            d = os.path.join(b, "targets", _ws_slug(host))
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "hypotheses.md"), "w", encoding="utf-8") as f:
+                f.write(f"# Local-model hypotheses — {host} (model={model})\n\n{out}\n")
+        except Exception:  # noqa: BLE001
+            continue
+    return f"Local-model hypotheses for {host} (model={model}):\n\n{out}", 0
 
 
 def post_result(job_id, output, exit_code):

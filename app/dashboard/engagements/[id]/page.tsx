@@ -11,6 +11,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Tabs, TabPanel } from "@/components/tabs";
 import { PageHeader } from "@/components/page-header";
 import { engagementLeads } from "@/lib/engine/leads";
+import { askLocalModel } from "@/lib/local-model";
 import { FindingsBulk } from "@/components/findings-bulk";
 import { EngagementMap } from "@/components/engagement-map";
 import { buildEngagementGraph } from "@/lib/engagement-graph";
@@ -76,6 +77,12 @@ export default async function EngagementDetail({
   // Correlated leads (the deterministic "brain" — connects the accumulated facts
   // into ranked next-actions). Bounded + best-effort; never blocks the page.
   const leadsResult = await engagementLeads(e.id).catch(() => ({ leads: [], relations: [], factCount: 0 }));
+  // Latest optional local-model reasoning pass (Ollama on the machine), if any.
+  const llmJob = await prisma.job.findFirst({
+    where: { engagementId: e.id, tool: "llmreason", status: "done" },
+    orderBy: { finishedAt: "desc" },
+    select: { output: true, target: true, finishedAt: true },
+  }).catch(() => null);
 
   const openCount = e.findings.filter((f) => f.status === "open").length;
   const confirmedCount = e.findings.filter((f) => f.confirmed).length;
@@ -749,6 +756,29 @@ export default async function EngagementDetail({
           The engine connects everything it has found on this target — endpoints, params, tech,
           findings — into ranked next-actions, the way a hunter joins the dots. Highest-value first.
         </p>
+
+        {/* Optional local-model reasoning (free, on the machine via Ollama). */}
+        <div className="mt-3 rounded-lg border border-surface-border bg-black/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-gray-300">🧠 Local model (optional, free)</p>
+            <form action={askLocalModel}>
+              <input type="hidden" name="engagementId" value={e.id} />
+              <button className="btn-ghost text-xs" disabled={!e.authorized}>Ask local model for hypotheses</button>
+            </form>
+          </div>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Runs an on-machine Ollama model over this target&apos;s dossier — no API, no cost. Needs Ollama running on the runner.
+          </p>
+          {llmJob?.output && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-brand">
+                Latest hypotheses — {llmJob.target}{llmJob.finishedAt ? ` · ${new Date(llmJob.finishedAt).toLocaleString()}` : ""}
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-gray-400">{llmJob.output}</pre>
+            </details>
+          )}
+        </div>
+
         {leadsResult.leads.length === 0 ? (
           <div className="card mt-4 text-sm text-gray-400">
             No leads yet — run recon/scan so the engine accumulates endpoints, tech and findings to correlate.
