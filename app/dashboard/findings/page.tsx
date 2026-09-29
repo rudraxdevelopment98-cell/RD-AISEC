@@ -17,6 +17,8 @@ import { classifyConfidence } from "@/lib/exploit-confidence";
 import { bySignalDesc, signalScore } from "@/lib/finding-signal";
 import { validatableClass } from "@/lib/engine/validators";
 import { classifySecretValue } from "@/lib/engine/secret-value";
+import { loadOutcomeModel } from "@/lib/engine/outcome-model";
+import { outcomeSummary } from "@/lib/engine/outcome-learning";
 
 export const dynamic = "force-dynamic";
 
@@ -215,6 +217,9 @@ export default async function FindingsPage({
   // open, and triaged to priority/review tier (i.e. NOT the header/TLS/banner
   // noise a program marks informational). This is the direct answer to "I can't
   // find anything to report": it hides the low-value flood so real leads surface.
+  // Learned "what pays" summary from real report outcomes (best-effort).
+  const learned = await loadOutcomeModel().then(outcomeSummary).catch(() => "");
+
   const isReportable = (f: (typeof findings)[number]) => {
     if (f.status !== "open") return false;
     // Exposed-but-not-payable: a public-by-design key (Google AIza / Firebase /
@@ -516,6 +521,11 @@ export default async function FindingsPage({
         >
           🎯 Reportable ({reportableCount})
         </Link>
+        {learned && (
+          <span className="basis-full text-[11px] text-gray-500" title="Learned from your real HackerOne report outcomes — biases the worth-reporting score">
+            📈 Learned: {learned}
+          </span>
+        )}
         {reportableOnly && reportableCount === 0 && (
           <span className="text-xs text-gray-500">
             No reportable leads yet — automated scans mostly surface informational

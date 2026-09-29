@@ -4,6 +4,7 @@ import { runDueHackerOneSyncs, runDueBugPrograms } from "@/lib/bug-pipeline";
 import { sweepStaleJobs } from "@/lib/pipeline-engine";
 import { runAutopilot } from "@/lib/autopilot";
 import { pruneRetention } from "@/lib/retention";
+import { syncHackerOneOutcomes } from "@/lib/outcome-sync";
 
 // Long-running: scanning several targets can take a while.
 export const maxDuration = 300;
@@ -53,6 +54,15 @@ export async function GET(req: Request) {
     /* autopilot is best-effort */
   }
 
+  // Outcome learning: poll HackerOne for the real-world result of submitted
+  // reports (resolved/bounty/duplicate/…) so the engine learns what actually pays.
+  let outcomes = null;
+  try {
+    outcomes = await syncHackerOneOutcomes();
+  } catch {
+    /* outcome sync is best-effort */
+  }
+
   // Data retention: prune aged append-only rows (control-stream bytes, old audit
   // events, archived jobs) so the DB stays lean. Never blocks the rest of the cron.
   let pruned = null;
@@ -62,5 +72,5 @@ export async function GET(req: Request) {
     /* retention is best-effort */
   }
 
-  return NextResponse.json({ ok: true, swept, ...result, bug, autopilot, pruned });
+  return NextResponse.json({ ok: true, swept, ...result, bug, autopilot, outcomes, pruned });
 }

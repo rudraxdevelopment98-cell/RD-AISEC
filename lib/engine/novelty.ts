@@ -13,6 +13,7 @@
  */
 
 import { classifySecretValue } from "@/lib/engine/secret-value";
+import { applyOutcomeAdjustment, type OutcomeModel } from "@/lib/engine/outcome-learning";
 
 export type NoveltyInput = {
   title?: string;
@@ -140,6 +141,7 @@ export type NoveltyVerdict = { novelty: number; duplicate: boolean; reason: stri
 export function assessNovelty(
   f: NoveltyInput & { confirmed?: boolean },
   priorHashes: number[] = [],
+  outcomeModel?: OutcomeModel | null,
 ): NoveltyVerdict {
   const sig = findingSignature(f);
   const h = simhash(sig);
@@ -174,12 +176,20 @@ export function assessNovelty(
 
   if (f.confirmed && novelty >= 30) novelty = Math.min(100, novelty + 10); // proven → more worth reporting (but never rescue a commodity)
   if (duplicate) novelty = Math.round(novelty * 0.15);
-  const reason = duplicate
+  // Outcome learning: bias the score by how this class has ACTUALLY paid for this
+  // operator (classes that keep getting bountied are boosted; classes that keep
+  // getting closed dup/N-A are demoted). No-op until there's decided history.
+  const st = outcomeModel?.byClass?.[cls];
+  if (outcomeModel) novelty = applyOutcomeAdjustment(novelty, cls, outcomeModel);
+  const learnNote = st && st.adjust !== 1
+    ? ` · your history: ${st.wins}/${st.decided} valid → ${st.adjust > 1 ? "boosted" : "demoted"}`
+    : "";
+  const reason = (duplicate
     ? "near-duplicate of an existing finding — do not resubmit"
     : secretNote
       ? secretNote
       : cls === "headers" || novelty < 30
         ? "commodity/low-value class — likely already reported or informative"
-        : "looks novel enough to be worth a proven report";
+        : "looks novel enough to be worth a proven report") + learnNote;
   return { novelty, duplicate, reason };
 }

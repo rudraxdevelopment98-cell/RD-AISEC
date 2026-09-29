@@ -121,6 +121,31 @@ export async function verifyCreds(creds: H1Creds): Promise<H1Result<unknown>> {
   return h1Fetch(creds, "GET", "/hackers/report_intents");
 }
 
+export type H1ReportState = { state: string; bountyAmount: number };
+
+/**
+ * Poll one report's current state + any awarded bounty — the OUTCOME the engine
+ * learns from. `state` is HackerOne's own value: new | triaged | needs-more-info
+ * | resolved | not-applicable | informative | duplicate | spam | … Bounties come
+ * back in `included` (type contains "bounty") with an amount.
+ */
+export async function getReport(creds: H1Creds, reportId: string): Promise<H1Result<H1ReportState>> {
+  const res = await h1Fetch<{
+    data?: { attributes?: { state?: string } };
+    included?: { type?: string; attributes?: { amount?: string | number } }[];
+  }>(creds, "GET", `/hackers/reports/${encodeURIComponent(reportId)}`);
+  if (!res.ok) return res;
+  const state = String(res.data?.data?.attributes?.state ?? "");
+  let bountyAmount = 0;
+  for (const inc of res.data?.included ?? []) {
+    if (/bounty/i.test(inc.type ?? "")) {
+      const amt = parseFloat(String(inc.attributes?.amount ?? "0"));
+      if (Number.isFinite(amt)) bountyAmount += amt;
+    }
+  }
+  return { ok: true, data: { state, bountyAmount } };
+}
+
 export type H1ProgramAttrs = {
   handle?: string;
   name?: string;

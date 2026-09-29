@@ -451,6 +451,13 @@ model Finding {
   h1Url          String     @default("")
   h1Handle       String     @default("") // program handle chosen at draft time
   submittedAt    DateTime?
+  // Real-world OUTCOME polled back from the platform — the signal the engine
+  // learns from ("what actually pays"). "" | "pending" | "triaged" | "resolved" |
+  // "duplicate" | "informative" | "not-applicable" | "spam". bountyAmount tracks
+  // paid bounties. See lib/engine/outcome-learning.ts.
+  outcome        String     @default("")
+  bountyAmount   Float      @default(0)
+  outcomeAt      DateTime?
   createdAt      DateTime   @default(now())
 
   // Rank the findings list by real risk, worst first.
