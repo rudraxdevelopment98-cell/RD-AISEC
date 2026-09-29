@@ -86,12 +86,15 @@ export function validationJobFor(cls: VulnClass, _target: string): ValidationJob
   }
 }
 
-/** True when a line looks like a real nuclei OOB/interactsh interaction (not just a probe). */
-function nucleiOob(output: string): boolean {
-  const oob = /interactsh|out-of-band|\boast\b|interaction|"?oob"?/i.test(output);
-  // A confirmed nuclei hit prints the template id in brackets + the matched URL.
-  const hit = /\[[a-z0-9._-]+\]\s+\[(http|dns|tcp)\]/i.test(output) || /\bhigh\b|\bcritical\b/i.test(output);
-  return oob && hit;
+/**
+ * True only for a GENUINE nuclei result line: `[template-id] [protocol] [severity] url`.
+ * nuclei prints this line only when a template actually MATCHED — and for the
+ * -dast / -interactsh OAST templates, a match means the out-of-band interaction
+ * fired. Stray "high"/"critical" words, or the echoed "-interactsh" arg, are NOT
+ * proof (that was the old bug: `interactsh` + `high` anywhere → false "proven").
+ */
+function nucleiProven(output: string): boolean {
+  return /\[[a-z0-9][a-z0-9._-]*\]\s+\[(http|dns|tcp|network|headless|javascript|websocket)\]\s+\[(info|low|medium|high|critical)\]/i.test(output);
 }
 
 /**
@@ -104,26 +107,24 @@ export function parseValidationProof(tool: string, output: string): Proof {
   const t = tool.toLowerCase();
 
   if (t === "dalfox") {
-    // `[V]` = headless-verified (payload executed); `[POC]` with a trigger note.
-    const v = out.match(/\[V\][^\n]*/);
+    // ONLY `[V]` counts — dalfox's headless-verification marker (the payload
+    // actually executed in the browser). `[POC]` means it merely reflected and a
+    // PoC URL was built (WAF-blocked / wrong-context payloads reflect too), so it
+    // is NOT proof and must stay unproven → the finding gets re-tested, not shipped.
+    const v = out.match(/\[\s*V\s*\][^\n]*/);
     if (v) return { proven: true, method: "headless-execution", evidence: firstLine(v[0]) };
-    const poc = out.match(/\[POC\][^\n]*/i);
-    if (poc && /triggered|verif|executed/i.test(out)) {
-      return { proven: true, method: "headless-execution", evidence: firstLine(poc[0]) };
-    }
     return { proven: false, method: "none", evidence: "dalfox did not verify execution (reflection only)" };
   }
 
   if (t === "nuclei") {
-    if (nucleiOob(out)) {
-      const line = (out.match(/[^\n]*interact[^\n]*/i) || out.match(/\[[a-z0-9._-]+\]\s+\[[^\]]+\][^\n]*/i) || [""])[0];
-      return { proven: true, method: "oast-callback", evidence: firstLine(line) || "out-of-band interaction observed" };
-    }
-    // Open redirect is proven DETERMINISTICALLY (no OOB callback): a redirect DAST
-    // template that fired IS the proof. Match a nuclei hit whose template id names
-    // redirect, e.g. "[open-redirect] [http] [medium] https://…".
+    // Open redirect is proven DETERMINISTICALLY (no OOB callback) — check first so
+    // it's labelled "deterministic", e.g. "[open-redirect] [http] [medium] https://…".
     const redir = out.match(/\[[a-z0-9._-]*redirect[a-z0-9._-]*\]\s+\[https?\][^\n]*/i);
     if (redir) return { proven: true, method: "deterministic", evidence: firstLine(redir[0]) };
+    if (nucleiProven(out)) {
+      const line = (out.match(/\[[a-z0-9][a-z0-9._-]*\]\s+\[(?:http|dns|tcp|network|headless|javascript|websocket)\]\s+\[[^\]]+\][^\n]*/i) || [""])[0];
+      return { proven: true, method: "oast-callback", evidence: firstLine(line) || "nuclei template matched (out-of-band)" };
+    }
     return { proven: false, method: "none", evidence: "no out-of-band interaction observed" };
   }
 

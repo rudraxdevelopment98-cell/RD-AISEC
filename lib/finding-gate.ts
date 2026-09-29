@@ -70,11 +70,17 @@ export function gateFindings<T extends GateFinding>(findings: T[]): GateResult<T
     const fresh = assessFreshness(ev);
 
     // Findings WITHOUT a CVE aren't the banner-false-positive case (leaked
-    // secrets, confirmed XSS/SQLi, weak TLS, missing headers…). Trust the parser
-    // as-is — these are where the real, high-signal findings live.
+    // secrets, confirmed XSS/SQLi, weak TLS, missing headers…). But we still
+    // must NOT trust the parser's `confirmed` flag — several parsers set it on
+    // weak signals (dalfox [POC]-only, a bare "VULNERABLE" word). Re-derive
+    // confirmation from the finding's OWN evidence (confirmedFlag:false) and
+    // write the trustworthy flag back, exactly like the CVE branch below. A
+    // finding that isn't really proven stays "reported" — and the auto-validator
+    // (which only picks confirmed:false) then gets its chance to actually prove it.
     if (!fresh.cve) {
-      const conf = classifyConfidence({ title: f.title, description: f.description, confirmedFlag: f.confirmed });
-      const r = withReconciledSeverity(f, conf.level !== "reported");
+      const conf = classifyConfidence(ev);
+      const confirmed = conf.level !== "reported";
+      const r = withReconciledSeverity({ ...f, confirmed }, confirmed);
       if (r.changed) reconciled += 1;
       kept.push(r.finding);
       continue;
