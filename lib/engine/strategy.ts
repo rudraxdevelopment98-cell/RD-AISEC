@@ -113,7 +113,7 @@ export const HIGH_YIELD_NUCLEI: ScanStep = {
     // 2024–2025 (SSRF, JWT/OAuth, SSTI/XXE, cache poisoning, CRLF, LFI). GraphQL is
     // its own dedicated probe below.
     "-jsonl -tags exposure,exposures,takeover,secret,token,config,backup,default-login,exposed-panel," +
-    "jwt,oauth,ssrf,ssti,xxe,cache,crlf,lfi,redirect " +
+    "jwt,oauth,ssrf,ssti,xxe,cache,crlf,lfi,redirect,cors,misconfig " +
     "-rl 150 -timeout 8 -retries 1 -c 50",
   mode: "url",
 };

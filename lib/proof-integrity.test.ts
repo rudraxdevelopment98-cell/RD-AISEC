@@ -30,6 +30,17 @@ t("genuine direct observations (IDOR, SMB, SNMP) stay validated", () => {
   assert.strictEqual(classifyConfidence({ description: "SMB message signing is not required" }).level, "validated");
 });
 
+t("conclusive nuclei classes (takeover, exposure) stay confirmed through the gate", () => {
+  const takeover = gateFindings([
+    { title: "Subdomain takeover — sub.acme.com", severity: "high", description: "Tags: takeover\n\nSubdomain takeover confirmed: the template fingerprinted the dangling service.", confirmed: true },
+  ]);
+  assert.strictEqual(takeover.kept[0].confirmed, true, "takeover stays confirmed");
+  const exposure = gateFindings([
+    { title: "Exposed .git — acme.com", severity: "high", description: "Tags: exposure config\n\nExposed resource confirmed: the template retrieved the sensitive file/secret.", confirmed: true },
+  ]);
+  assert.strictEqual(exposure.kept[0].confirmed, true, "exposed .git stays confirmed");
+});
+
 // ── gateFindings: re-derive confirmed from evidence, both directions ──────────
 t("gate DE-CONFIRMS a finding whose text has no real proof", () => {
   const { kept } = gateFindings([

@@ -135,23 +135,33 @@ function parseNuclei(target: string, output: string): ParsedFinding[] {
       const tags = Array.isArray(info.tags) ? info.tags.join(", ") : info.tags || "";
 
       const meta = [cve && cve.toUpperCase(), cwe && `CWE: ${cwe}`, cvss].filter(Boolean).join(" · ");
+      // Conclusive nuclei classes — the match itself IS the impact, so they are
+      // genuinely confirmed (and carry an explicit proof phrase the accuracy gate
+      // recognizes): a subdomain-takeover template that fingerprinted a dangling
+      // service, or an exposure/config template that actually pulled back a
+      // sensitive file/secret (.git/.env/backup). A bare signature/version match is
+      // NOT confirmed — it stays "reported" for the validator to prove.
+      const hay = `${tags} ${tid} ${name}`.toLowerCase();
+      const isTakeover = /takeover/.test(hay);
+      const isExposure = /(exposure|exposures|config|backup|\bgit\b|\benv\b)/.test(hay) && extracted.length > 0;
+      const conclusive = isTakeover || isExposure || ((sev === "critical" || sev === "high") && extracted.length > 0);
+      const proofNote = isTakeover
+        ? "\n\nSubdomain takeover confirmed: the template fingerprinted the dangling service."
+        : isExposure
+          ? "\n\nExposed resource confirmed: the template retrieved the sensitive file/secret."
+          : "";
       out.push({
         title: `${name}${cve ? ` (${cve.toUpperCase()})` : ""} — ${matched}`,
-        severity: sev,
+        severity: isTakeover && sev === "info" ? "high" : sev, // takeover is never "info"
         status: "open",
-        // A nuclei template MATCH is a detection, not a proven exploit — so it
-        // is only "confirmed" when the template actually extracted concrete data
-        // (a leaked file/secret/version it pulled back) on a high/critical issue.
-        // A bare signature/version match stays unconfirmed ("reported") and gets
-        // validated downstream by the targeted exploit actions. Keeps the engine
-        // from over-claiming confirmed exploits (proof-by-exploitation).
-        confirmed: (sev === "critical" || sev === "high") && extracted.length > 0,
+        confirmed: conclusive,
         description:
           `Nuclei template "${tid || name}" matched at ${matched}.` +
           (meta ? `\n\n${meta}` : "") +
           (tags ? `\nTags: ${tags}` : "") +
           (info.description ? `\n\n${info.description}` : "") +
           (extracted.length ? `\n\nExtracted: ${extracted.join(", ")}` : "") +
+          proofNote +
           (refs.length ? `\n\nReferences:\n${refs.join("\n")}` : ""),
         recommendation:
           info.remediation ??
