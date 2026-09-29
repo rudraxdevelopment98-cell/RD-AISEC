@@ -21,19 +21,29 @@ import { enrichFindingsIntel } from "@/lib/engine/finding-intel";
 import { notifyFindings } from "@/lib/notify";
 import { autoValidateFindings } from "@/lib/engine/auto-validate";
 
-export type IngestResult = { created: number; merged: number; dropped: number; suppressed: number };
+export type IngestResult = {
+  created: number;
+  merged: number;
+  dropped: number;
+  suppressed: number;
+  /** The candidate findings that were actually created (post gate/suppress/dedup)
+   *  — callers use these to chain follow-up work (e.g. queue exploit jobs). */
+  fresh: GateFinding[];
+};
 
 /**
  * Run candidate findings through the full accuracy chain and persist the survivors
  * on `engagementId`. Corroborating candidates merge into existing findings (adding
- * `opts.tool` to their sources) instead of duplicating. Returns per-stage counts.
+ * `opts.tool` to their sources) instead of duplicating. Returns per-stage counts
+ * plus the freshly-created findings. Safe to re-run: the dedup step means a retry
+ * merges instead of duplicating, so the caller can treat ingest as idempotent.
  */
 export async function ingestFindings(
   engagementId: string,
   candidates: GateFinding[],
   opts: { tool: string; host?: string; notify?: boolean },
 ): Promise<IngestResult> {
-  const empty: IngestResult = { created: 0, merged: 0, dropped: 0, suppressed: 0 };
+  const empty: IngestResult = { created: 0, merged: 0, dropped: 0, suppressed: 0, fresh: [] };
   if (!engagementId || candidates.length === 0) return empty;
 
   const host = (opts.host ?? "").toLowerCase();
@@ -79,5 +89,5 @@ export async function ingestFindings(
     await autoValidateFindings(engagementId).catch(() => {});
   }
 
-  return { created, merged: merges.length, dropped: gated.dropped, suppressed: sup.suppressed.length };
+  return { created, merged: merges.length, dropped: gated.dropped, suppressed: sup.suppressed.length, fresh };
 }

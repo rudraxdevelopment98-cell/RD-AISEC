@@ -13,18 +13,26 @@ import { exploitActions } from "@/lib/exploit-core";
 import { playbookFor } from "@/data/exploit-playbook";
 import { assessFinding, groupForReport, worthAutomating } from "@/lib/bb-engine";
 import { PIPELINE_STAGES, STAGE_ORDER, nextStageKey, stageDef } from "@/lib/pipeline-core";
-import { JOB_STALE_MS, JOB_PRIORITY } from "@/lib/runner-constants";
+import { JOB_STALE_MS, JOB_PRIORITY, RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
 import { reconSteps, scanDefaultSteps, planScanSteps, prioritizeHosts } from "@/lib/engine/strategy";
 
 const TERMINAL = ["done", "failed", "canceled"];
 
-/** Pick a runner: most recently seen first, else any. Returns id or "". */
+/** Pick a runner to assign work to. Prefer one seen within the online window
+ *  (routing to a currently-dead box would leave a "started" pipeline doing
+ *  nothing); fall back to the most-recently-seen only if none are online. */
 export async function pickRunnerId(): Promise<string> {
-  const r = await prisma.runner.findFirst({
+  const online = await prisma.runner.findFirst({
+    where: { lastSeenAt: { gte: new Date(Date.now() - RUNNER_ONLINE_WINDOW_MS) } },
     orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
     select: { id: true },
   });
-  return r?.id ?? "";
+  if (online) return online.id;
+  const any = await prisma.runner.findFirst({
+    orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true },
+  });
+  return any?.id ?? "";
 }
 
 function bareHost(v: string): string {
@@ -465,26 +473,24 @@ export async function onPipelineJobFinished(job: {
  */
 export async function sweepStaleJobs(): Promise<number> {
   const cutoff = new Date(Date.now() - JOB_STALE_MS);
-  const [staleRunning, orphanQueued] = await Promise.all([
-    prisma.job.findMany({
-      where: { status: "running", startedAt: { lt: cutoff } },
-      select: { id: true, engagementId: true, stage: true },
-    }),
-    prisma.job.findMany({
-      where: { status: "queued", OR: [{ runnerId: null }, { runnerId: "" }] },
-      select: { id: true, engagementId: true, stage: true },
-    }),
-  ]);
-  const all = [...staleRunning, ...orphanQueued];
-  if (all.length === 0) return 0;
+  // Fail jobs stuck "running" (watchdog missed) OR stuck "importing" (the result
+  // route claimed it but the import crashed before flipping it to done) — a
+  // failed job gets self-healed / re-queued. We do NOT touch orphan-queued jobs
+  // (runnerId null/""): the runner poll route ADOPTS those, so failing them here
+  // would kill work a returning/idle runner would otherwise pick up.
+  const stale = await prisma.job.findMany({
+    where: { status: { in: ["running", "importing"] }, startedAt: { lt: cutoff } },
+    select: { id: true, engagementId: true, stage: true },
+  });
+  if (stale.length === 0) return 0;
   await prisma.job.updateMany({
-    where: { id: { in: all.map((j) => j.id) } },
+    where: { id: { in: stale.map((j) => j.id) } },
     data: { status: "failed", finishedAt: new Date() },
   });
   // Advance pipelines whose current stage just became complete.
-  const engs = [...new Set(all.filter((j) => j.stage && j.engagementId).map((j) => j.engagementId as string))];
+  const engs = [...new Set(stale.filter((j) => j.stage && j.engagementId).map((j) => j.engagementId as string))];
   for (const e of engs) await recheckPipeline(e);
-  return all.length;
+  return stale.length;
 }
 
 /** Pause / resume / cancel controls. */

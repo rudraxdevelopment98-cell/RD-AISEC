@@ -89,7 +89,10 @@ import tempfile
 # and Mailgun tokens (Stripe restricted keys already covered by the stripe probe).
 # v72 — dropped the Mailgun "key-<32hex>" probe: the pattern matches ETags/MD5s/DOM
 # ids, so it was a false-positive/wasted-request source (removed from detection too).
-RUNNER_VERSION = "72"
+# v73 — reliability: persisted token now beats a stale RUNNER_TOKEN env var (fixes
+# the 401 "token rejected" loop across restarts); worker-slot counter rolls back if
+# a worker thread fails to start (was leaking slots until the runner stopped claiming).
+RUNNER_VERSION = "73"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -369,6 +372,32 @@ ENROLL_CODE = os.environ.get("RUNNER_ENROLL_CODE", "").strip()
 # Where an enrolled token is persisted so restarts don't re-enroll (this path is
 # also one of the config files _load_env_files reads at startup).
 TOKEN_STORE = os.path.expanduser("~/.config/rdaisec/runner.env")
+
+
+def _token_from_store() -> str:
+    """Read RUNNER_TOKEN straight from the persisted store, bypassing the
+    'real env wins' rule in _load_env_files."""
+    try:
+        with open(TOKEN_STORE, encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if line.startswith("RUNNER_TOKEN="):
+                    return line.partition("=")[2].strip().strip('"').strip("'")
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+# The persisted token is the source of truth: the runner rotates/re-enrolls its
+# token and writes it here, so a STALE inline `RUNNER_TOKEN` env var (systemd
+# EnvironmentFile, an `export`) must NOT shadow it — otherwise every restart
+# reverts to the rejected token and the portal 401s in a loop (the recurring
+# "token rejected" symptom). Prefer the store whenever it has a token.
+_stored_token = _token_from_store()
+if _stored_token and _stored_token != RUNNER_TOKEN:
+    RUNNER_TOKEN = _stored_token
+    os.environ["RUNNER_TOKEN"] = _stored_token
+    print("Using the persisted runner token (overrides a stale RUNNER_TOKEN env var)")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
 # The engine's persistent research workspace on THIS machine — where raw job
 # output / loot / study data is kept (Vercel+Neon storage is ephemeral, so the
@@ -4154,8 +4183,18 @@ def main():
                         last_refresh = time.monotonic()
                 with WORKERS_LOCK:
                     ACTIVE_WORKERS += 1
-                threading.Thread(target=worker, args=(job,), daemon=True).start()
-                started += 1
+                try:
+                    threading.Thread(target=worker, args=(job,), daemon=True).start()
+                    started += 1
+                except Exception:  # noqa: BLE001
+                    # The thread never started, so the worker's finally (which frees
+                    # the slot) never runs — roll the counter back here or we'd leak
+                    # a slot every failure until the runner stops claiming any jobs.
+                    with WORKERS_LOCK:
+                        ACTIVE_WORKERS -= 1
+                    # The job is "running" on the portal; its stale/offline recovery
+                    # will requeue it for the next poll. Don't spin hot on failure.
+                    time.sleep(2)
 
             if started:
                 # Loop back quickly to claim more (a worker may free a slot soon).

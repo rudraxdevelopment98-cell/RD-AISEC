@@ -5,6 +5,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { supportsAuthHeader, authArgvForTool } from "@/lib/auth-scan";
 import { IDOR_TOOL } from "@/lib/idor-scan";
 import { RUNNER_ONLINE_WINDOW_MS } from "@/lib/runner-constants";
+import { sweepStaleJobs } from "@/lib/pipeline-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,15 @@ export async function GET(req: Request) {
       data: { status: "queued", startedAt: null },
     })
     .catch(() => ({ count: 0 }));
+
+  // Recover jobs that hang on an ONLINE runner (watchdog missed) or get stuck
+  // mid-import — the 45-min stale sweep + pipeline re-check. Driven from the poll
+  // (which always runs, unlike the free-tier daily cron and the human-only Jobs
+  // page) on a small fraction of requests so a stuck job/pipeline recovers in
+  // minutes, not up to a day. Cheap: one indexed query, usually empty.
+  if (Math.random() < 0.05) {
+    await sweepStaleJobs().catch(() => {});
+  }
 
   // Claim the highest-priority queued job (ties broken by age), with a guarded
   // update so two concurrent polls can't grab the same job. "Run next" / "Run

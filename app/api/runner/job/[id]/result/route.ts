@@ -4,25 +4,23 @@ import { authenticateRunner, recordTelemetry } from "@/lib/runner-auth";
 import { MAX_OUTPUT_CHARS } from "@/lib/runner-constants";
 import { parseJobFindings, parseSecrets } from "@/lib/job-parser";
 import { IDOR_TOOL, parseIdorResult } from "@/lib/idor-scan";
-import { tagFindings } from "@/lib/finding-map";
-import { gateFindings } from "@/lib/finding-gate";
-import { loadRules, recordSuppressions } from "@/lib/suppression";
-import { filterSuppressed } from "@/lib/suppression-core";
-import { dedupFindings } from "@/lib/dedup-core";
+import { ingestFindings } from "@/lib/finding-ingest";
 import { parseSubdomains } from "@/lib/bugbounty-core";
 import { queueHostScans, queueExploitJobs, queueEndpointScans, queueJsSecretScans, queueParamDiscovery, RECON_TOOLS } from "@/lib/bug-pipeline";
 import { parseValidationProof, VALIDATE_PREFIX } from "@/lib/engine/validators";
-import { autoValidateFindings } from "@/lib/engine/auto-validate";
 import { extractEndpoints, jsUrls } from "@/lib/recon-extract";
 
 // Crawl tools whose output is a URL surface to mine + re-scan (iterative recon).
 const CRAWL_TOOLS = new Set(["katana", "gau", "gospider", "waybackurls", "hakrawler"]);
 import { onPipelineJobFinished } from "@/lib/pipeline-engine";
 import { selfHealFailedJob } from "@/lib/self-heal";
-import { notifyFindings } from "@/lib/notify";
-import { enrichFindingsIntel, recomputeEngagementIntel } from "@/lib/engine/finding-intel";
+import { recomputeEngagementIntel } from "@/lib/engine/finding-intel";
 
 export const dynamic = "force-dynamic";
+// Give the import chain room to commit (parse → gate → dedup → enrich → create →
+// chain) instead of the 10s Hobby default, so a slow DB read can't time the
+// request out mid-import.
+export const maxDuration = 60;
 
 /**
  * The runner posts a job's result here when it finishes executing.
@@ -63,12 +61,21 @@ export async function POST(
   const status =
     (body.status === "failed" || exitCode !== 0) && !hasPartialResults ? "failed" : "done";
 
-  // Only the first result for a still-active job is processed. A retried POST
-  // (network hiccup after a successful save) would otherwise re-auto-import
-  // findings or re-queue amass host scans.
+  const pipelineJob = !!job.stage;
+  const isValidation = (job.queuedBy ?? "").startsWith(VALIDATE_PREFIX);
+  // A successful auto-import job does its finding import BEFORE it is marked done.
+  const doImport = status !== "failed" && !isValidation && job.autoImport && !!job.engagementId;
+
+  // Claim the job. Only the first POST wins the transition. A failed/validation/
+  // non-import job goes straight to its terminal status. A success-with-import
+  // goes to an intermediate "importing" state so the findings COMMIT before the
+  // job is marked done: if this request dies mid-import, a retry (status still
+  // "importing", which is in the claim set) safely re-runs it — dedup makes
+  // re-import idempotent. This closes the old "job done but findings lost" hole.
+  const claimTarget = doImport ? "importing" : status;
   const claimed = await prisma.job.updateMany({
-    where: { id: job.id, status: { in: ["queued", "running"] } },
-    data: { output, exitCode, status, finishedAt: new Date() },
+    where: { id: job.id, status: { in: ["queued", "running", "importing"] } },
+    data: { output, exitCode, status: claimTarget, finishedAt: doImport ? null : new Date() },
   });
   if (claimed.count !== 1) {
     return NextResponse.json({ ok: true, alreadyFinished: true });
@@ -77,7 +84,7 @@ export async function POST(
   // Exploit-validation ("prove it") jobs: parse the per-class proof and, ONLY if
   // proven, mark the finding confirmed + record the evidence. Unproven findings
   // stay unconfirmed (never surfaced as reportable). Not a normal import path.
-  if ((job.queuedBy ?? "").startsWith(VALIDATE_PREFIX)) {
+  if (isValidation) {
     const findingId = job.queuedBy!.slice(VALIDATE_PREFIX.length);
     const verdict = parseValidationProof(job.tool, output);
     if (verdict.proven && findingId) {
@@ -89,119 +96,76 @@ export async function POST(
     return NextResponse.json({ ok: true, validated: verdict.proven, method: verdict.method });
   }
 
-  // Bug-bounty automation (no human in the loop). Pipeline-staged jobs
-  // (job.stage set) still auto-import findings, but their downstream chaining is
-  // driven by the pipeline's own approval gates — so the result-route chains
-  // (amass→scan, recon→auto-exploit) are suppressed for them.
-  const pipelineJob = !!job.stage;
-  if (status === "done" && job.autoImport && job.engagementId) {
-    if (job.tool === "amass" || job.tool === "subfinder") {
-      // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
-      const hosts = parseSubdomains(output);
-      if (hosts.length > 0 && !pipelineJob) {
-        await queueHostScans(
-          job.engagementId,
-          job.runnerId ?? runner.id,
-          hosts,
-          job.queuedBy,
-          15,
-        );
-      }
+  // Bug-bounty automation (no human in the loop). Findings import runs through the
+  // ONE shared chain (lib/finding-ingest.ts) — gate → suppress → dedup → enrich →
+  // create → notify → auto-validate — so every source stays consistent (no more
+  // inline re-implementation drift). Pipeline-staged jobs still import, but their
+  // downstream chaining is driven by the pipeline's own approval gates.
+  if (doImport && job.engagementId) {
+    const engagementId = job.engagementId;
+    const runnerId = job.runnerId ?? runner.id;
+    const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
+
+    // Build candidates — the two source-specific special cases stay at the source.
+    let candidates;
+    if (job.tool === IDOR_TOOL) {
+      // Two-account IDOR/BOLA replay: parse the per-identity report with the
+      // engagement's owner-data marker (differential access → findings).
+      const eng = await prisma.engagement.findUnique({
+        where: { id: engagementId },
+        select: { idorMarker: true },
+      });
+      candidates = parseIdorResult(output, eng?.idorMarker || "").map((f) => ({
+        title: f.title,
+        severity: f.severity,
+        status: "open",
+        description: `${f.description}\nEvidence: ${f.evidence}`,
+        recommendation:
+          "Enforce object-level authorization server-side: on every request, verify the authenticated user owns / is permitted the referenced object — not merely that they are logged in. Use unguessable ids where feasible.",
+        confirmed: f.severity === "critical",
+      }));
     } else {
-      // Iterative recon: a crawl (katana/gau/…) reveals a new URL surface. Mine
-      // its parameterized endpoints and re-scan them (dalfox + nuclei DAST) — the
-      // feedback loop that turns one-shot recon into real coverage. Findings from
-      // the crawl are still parsed below; this only ADDS the follow-up scans.
-      if (CRAWL_TOOLS.has(job.tool) && !pipelineJob) {
-        const urls = extractEndpoints(output, job.target);
-        await queueEndpointScans(job.engagementId, job.runnerId ?? runner.id, urls, job.queuedBy, 15);
-        // JS secret mining: nuclei fetches + scans each discovered JS bundle for
-        // leaked keys (front-end secret leak — a common, high-value finding).
-        await queueJsSecretScans(job.engagementId, job.runnerId ?? runner.id, jsUrls(urls), job.queuedBy, 20);
-        // Hidden-parameter discovery: arjun on the parameterless endpoints — finds
-        // the un-advertised input surface behind IDOR / injection / access-control.
-        await queueParamDiscovery(job.engagementId, job.runnerId ?? runner.id, urls, job.queuedBy, 12);
-      }
-      // Parse results into findings, then run every candidate through the
-      // accuracy gate (freshness + proof engines) so patched/banner-only false
-      // positives are dropped or de-confirmed BEFORE they become findings.
-      // Two-account IDOR/BOLA replay: parse the runner's per-identity report with
-      // the engagement's owner-data marker (differential access → findings). Every
-      // other tool goes through the generic parser.
-      let candidates;
-      if (job.tool === IDOR_TOOL) {
-        const eng = await prisma.engagement.findUnique({
-          where: { id: job.engagementId! },
-          select: { idorMarker: true },
-        });
-        candidates = parseIdorResult(output, eng?.idorMarker || "").map((f) => ({
-          title: f.title,
-          severity: f.severity,
-          status: "open",
-          description: `${f.description}\nEvidence: ${f.evidence}`,
-          recommendation:
-            "Enforce object-level authorization server-side: on every request, verify the authenticated user owns / is permitted the referenced object — not merely that they are logged in. Use unguessable ids where feasible.",
-          confirmed: f.severity === "critical",
-        }));
-      } else {
-        candidates = parseJobFindings(job.tool, job.target, output);
-        // Secret-scan crawl output too (gau/wayback/gospider URLs often carry
-        // leaked tokens in query strings; katana already runs this — dedup covers
-        // the overlap).
-        if (CRAWL_TOOLS.has(job.tool)) {
-          candidates = [...candidates, ...parseSecrets(job.target, output)];
-        }
-      }
-      let parsed = gateFindings(tagFindings(candidates, job.tool)).kept;
-      // Learned false positives: drop candidates matching a rule you created by
-      // marking a similar finding as a false positive before.
-      const host = job.target.replace(/^[a-z]+:\/\//i, "").split("/")[0].split(":")[0].toLowerCase();
-      const sup = filterSuppressed(parsed, await loadRules(), { tool: job.tool, host });
-      parsed = sup.kept;
-      if (sup.suppressed.length > 0) await recordSuppressions(sup.suppressed, {});
-      if (parsed.length > 0) {
-        const existing = await prisma.finding.findMany({
-          where: { engagementId: job.engagementId },
-          select: { id: true, title: true, description: true, sources: true },
-        });
-        // Signature de-dup + cross-tool corroboration (merge, don't duplicate).
-        const { fresh, merges } = dedupFindings(parsed, existing, job.tool, host);
-        for (const m of merges) {
-          await prisma.finding.update({ where: { id: m.id }, data: { sources: m.sources } }).catch(() => {});
-        }
-        if (fresh.length > 0) {
-          // Stamp real threat intel (KEV/EPSS) + a risk score so triage ranks by
-          // real-world danger, not just static severity.
-          const enriched = await enrichFindingsIntel(fresh);
-          await prisma.finding.createMany({
-            data: enriched.map((f) => ({ ...f, engagementId: job.engagementId! })),
-          });
-          const eng = await prisma.engagement.update({
-            where: { id: job.engagementId },
-            data: { updatedAt: new Date() },
-            select: { name: true },
-          });
-          await notifyFindings(fresh, eng.name);
-
-          // Auto-exploit: from fresh RECON findings, queue exploit-validation
-          // jobs (searchsploit / nmap vuln) on the same runner. Their results
-          // come back through this same route and become findings too.
-          if (RECON_TOOLS.has(job.tool) && job.runnerId && !pipelineJob) {
-            await queueExploitJobs(job.engagementId, job.runnerId, fresh, job.queuedBy);
-          }
-
-          // Auto-PROVE: on an authorized engagement, queue per-class proof jobs
-          // for the new validatable findings so proven+reportable comes out the
-          // end with NO human in the loop — the whole point of the autonomous
-          // pipeline. (finding-ingest.ts does this for the button paths; the
-          // runner result route reimplements ingest inline, so wire it here too.)
-          await autoValidateFindings(job.engagementId).catch(() => {});
-        }
-        // Recompute risk across the whole engagement so attack chains (e.g. this
-        // new finding + an existing one on the same asset) elevate risk in triage.
-        await recomputeEngagementIntel(job.engagementId).catch(() => {});
+      candidates = parseJobFindings(job.tool, job.target, output);
+      // Secret-scan crawl output too (gau/wayback/gospider URLs often carry leaked
+      // tokens in query strings; dedup covers the katana overlap).
+      if (CRAWL_TOOLS.has(job.tool)) {
+        candidates = [...candidates, ...parseSecrets(job.target, output)];
       }
     }
+
+    // The one accuracy chain, shared with every other ingest source.
+    const { fresh } = await ingestFindings(engagementId, candidates, { tool: job.tool, host });
+
+    // Source-specific follow-up chaining (suppressed for pipeline-staged jobs).
+    if (!pipelineJob) {
+      if (job.tool === "amass" || job.tool === "subfinder") {
+        // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
+        const hosts = parseSubdomains(output);
+        if (hosts.length > 0) await queueHostScans(engagementId, runnerId, hosts, job.queuedBy, 15);
+      } else if (CRAWL_TOOLS.has(job.tool)) {
+        // Iterative recon: a crawl reveals a new URL surface — mine + re-scan it.
+        const urls = extractEndpoints(output, job.target);
+        await queueEndpointScans(engagementId, runnerId, urls, job.queuedBy, 15);
+        await queueJsSecretScans(engagementId, runnerId, jsUrls(urls), job.queuedBy, 20);
+        await queueParamDiscovery(engagementId, runnerId, urls, job.queuedBy, 12);
+      }
+      // Auto-exploit: from fresh RECON findings, queue exploit-validation jobs on
+      // the same runner. Their results come back through this same route.
+      if (RECON_TOOLS.has(job.tool) && fresh.length > 0) {
+        await queueExploitJobs(engagementId, runnerId, fresh, job.queuedBy);
+      }
+    }
+
+    if (fresh.length > 0) {
+      // Recompute risk across the engagement so attack chains elevate in triage.
+      await recomputeEngagementIntel(engagementId).catch(() => {});
+    }
+
+    // Findings are committed — NOW mark the job done.
+    await prisma.job.update({
+      where: { id: job.id },
+      data: { status: "done", finishedAt: new Date() },
+    });
   }
 
   // Self-healing: a recoverable runner-side failure (missing tool, timeout, dead
