@@ -201,12 +201,17 @@ function parseSqlmap(target: string, output: string): ParsedFinding[] {
   return [
     {
       title: `SQL injection on ${target}${where}`,
-      severity: "critical",
+      severity: strong ? "critical" : "high",
       status: "open",
-      confirmed: true,
-      description:
-        `sqlmap confirmed a SQL injection point on ${target}${where}.\n\n` +
-        "SQL injection can allow reading or modifying the database and, depending on configuration, the underlying host.",
+      // Only sqlmap's explicit "identified the following injection point" is proof;
+      // a soft "is vulnerable" line is a lead → unconfirmed, the validator re-runs
+      // the differential to prove it (avoids shipping a false critical).
+      confirmed: strong,
+      description: strong
+        ? `sqlmap identified a SQL injection point on ${target}${where}.\n\n` +
+          "SQL injection can allow reading or modifying the database and, depending on configuration, the underlying host."
+        : `sqlmap reported a possible injection on ${target}${where} (soft signal — not fully confirmed).\n\n` +
+          "Re-run the differential check to confirm before reporting.",
       recommendation:
         "Use parameterized queries / prepared statements for all database access, validate and constrain input, and apply least-privilege database accounts. Re-test after fixing.",
     },
@@ -383,6 +388,12 @@ function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
     .map((l) => l.trim())
     .filter((l) => re.test(l) && !looksNegated(l));
   if (evidence.length === 0) return [];
+  // STRONG = structured proof (nmap NSE "State: VULNERABLE", msf "[+] … is
+  // vulnerable"). Weak/bare matches ("appears to be vulnerable", a lone
+  // "VULNERABLE" token from a template name) are leads, not proof — emit them
+  // UNconfirmed so the validator gets a chance instead of shipping a false crit.
+  const STRONG = /State:\s*VULNERABLE|\[\+\][^\n]*\bis vulnerable\b/i;
+  const strong = evidence.some((l) => STRONG.test(l));
   const lines = evidence
     .concat(
       output
@@ -393,12 +404,12 @@ function parseVulnConfirm(target: string, output: string): ParsedFinding[] {
     .slice(0, 10);
   return [
     {
-      title: `✅ Confirmed exploitable: ${target}`,
-      severity: "critical",
+      title: strong ? `✅ Confirmed exploitable: ${target}` : `⚠ Possible vulnerability (needs validation): ${target}`,
+      severity: strong ? "critical" : "high",
       status: "open",
-      confirmed: true,
+      confirmed: strong,
       description:
-        `Automated validation indicates ${target} is exploitable:\n\n${lines.join("\n")}\n\n` +
+        `${strong ? "Automated validation indicates" : "A scanner flagged (unconfirmed)"} ${target}:\n\n${lines.join("\n")}\n\n` +
         "Validate manually on the authorized target, then report and remediate.",
       recommendation:
         "Patch/upgrade the affected component immediately, then re-run the check to confirm the fix.",
@@ -695,26 +706,31 @@ function parseFfuf(target: string, output: string): ParsedFinding[] {
   return urlListFinding("ffuf", target, Array.from(new Set(urls)));
 }
 
-/** dalfox: flag confirmed/PoC XSS. "[POC]" / "[VULN]" lines are real hits. */
+/** dalfox: only "[VULN]" is a verified hit; "[POC]" is reflection-only (a PoC URL
+ *  was built) and must NOT be confirmed — reflected ≠ executed. */
 function parseDalfox(target: string, output: string): ParsedFinding[] {
-  const hits = output
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => /^\[(POC|VULN)\]/i.test(l));
-  if (hits.length === 0) {
+  const lines = output.split("\n").map((l) => l.trim());
+  const vuln = lines.filter((l) => /^\[\s*(VULN|V)\s*\]/i.test(l));
+  const poc = lines.filter((l) => /^\[\s*POC\s*\]/i.test(l));
+  if (vuln.length === 0 && poc.length === 0) {
     // dalfox also prints "[G]"/"[I]" info; only POC/VULN are findings.
     return [];
   }
+  // A verified hit takes precedence and is confirmed; otherwise it's a PoC-only
+  // (reflection) lead that stays unconfirmed until the headless validator runs.
+  const verified = vuln.length > 0;
+  const hits = (verified ? vuln : poc).slice(0, 12);
   return [
     {
       title: `Cross-site scripting (XSS) on ${target}`,
       severity: "high",
       status: "open",
-      confirmed: true,
-      description:
-        `dalfox confirmed XSS on ${target}:\n\n` +
-        hits.slice(0, 12).join("\n") +
-        "\n\nXSS lets an attacker run script in victims' browsers (session theft, account takeover, defacement).",
+      confirmed: verified,
+      description: verified
+        ? `dalfox verified XSS execution on ${target}:\n\n${hits.join("\n")}\n\n` +
+          "XSS lets an attacker run script in victims' browsers (session theft, account takeover, defacement)."
+        : `dalfox reflected a payload on ${target} (PoC only — reflection, not execution-proven; may be WAF-blocked or wrong context):\n\n${hits.join("\n")}\n\n` +
+          "Re-test with headless checking before reporting — a reflected payload is a lead, not proof.",
       recommendation:
         "Context-encode all output, validate/sanitize input, set a strict Content-Security-Policy, and use framework auto-escaping. Re-test after fixing.",
     },
