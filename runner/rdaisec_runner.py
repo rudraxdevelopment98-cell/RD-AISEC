@@ -92,7 +92,11 @@ import tempfile
 # v73 — reliability: persisted token now beats a stale RUNNER_TOKEN env var (fixes
 # the 401 "token rejected" loop across restarts); worker-slot counter rolls back if
 # a worker thread fails to start (was leaking slots until the runner stopped claiming).
-RUNNER_VERSION = "73"
+# v74 — load-aware backpressure: the runner stops claiming MORE jobs when the box is
+# saturated (CPU load per core or low free RAM), instead of piling on until it
+# thrashes into collapse / drops its heartbeat. The first job always runs, so work
+# never stalls — a busy small box now paces itself and stays online + in sync.
+RUNNER_VERSION = "74"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -741,6 +745,30 @@ def _mem_mb():
         return (max(0, total - avail), total)
     except Exception:  # noqa: BLE001
         return (None, None)
+
+
+def _overloaded():
+    """True when the machine is too saturated to safely START ANOTHER job. This is
+    the backpressure that stops the 'claim everything → thrash → collapse' spiral
+    on a small box (e.g. a Kali VM): security tools (nuclei/nmap/gobuster) are
+    CPU+RAM heavy, so running MAX_WORKERS of them regardless of real load is what
+    makes the runner freeze, miss heartbeats and look 'offline/confused'. The
+    caller always allows the FIRST job, so work never stops entirely — it just
+    paces itself. Best-effort; never raises."""
+    try:
+        cores = os.cpu_count() or 1
+        parts = _loadavg().split()
+        load1 = float(parts[0]) if parts else 0.0
+        if load1 > cores * 2.0:  # >2 runnable threads per core = saturated
+            return True
+        used, total = _mem_mb()
+        if total and used is not None:
+            avail = total - used
+            if avail < max(350, int(total * 0.08)):  # <350MB or <8% free → OOM/thrash risk
+                return True
+    except Exception:  # noqa: BLE001
+        pass
+    return False
 
 
 def _disk_mb():
@@ -4168,8 +4196,16 @@ def main():
             started = 0
             while True:
                 with WORKERS_LOCK:
-                    if ACTIVE_WORKERS >= MAX_WORKERS:
-                        break
+                    active = ACTIVE_WORKERS
+                if active >= MAX_WORKERS:
+                    break
+                # Load-aware backpressure: if we're already running a job AND the
+                # machine is saturated (CPU load or RAM), stop claiming more this
+                # pass and let the running work drain first. This is what prevents a
+                # small box from thrashing into collapse and dropping its heartbeat.
+                # The FIRST job is always allowed, so progress never stalls entirely.
+                if active >= 1 and _overloaded():
+                    break
                 job, anon = poll()
                 if anon is not None:
                     apply_anonymity(anon)
