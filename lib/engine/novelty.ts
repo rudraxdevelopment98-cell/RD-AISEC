@@ -143,7 +143,14 @@ export function assessNovelty(
 ): NoveltyVerdict {
   const sig = findingSignature(f);
   const h = simhash(sig);
-  const duplicate = isDuplicate(h, priorHashes);
+  // Token-aware duplicate distance: a 32-bit SimHash over a SHORT signature (few
+  // tokens) has an unstable Hamming distance, so the default ≤3 wrongly collapses
+  // genuinely distinct findings (killing their novelty). Require an exact hash
+  // match for very short signatures, and only widen the distance as the signature
+  // gets long enough for SimHash to be meaningful.
+  const tokens = sig.split(/\s+/).filter(Boolean).length;
+  const maxDist = tokens <= 3 ? 0 : tokens <= 5 ? 2 : 3;
+  const duplicate = isDuplicate(h, priorHashes, maxDist);
   const cls = classOf(f);
   let novelty = CLASS_NOVELTY[cls] ?? 40;
 

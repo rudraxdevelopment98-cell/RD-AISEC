@@ -87,7 +87,9 @@ import tempfile
 # response matched by command id instead of positionally.
 # v71 — secretvalidate: live read-only identity checks for DigitalOcean, Postman
 # and Mailgun tokens (Stripe restricted keys already covered by the stripe probe).
-RUNNER_VERSION = "71"
+# v72 — dropped the Mailgun "key-<32hex>" probe: the pattern matches ETags/MD5s/DOM
+# ids, so it was a false-positive/wasted-request source (removed from detection too).
+RUNNER_VERSION = "72"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -2852,8 +2854,6 @@ _SECRET_PROVIDERS = [
         lambda k: ("GET", "https://api.digitalocean.com/v2/account", {"Authorization": "Bearer " + k})),
     ("postman", re.compile(r"\bPMAK-[0-9a-f]{24}-[0-9a-f]{34}\b"),
         lambda k: ("GET", "https://api.getpostman.com/me", {"X-Api-Key": k})),
-    ("mailgun", re.compile(r"\bkey-[0-9a-f]{32}\b"),
-        lambda k: ("GET", "https://api.mailgun.net/v3/domains", {"Authorization": "Basic " + base64.b64encode(("api:" + k).encode()).decode()})),
 ]
 # Detected-but-not-network-validatable here (need a second secret / signing / region).
 _SECRET_MANUAL = [
@@ -2887,9 +2887,6 @@ def _who_from(provider, body):
     if provider == "postman":
         u = j.get("user") or {}
         return str(u.get("username") or u.get("email") or u.get("id") or "user")
-    if provider == "mailgun":
-        items = j.get("items") or []
-        return f"{len(items)} domain(s) accessible" if isinstance(items, list) else "domains accessible"
     return "authenticated"
 
 

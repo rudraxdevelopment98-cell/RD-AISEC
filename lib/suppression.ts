@@ -56,8 +56,11 @@ export async function learnConfirmed(findingId: string, by: string): Promise<voi
 
 /**
  * Learn a suppression from a finding the operator marked as a false positive.
- * Idempotent per (titleKey + vulnClass + scope). Default scope is global so the
- * same noise is suppressed everywhere; the rule is fully visible + removable.
+ * Idempotent per (titleKey + vulnClass + scope + host). Default scope is HOST —
+ * a false positive on one target must NOT blind the engine to that whole bug
+ * class on every OTHER target (a single mis-triage used to suppress, e.g., all
+ * SQLi everywhere). Only findings with no identifiable host fall back to global.
+ * The rule is fully visible + removable.
  */
 export async function learnFromFinding(findingId: string, by: string): Promise<void> {
   const f = await prisma.finding.findUnique({
@@ -67,24 +70,26 @@ export async function learnFromFinding(findingId: string, by: string): Promise<v
   if (!f) return;
   const sig = signatureOf(f);
   if (!sig.titleKey) return; // nothing stable to key on
+  const host = hostFromTitle(f.title);
+  const scope = host ? "host" : "global";
   const existing = await prisma.suppression.findFirst({
-    where: { titleKey: sig.titleKey, vulnClass: sig.vulnClass, scope: "global" },
+    where: { titleKey: sig.titleKey, vulnClass: sig.vulnClass, scope, host },
   });
   if (existing) return;
   await prisma.suppression.create({
     data: {
-      scope: "global",
-      host: hostFromTitle(f.title),
+      scope,
+      host,
       vulnClass: sig.vulnClass,
       titleKey: sig.titleKey,
-      reason: `Marked false positive${by ? ` by ${by}` : ""}`,
+      reason: `Marked false positive${by ? ` by ${by}` : ""}${host ? ` (on ${host})` : ""}`,
       createdBy: by,
     },
   });
   await logAudit({
     type: "suppression.learned",
     actor: by,
-    summary: `Learned to suppress "${sig.titleKey}" (marked false positive)`,
+    summary: `Learned to suppress "${sig.titleKey}"${host ? ` on ${host}` : " (all hosts)"} (marked false positive)`,
     severity: "info",
   });
 }

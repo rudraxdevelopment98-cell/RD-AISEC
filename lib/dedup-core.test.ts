@@ -45,5 +45,19 @@ const ports = [
   );
 }
 
+// Regression: two DIFFERENT CVEs on the same product+host must stay DISTINCT
+// (they used to collapse because titleKey strips the CVE/version, dropping the
+// second real, payable finding).
+{
+  const a = { title: "Apache 2.4.49 outdated on target.com", description: "CVE-2021-41773 path traversal" };
+  const b = { title: "Apache 2.4.50 outdated on target.com", description: "CVE-2021-42013 RCE" };
+  ok(
+    findingSignature(a, host) !== findingSignature(b, host),
+    "distinct CVEs on one host get distinct signatures",
+  );
+  const { fresh } = dedupFindings([a, b], [], "nuclei", host);
+  ok(fresh.length === 2, `both CVEs survive dedup (got ${fresh.length})`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

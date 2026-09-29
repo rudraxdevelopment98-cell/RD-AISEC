@@ -10,10 +10,25 @@
 import { signatureOf, hostFromTitle } from "./suppression-core";
 
 /**
- * Stable signature for a finding: `${vulnClass}|${titleKey}|${host}`. Same issue
- * on the same host from any tool → same signature. Different hosts stay separate
- * (they're different assets). Falls back to the exact lowercased title when the
- * normalizer can't derive a stable key, so we never over-merge distinct issues.
+ * A distinguishing token that MUST keep otherwise-similar findings apart: a CVE
+ * id, or a version number in the title. Without it the normalized titleKey (which
+ * strips CVEs/versions to merge "(3)" vs "(7)" counts) would collapse two DIFFERENT
+ * bugs — e.g. "Apache 2.4.49 (CVE-2021-41773)" and "Apache 2.4.50 (CVE-2021-42013)"
+ * — into one and silently drop the second real, payable finding.
+ */
+function discriminator(f: { title: string; description?: string | null }): string {
+  const text = `${f.title}\n${f.description ?? ""}`;
+  const cve = text.match(/cve-\d{4}-\d{3,7}/i);
+  if (cve) return cve[0].toLowerCase();
+  const ver = f.title.match(/\b\d+\.\d[\d.]*\b/); // e.g. "2.4.49", "1.0"
+  return ver ? ver[0] : "";
+}
+
+/**
+ * Stable signature for a finding: `${vulnClass}|${titleKey}|${disc}|${host}`. Same
+ * issue on the same host from any tool → same signature. Different hosts — or a
+ * different CVE/version (disc) — stay separate. Falls back to the exact lowercased
+ * title when the normalizer can't derive a stable key, so we never over-merge.
  */
 export function findingSignature(
   f: { title: string; description?: string | null },
@@ -26,13 +41,14 @@ export function findingSignature(
   // parenthetical, so "Open port 22/tcp (ssh)", "…80/tcp (http)", "…443/tcp" would
   // all collapse to one finding and every port but the first would be silently
   // dropped. Use a number-preserving key so distinct ports/services stay distinct.
-  // Classified findings keep the normalized key (so "(3)" vs "(7)" counts merge).
+  // Classified findings keep the normalized key (so "(3)" vs "(7)" counts merge)
+  // PLUS a CVE/version discriminator so distinct CVEs on one host stay distinct.
   if (!sig.vulnClass) {
     const key = f.title.toLowerCase().replace(/\s+/g, " ").trim();
     return `|${key}|${host}`;
   }
   const key = sig.titleKey || f.title.toLowerCase().trim();
-  return `${sig.vulnClass}|${key}|${host}`;
+  return `${sig.vulnClass}|${key}|${discriminator(f)}|${host}`;
 }
 
 /** Merge a tool id into a comma-joined source list (deduped, stable order). */

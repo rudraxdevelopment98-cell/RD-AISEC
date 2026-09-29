@@ -48,7 +48,6 @@ const PRIVILEGED_SIGNS: { re: RegExp; what: string }[] = [
   { re: /\bdop_v1_[0-9a-f]{64}\b/, what: "DigitalOcean token" },
   { re: /\bshp(at|ca|pa|ss)_[0-9a-fA-F]{32}\b/, what: "Shopify access token" },
   { re: /\bPMAK-[0-9a-f]{24}-[0-9a-f]{34}\b/, what: "Postman API key" },
-  { re: /\bkey-[0-9a-f]{32}\b/, what: "Mailgun key" },
   { re: /\bAKIA[0-9A-Z]{16}\b/, what: "AWS access key id" },
   { re: /-----BEGIN[ A-Z]*PRIVATE KEY-----/, what: "private key" },
   { re: /\b(postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]+@/i, what: "database/service connection string with credentials" },

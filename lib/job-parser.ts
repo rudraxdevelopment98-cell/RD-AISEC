@@ -430,7 +430,11 @@ function parseSearchsploit(target: string, output: string): ParsedFinding[] {
   return [
     {
       title: `Public exploits available for "${target}" (${rows.length})`,
-      severity: "high",
+      // Informational LEAD, not a vulnerability: "Exploit-DB has entries matching
+      // this product name" doesn't mean this target is exploitable (name matches
+      // are broad and version-agnostic). Surfaced low so it doesn't flood triage
+      // with high-severity noise — confirm the version + validate before trusting.
+      severity: "info",
       status: "open",
       description:
         `Exploit-DB has ${rows.length} entr${rows.length === 1 ? "y" : "ies"} matching "${target}":\n\n` +
@@ -454,16 +458,19 @@ function parseSslscan(target: string, output: string): ParsedFinding[] {
       .split("\n")
       .some((l) => proto.test(l) && /\benabled\b/i.test(l) && !/disabled/i.test(l));
 
-  // Deprecated protocols still enabled.
+  // Deprecated protocols still enabled. TLS/SSL config issues are almost always
+  // closed as informational / N-A on bounty programs, so they're rated LOW — real
+  // but low-value; they must not flood triage above actual bugs. (Heartbleed,
+  // below, is a genuine memory-disclosure exploit and stays critical.)
   const deadProtos: { re: RegExp; name: string; sev: string }[] = [
-    { re: /SSLv2/i, name: "SSLv2", sev: "high" },
-    { re: /SSLv3/i, name: "SSLv3", sev: "high" },
-    { re: /TLSv1\.0/i, name: "TLS 1.0", sev: "medium" },
-    { re: /TLSv1\.1/i, name: "TLS 1.1", sev: "medium" },
+    { re: /SSLv2/i, name: "SSLv2", sev: "low" },
+    { re: /SSLv3/i, name: "SSLv3", sev: "low" },
+    { re: /TLSv1\.0/i, name: "TLS 1.0", sev: "low" },
+    { re: /TLSv1\.1/i, name: "TLS 1.1", sev: "low" },
   ];
   const weakOn = deadProtos.filter((p) => enabled(p.re));
   if (weakOn.length) {
-    const worst = weakOn.some((p) => p.sev === "high") ? "high" : "medium";
+    const worst = "low";
     out.push({
       title: `Weak TLS/SSL protocols enabled on ${target} (${weakOn.map((p) => p.name).join(", ")})`,
       severity: worst,
@@ -485,7 +492,7 @@ function parseSslscan(target: string, output: string): ParsedFinding[] {
   if (uniqWeak.length) {
     out.push({
       title: `Weak TLS ciphers accepted on ${target} (${uniqWeak.length})`,
-      severity: "medium",
+      severity: "low",
       status: "open",
       confirmed: true,
       description: `sslscan shows ${target} accepts weak cipher suites:\n\n${uniqWeak.join("\n")}`,
@@ -517,7 +524,7 @@ function parseSslscan(target: string, output: string): ParsedFinding[] {
   if (expired) {
     out.push({
       title: `Expired TLS certificate on ${target}`,
-      severity: "medium",
+      severity: "low",
       status: "open",
       description: `sslscan reports the TLS certificate for ${target} has expired.`,
       recommendation: "Renew the certificate and automate renewal (e.g. ACME/Let's Encrypt) to prevent recurrence.",
@@ -750,12 +757,11 @@ const SECRET_PATTERNS: { name: string; re: RegExp; severity: string }[] = [
   { name: "Stripe live key", re: /\bsk_live_[0-9A-Za-z]{24,}\b/, severity: "critical" },
   { name: "Stripe restricted key", re: /\brk_live_[0-9A-Za-z]{24,}\b/, severity: "critical" },
   { name: "SendGrid key", re: /\bSG\.[0-9A-Za-z_-]{22}\.[0-9A-Za-z_-]{43}\b/, severity: "critical" },
-  { name: "OpenAI key", re: /\bsk-(?:proj-)?[0-9A-Za-z_-]{20,}\b/, severity: "high" },
+  { name: "OpenAI key", re: /\bsk-(?:proj-)?[0-9A-Za-z_-]{40,}\b/, severity: "high" },
   { name: "npm token", re: /\bnpm_[0-9A-Za-z]{36}\b/, severity: "high" },
   { name: "DigitalOcean token", re: /\bdop_v1_[0-9a-f]{64}\b/, severity: "critical" },
   { name: "Shopify access token", re: /\bshp(at|ca|pa|ss)_[0-9a-fA-F]{32}\b/, severity: "critical" },
   { name: "Postman API key", re: /\bPMAK-[0-9a-f]{24}-[0-9a-f]{34}\b/, severity: "high" },
-  { name: "Mailgun key", re: /\bkey-[0-9a-f]{32}\b/, severity: "high" },
   { name: "Twilio key", re: /\bSK[0-9a-fA-F]{32}\b/, severity: "high" },
   { name: "Private key", re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/, severity: "critical" },
   { name: "JWT", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/, severity: "medium" },
