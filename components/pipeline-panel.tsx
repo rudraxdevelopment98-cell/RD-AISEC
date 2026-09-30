@@ -52,7 +52,7 @@ export function PipelinePanel({
     <section className="mt-8">
       <div className="flex items-center gap-2">
         <Icon name="bolt" className="h-4 w-4 text-brand" />
-        <h2 className="text-lg font-semibold">Assessment pipeline</h2>
+        <h2 className="section-title">Assessment pipeline</h2>
       </div>
       <p className="mt-1 text-sm text-gray-400">
         Runs every stage in order — recon, scan, exploit, triage, report. Each

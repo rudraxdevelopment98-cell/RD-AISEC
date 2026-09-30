@@ -10,7 +10,7 @@ const field = "glass-input";
 export function AssessmentPanel({ engagementId, assessments }: { engagementId: string; assessments: Assessment[] }) {
   return (
     <div id="assessment" className="scroll-mt-20">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title flex items-center gap-2">
         <Icon name="shield" className="h-5 w-5 text-brand" /> Assessments
         <span className="text-sm font-normal text-gray-500">({assessments.length})</span>
       </h2>

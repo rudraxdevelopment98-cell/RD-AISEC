@@ -14,7 +14,7 @@ export function EvidencePanel({ engagementId, evidence }: { engagementId: string
   return (
     <div id="evidence" className="scroll-mt-20">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="section-title flex items-center gap-2">
           <Icon name="fingerprint" className="h-5 w-5 text-brand" /> Evidence &amp; chain of custody
           <span className="text-sm font-normal text-gray-500">({evidence.length})</span>
         </h2>

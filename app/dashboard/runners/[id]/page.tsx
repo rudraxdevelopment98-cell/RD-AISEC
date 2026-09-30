@@ -307,7 +307,7 @@ export default async function MachinePage({
       <hr className="hairline my-6" />
 
       {/* ── Settings ─────────────────────────────────────── */}
-      <h2 className="section-title mt-8 flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title mt-8 flex items-center gap-2">
         <Icon name="wrench" className="h-4 w-4 text-brand" /> Settings
       </h2>
       <div className="mt-3 space-y-3">
@@ -406,7 +406,7 @@ export default async function MachinePage({
       </div>
 
       {/* ── Command console ──────────────────────────────── */}
-      <h2 className="section-title mt-8 flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title mt-8 flex items-center gap-2">
         <Icon name="bolt" className="h-4 w-4 text-brand" /> Run a command{" "}
         <Hint>
           A full console for this machine — run any command, or tap a quick command
@@ -418,7 +418,7 @@ export default async function MachinePage({
       </div>
 
       {/* ── Full control (interactive terminal / files / services / install) ── */}
-      <h2 className="section-title mt-8 flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title mt-8 flex items-center gap-2">
         <Icon name="server" className="h-4 w-4 text-brand" /> Full control
         {unlocked ? (
           <span className="tag ring-emerald accent-emerald text-xs">unlocked</span>
@@ -458,7 +458,7 @@ export default async function MachinePage({
       </div>
 
       {/* ── Tools ────────────────────────────────────────── */}
-      <h2 className="section-title mt-8 flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title mt-8 flex items-center gap-2">
         <Icon name="wrench" className="h-4 w-4 text-brand" /> Tools
         <span className="text-sm font-normal text-gray-500">
           {installedCount}/{toolRows.length} installed
@@ -552,7 +552,7 @@ export default async function MachinePage({
       )}
 
       {/* ── Recent jobs ──────────────────────────────────── */}
-      <h2 className="section-title mt-8 flex items-center gap-2 text-lg font-semibold">
+      <h2 className="section-title mt-8 flex items-center gap-2">
         <Icon name="bolt" className="h-4 w-4 text-brand" /> Recent jobs
       </h2>
       {r.jobs.length === 0 ? (

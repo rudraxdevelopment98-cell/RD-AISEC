@@ -63,7 +63,7 @@ export default async function ScanPage({
       <hr className="hairline my-6" />
 
       {/* ── Scheduled scans ─────────────────────────────── */}
-      <h2 className="section-title mt-12 flex items-center gap-2 text-lg font-bold">
+      <h2 className="section-title mt-12 flex items-center gap-2">
         <Icon name="clock" className="h-5 w-5 text-brand" />
         Scheduled scans
       </h2>
