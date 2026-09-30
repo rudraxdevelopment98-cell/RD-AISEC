@@ -692,7 +692,12 @@ export const JOB_PRIORITY = {
 // Version scheme (from v52): a whole-number bump (52 → 53) is a MAJOR change;
 // a dotted bump (52.1, 52.1.1) is a MINOR one. The runner compares these as an
 // integer tuple when deciding whether to self-update.
-export const RUNNER_VERSION = "68";
+// IMPORTANT: keep this in lockstep with RUNNER_VERSION in runner/rdaisec_runner.py.
+// The served script (that file) is the source of truth for self-update; this
+// constant only drives the "update available" banner. If it lags behind the
+// script, the portal flags an up-to-date runner as "outdated" with a backwards
+// "vNEW → vOLD" banner that a restart can never clear (the runner is already newer).
+export const RUNNER_VERSION = "78";
 
 // A runner is considered offline if it hasn't polled within this window. Kept
 // generous (several missed heartbeats) so a busy machine under heavy job load —

@@ -107,7 +107,11 @@ import tempfile
 # disk (stops claiming when the workspace FS is nearly full); workspace + dossier writes
 # skip when space is low; facts.jsonl is capped per target; the raw scan archive is
 # pruned to a size cap on the 3h cleanup AND immediately when the disk goes critical.
-RUNNER_VERSION = "77"
+# v78 — RESTART & UPDATE: a portal-requested restart now fetches + applies the latest
+# script INLINE (bypassing the AUTO_UPDATE opt-out and idle throttle) instead of relying
+# on the startup self-update pass, so "Restart & update now" deterministically lands the
+# newest version in one step even when RUNNER_AUTO_UPDATE=0 or startup would skip it.
+RUNNER_VERSION = "78"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -1066,11 +1070,15 @@ def _ver_tuple(v: str) -> tuple:
     return tuple(out) or (0,)
 
 
-def _fetch_update():
+def _fetch_update(force: bool = False):
     """Return the latest runner script text iff it's NEWER than ours, else None.
     Best-effort; validates the payload so a stray HTML error page can't clobber
-    us. Does the (slow) network fetch, so callers run it OUTSIDE any lock."""
-    if not AUTO_UPDATE:
+    us. Does the (slow) network fetch, so callers run it OUTSIDE any lock.
+
+    `force=True` bypasses the RUNNER_AUTO_UPDATE opt-out — used by an explicit
+    portal-requested "Restart & update", which is a deliberate operator action,
+    not the background auto-update the opt-out is meant to silence."""
+    if not AUTO_UPDATE and not force:
         return None
     try:
         resp = request("GET", "/api/runner/script", timeout=30)
@@ -1127,15 +1135,34 @@ def self_update() -> bool:
 
 
 def restart_self():
-    """Re-exec this runner (portal-requested restart from the Machines page).
-    Startup runs self_update() first, so a restart also lands the latest version.
-    os.execv replaces the whole process, so this never returns on success."""
-    path = os.path.abspath(__file__)
-    print("↻ restart requested from portal — restarting…")
+    """Restart this runner (portal-requested from the Machines page).
+
+    A portal restart means "get current and restart now", so we fetch the latest
+    script and apply it INLINE (bypassing the AUTO_UPDATE opt-out and the idle
+    throttle) rather than relying on the startup self-update pass to land it on
+    the way back up — that pass can be skipped (RUNNER_AUTO_UPDATE=0) or lose a
+    race, which made "Restart & update" restart without actually updating.
+    _apply_update() writes the new script + re-execs into it; if there is nothing
+    newer (or the fetch/write fails) we re-exec the current file so the machine
+    still restarts. os.execv replaces the whole process, so this never returns on
+    success."""
+    print("↻ restart requested from portal — updating & restarting…")
     try:
         sys.stdout.flush()
     except Exception:  # noqa: BLE001
         pass
+    # Land the newest version as part of the restart. On success _apply_update
+    # re-execs and never comes back; it only returns here if there's nothing to
+    # apply (None) or the on-disk write failed (False) — in both cases we fall
+    # through to a plain re-exec so the restart still happens.
+    try:
+        content = _fetch_update(force=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  update check before restart failed ({exc}); restarting as-is.")
+        content = None
+    if content and _apply_update(content):
+        return  # re-exec already happened (or the new file is staged for next start)
+    path = os.path.abspath(__file__)
     _release_single_instance()  # let the re-exec'd process re-acquire the lock
     try:
         os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
