@@ -1,5 +1,5 @@
 import type { Engagement, Finding } from "@prisma/client";
-import { execSummaryMarkdown } from "@/lib/ai-report";
+import { execSummaryMarkdown, isReconArtifact } from "@/lib/ai-report";
 import { groupForReport, STATE_LABEL, type Quality } from "@/lib/bb-engine";
 import { publishState } from "@/lib/review-gate";
 import {
@@ -74,14 +74,21 @@ export function gradeFindings(findings: Finding[], kev?: Set<string>): GradedSec
     const cve = `${f.title}\n${f.description}`.match(/\bCVE-\d{4}-\d{3,7}\b/i)?.[0]?.toUpperCase();
     return !!cve && kev.has(cve);
   };
-  const inputs: Row[] = findings.map((f) => ({
-    title: f.title,
-    description: f.description,
-    severity: f.severity,
-    confirmedFlag: f.confirmed,
-    knownExploited: inKev(f),
-    _row: f,
-  }));
+  const inputs: Row[] = findings.map((f) => {
+    // Recon INVENTORY (crawled URLs, subdomain/port lists) is not a vulnerability —
+    // normalise it to "info" so it lands in the Informational appendix and never
+    // inflates the risk sections, whatever severity it was stored with.
+    const severity = isReconArtifact(f) ? "info" : f.severity;
+    const row = severity === f.severity ? f : { ...f, severity };
+    return {
+      title: f.title,
+      description: f.description,
+      severity,
+      confirmedFlag: f.confirmed,
+      knownExploited: inKev(f),
+      _row: row,
+    };
+  });
   const g = groupForReport(inputs);
   // Within each report section, lead with the highest persisted risk score (which
   // folds in KEV / EPSS / exposure), falling back to severity — so the reader hits
