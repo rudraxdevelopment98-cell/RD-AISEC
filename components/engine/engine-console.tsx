@@ -272,7 +272,13 @@ function Header({ index, s, kevCount }: { index: number; s: WirePayload["summary
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">Engine — Command Center</h1>
+        {/* Same title signature as the shared PageHeader (gold accent bar + type),
+            so this console reads as part of the same family as the other deep
+            pages even though it keeps its own full-height console layout. */}
+        <h1 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight text-gray-100">
+          <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full bg-gradient-to-b from-gold-glow to-gold-deep shadow-[0_0_8px_rgba(214,183,122,0.5)]" />
+          Engine — Command Center
+        </h1>
         <p className="mt-0.5 text-sm text-gray-500">
           Risk-scored, prioritized intelligence across every finding · CISA KEV catalog: {kevCount.toLocaleString()} CVEs
         </p>

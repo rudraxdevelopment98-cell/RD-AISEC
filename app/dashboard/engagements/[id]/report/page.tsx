@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getEngagement } from "@/lib/engagements";
@@ -21,6 +20,8 @@ import { attackLabel, owaspLabel } from "@/lib/finding-map";
 import { SeverityBadge } from "@/components/badges";
 import { PrintButton } from "@/components/print-button";
 import { Icon } from "@/components/icons";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -82,20 +83,29 @@ export default async function ReportPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      {/* Toolbar — hidden when printing */}
-      <div className="flex items-center justify-between print:hidden">
-        <Link
-          href={`/dashboard/engagements/${e.id}`}
-          className="text-sm text-gray-500 hover:text-brand"
-        >
-          ← Back to engagement
-        </Link>
-        <div className="flex gap-2">
-          <a href={`/api/engagements/${e.id}/report`} className="btn-ghost">
-            <Icon name="copy" className="h-4 w-4" /> Download Markdown
-          </a>
-          <PrintButton />
-        </div>
+      {/* Standard page chrome (hidden when printing) — same breadcrumbs + sticky
+          header as every other deep page. The printed report has its own cover
+          header inside the <article> below. */}
+      <div className="print:hidden">
+        <Breadcrumbs
+          items={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Engagements", href: "/dashboard/engagements" },
+            { label: e.name, href: `/dashboard/engagements/${e.id}` },
+            { label: "Report" },
+          ]}
+        />
+        <PageHeader
+          title="Report"
+          actions={
+            <>
+              <a href={`/api/engagements/${e.id}/report`} className="btn-ghost px-3 py-1.5 text-xs">
+                <Icon name="copy" className="h-4 w-4" /> Markdown
+              </a>
+              <PrintButton />
+            </>
+          }
+        />
       </div>
 
       {/* Report — also the print surface */}
