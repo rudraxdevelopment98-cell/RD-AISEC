@@ -852,7 +852,7 @@ export default async function EngagementDetail({
             name="title"
             required
             placeholder="Title *"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:col-span-2"
+            className="glass-input sm:col-span-2"
           />
           <select
             name="type"
@@ -867,17 +867,17 @@ export default async function EngagementDetail({
           <input
             name="tags"
             placeholder="Tags (comma-separated)"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="glass-input"
           />
           <input
             name="url"
             placeholder="Online link — optional"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:col-span-2"
+            className="glass-input sm:col-span-2"
           />
           <input
             name="location"
             placeholder="Offline drive location — e.g. SSD:/exploits/cve-xyz/"
-            className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand sm:col-span-2"
+            className="glass-input sm:col-span-2"
           />
           <button type="submit" className="btn-primary sm:col-span-2">
             Attach

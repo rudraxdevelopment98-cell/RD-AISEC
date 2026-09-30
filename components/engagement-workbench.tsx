@@ -59,7 +59,7 @@ export function EngagementWorkbench({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Finding title *"
-            className="flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="flex-1 glass-input"
           />
           <select
             name="severity"
@@ -80,13 +80,13 @@ export function EngagementWorkbench({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description — what & where, with evidence"
           rows={2}
-          className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          className="glass-input"
         />
         <textarea
           name="recommendation"
           placeholder="Recommendation — how to fix and verify"
           rows={2}
-          className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+          className="glass-input"
         />
         <button type="submit" className="btn-primary">
           Add finding

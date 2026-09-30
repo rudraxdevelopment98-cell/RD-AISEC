@@ -50,7 +50,7 @@ export default async function EditEngagementPage({
             name="name"
             required
             defaultValue={e.name}
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="mt-1 w-full glass-input"
           />
         </label>
 
@@ -59,7 +59,7 @@ export default async function EditEngagementPage({
           <input
             name="client"
             defaultValue={e.client}
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="mt-1 w-full glass-input"
           />
         </label>
 
@@ -84,7 +84,7 @@ export default async function EditEngagementPage({
             name="category"
             defaultValue={e.category}
             placeholder="e.g. HackerOne, manual, internal"
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="mt-1 w-full glass-input"
           />
         </label>
 
@@ -110,7 +110,7 @@ export default async function EditEngagementPage({
             rows={5}
             defaultValue={e.scope}
             placeholder="Targets, IP ranges/CIDRs, domains, time windows, rules of engagement…"
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="mt-1 w-full glass-input"
           />
           <span className="mt-1 block text-xs text-gray-500">
             Targets must appear here for scanning to be allowed (the scope gate).
@@ -123,7 +123,7 @@ export default async function EditEngagementPage({
             name="authorizedBy"
             defaultValue={e.authorizedBy}
             placeholder="Name / signed-off contact"
-            className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+            className="mt-1 w-full glass-input"
           />
         </label>
 

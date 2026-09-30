@@ -8,7 +8,7 @@ type EvidenceItem = {
   size: string; storage: string; acquiredBy: string; acquiredAt: Date; notes: string; custody: CustodyEvent[];
 };
 
-const field = "rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand";
+const field = "glass-input";
 
 export function EvidencePanel({ engagementId, evidence }: { engagementId: string; evidence: EvidenceItem[] }) {
   return (

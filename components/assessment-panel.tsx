@@ -5,7 +5,7 @@ import { FRAMEWORKS, CONTROL_STATUSES, statusLabel, statusColor, scoreControls }
 type Control = { id: string; controlId: string; domain: string; title: string; status: string; maturity: number; notes: string; recommendation: string };
 type Assessment = { id: string; name: string; framework: string; notes: string; controls: Control[] };
 
-const field = "rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand";
+const field = "glass-input";
 
 export function AssessmentPanel({ engagementId, assessments }: { engagementId: string; assessments: Assessment[] }) {
   return (
