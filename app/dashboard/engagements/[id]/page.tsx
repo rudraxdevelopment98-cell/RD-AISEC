@@ -249,48 +249,32 @@ export default async function EngagementDetail({
         ]}
       />
 
-      <PageHeader title={e.name} />
-
-      {/* Header */}
-      <header className="card mt-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-2xl font-bold">{e.name}</div>
-            <p className="mt-1 text-sm text-gray-400">
-              <span className="capitalize">{e.type}</span>
-              {e.client && <> · {e.client}</>}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/engagements/${e.id}/report`}
-              className="btn-ghost"
-            >
-              <Icon name="book" className="h-4 w-4" /> Report
-            </Link>
+      {/* Single canonical header (matches the Machine detail page): title + live
+          status badge inline, discipline · client as the subtitle, Report as the
+          primary action. The status-CHANGE control lives in the Details tab. */}
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Icon name="target" className="h-6 w-6 shrink-0 text-brand" />
+            <span className="truncate">{e.name}</span>
             <EngagementStatusBadge value={e.status} />
-          </div>
-        </div>
-
-        {/* Status update */}
-        <form action={updateEngagementStatus} className="mt-4 flex items-center gap-2">
-          <input type="hidden" name="id" value={e.id} />
-          <select
-            name="status"
-            defaultValue={e.status}
-            className="rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-sm capitalize outline-none focus:border-brand"
+          </span>
+        }
+        subtitle={
+          <span>
+            <span className="capitalize">{e.type}</span>
+            {e.client ? <> · {e.client}</> : null}
+          </span>
+        }
+        actions={
+          <Link
+            href={`/dashboard/engagements/${e.id}/report`}
+            className="btn-ghost px-3 py-1.5 text-xs"
           >
-            {ENGAGEMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="btn-ghost">
-            Update status
-          </button>
-        </form>
-      </header>
+            <Icon name="book" className="h-4 w-4" /> Report
+          </Link>
+        }
+      />
 
       {searchParams.ok && (
         <div className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-sm text-brand">
@@ -324,9 +308,26 @@ export default async function EngagementDetail({
       >
       {/* ── Details & Status ── */}
       <TabPanel id="details">
+      {/* Status change (lives here, not in the header, to keep the header a pure
+          title bar like the Machine detail page). */}
+      <form action={updateEngagementStatus} className="card flex flex-wrap items-center gap-2">
+        <input type="hidden" name="id" value={e.id} />
+        <label className="text-xs font-semibold text-gray-400">Status</label>
+        <select name="status" defaultValue={e.status} className="glass-input text-sm capitalize">
+          {ENGAGEMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="btn-ghost px-3 py-1.5 text-xs">
+          Update status
+        </button>
+      </form>
+
       {/* Authorization */}
       <section
-        className={`rounded-xl border px-4 py-3 text-sm ${
+        className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${
           e.authorized
             ? "border-brand/40 bg-brand/10 text-brand"
             : "border-sev-med/40 bg-sev-med/10 text-sev-med"
@@ -673,7 +674,7 @@ export default async function EngagementDetail({
       <TabPanel id="findings">
       {/* Findings */}
       <div id="findings" className="flex items-center justify-between gap-3 scroll-mt-20">
-        <h2 className="text-lg font-semibold">
+        <h2 className="section-title">
           Findings{" "}
           <span className="text-sm font-normal text-gray-500">
             ({e.findings.length} total · {openCount} open)
@@ -745,7 +746,7 @@ export default async function EngagementDetail({
       {/* ── Leads (auto-correlated) ── */}
       <TabPanel id="leads">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">
+          <h2 className="section-title">
             Leads{" "}
             <span className="text-sm font-normal text-gray-500">
               (correlated from {leadsResult.factCount} facts — no AI)
@@ -823,7 +824,7 @@ export default async function EngagementDetail({
       <TabPanel id="map">
       {/* Engagement data map — 3D galaxy of this case's hosts/findings/people. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">🌌 Engagement map <Hint>Hosts, subdomains, services, findings, programs and collaborators for this engagement — linked and explorable. Tap any bubble for details.</Hint></h2>
+        <h2 className="section-title">🌌 Engagement map <Hint>Hosts, subdomains, services, findings, programs and collaborators for this engagement — linked and explorable. Tap any bubble for details.</Hint></h2>
         <Link href={`/dashboard/engagements/map?e=${e.id}`} className="text-xs text-brand hover:underline">
           Open full-screen <Icon name="arrow" className="inline h-3 w-3" />
         </Link>
@@ -835,7 +836,7 @@ export default async function EngagementDetail({
 
       <TabPanel id="resources">
       {/* Resources */}
-      <h2 id="resources" className="scroll-mt-20 text-lg font-semibold">
+      <h2 id="resources" className="section-title scroll-mt-20">
         Resources{" "}
         <span className="text-sm font-normal text-gray-500">
           ({e.resources.length})
