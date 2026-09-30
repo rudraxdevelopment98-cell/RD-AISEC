@@ -103,7 +103,11 @@ import tempfile
 # v76 — optional LOCAL model reasoning: `llmreason` asks an on-machine Ollama model to
 # suggest testable hypotheses from a target's dossier — free, no API. Degrades cleanly
 # (clear "start Ollama" message) when no local model is running.
-RUNNER_VERSION = "76"
+# v77 — DISK SAFETY: the runner no longer fills the disk. Backpressure now includes free
+# disk (stops claiming when the workspace FS is nearly full); workspace + dossier writes
+# skip when space is low; facts.jsonl is capped per target; the raw scan archive is
+# pruned to a size cap on the 3h cleanup AND immediately when the disk goes critical.
+RUNNER_VERSION = "77"
 
 # Heartbeat: ping the portal on a background thread so the machine stays "online"
 # even while busy running a long job/install (when the main loop isn't polling).
@@ -773,9 +777,26 @@ def _overloaded():
             avail = total - used
             if avail < max(350, int(total * 0.08)):  # <350MB or <8% free → OOM/thrash risk
                 return True
+        # Disk pressure is as fatal as RAM: a full disk freezes the box, corrupts
+        # writes, and breaks tools. Stop claiming when the workspace filesystem is
+        # nearly full so we never fill the last of the disk with scan output.
+        if _disk_free_mb(WORKSPACE) < 400:
+            return True
     except Exception:  # noqa: BLE001
         pass
     return False
+
+
+def _disk_free_mb(path: str) -> int:
+    """Free MB on the filesystem holding `path` (falls back to root). Big number on
+    error so a stat failure never blocks work."""
+    for p in (path, os.path.dirname(path) or "/", "/"):
+        try:
+            st = os.statvfs(p)
+            return int(st.f_bavail * st.f_frsize / 1048576)
+        except Exception:  # noqa: BLE001
+            continue
+    return 1_000_000
 
 
 def _disk_mb():
@@ -1992,11 +2013,52 @@ def _rm_old_temp() -> int:
     return removed
 
 
+def _prune_workspace(cap_mb: int = 2048) -> int:
+    """Cap the RAW output archive (engagements/) so it can't grow until it fills the
+    disk — remove the oldest files once the archive exceeds cap_mb. The per-target
+    dossier (targets/) is small + valuable, so it's left alone. Returns MB freed."""
+    freed = 0
+    try:
+        for base in _workspace_bases():
+            root = os.path.join(base, "engagements")
+            if not os.path.isdir(root):
+                continue
+            files = []
+            for dirpath, _dirs, names in os.walk(root):
+                for n in names:
+                    p = os.path.join(dirpath, n)
+                    try:
+                        st = os.stat(p)
+                        files.append((st.st_mtime, st.st_size, p))
+                    except Exception:  # noqa: BLE001
+                        continue
+            total = sum(s for _m, s, _p in files)
+            cap = cap_mb * 1048576
+            if total <= cap:
+                continue
+            files.sort()  # oldest first
+            for _m, size, p in files:
+                if total <= cap:
+                    break
+                try:
+                    os.remove(p)
+                    total -= size
+                    freed += size
+                except Exception:  # noqa: BLE001
+                    continue
+    except Exception:  # noqa: BLE001
+        pass
+    return round(freed / 1048576)
+
+
 def run_cleanup() -> str:
     """Clear stale temp + tool caches. All steps are safe (nothing that removes
     packages or restarts services). Returns a short summary. Never raises."""
     freed = _rm_old_temp()
     notes = [f"{freed} temp file(s)"]
+    pruned = _prune_workspace()
+    if pruned:
+        notes.append(f"{pruned}MB old scan archive")
     try:
         # Package-manager download cache (safe: just re-downloadable .debs).
         if shutil.which("apt-get"):
@@ -3458,6 +3520,10 @@ def save_to_workspace(engagement_id: str, tool: str, target: str, output: str) -
         header = f"# tool={tool} target={target} engagement={engagement_id or 'adhoc'} at={ts}\n\n"
         for base in _workspace_bases():
             try:
+                # NEVER fill the last of the disk with archive output — a full disk
+                # freezes the whole box. Skip this base when it's low on space.
+                if _disk_free_mb(base) < 500:
+                    continue
                 d = os.path.join(base, rel)
                 os.makedirs(d, exist_ok=True)
                 with open(os.path.join(d, fname), "w", encoding="utf-8", errors="replace") as f:
@@ -3523,12 +3589,22 @@ def update_dossier(engagement_id: str, tool: str, target: str, output: str) -> N
 
         for base in _workspace_bases():
             try:
+                if _disk_free_mb(base) < 500:  # don't grow the dossier on a near-full disk
+                    continue
                 d = os.path.join(base, "targets", _ws_slug(host))
                 os.makedirs(d, exist_ok=True)
-                # 1. Append the facts stream.
-                with open(os.path.join(d, "facts.jsonl"), "a", encoding="utf-8") as f:
-                    for fact in facts:
-                        f.write(json.dumps({**fact, "tool": tool, "at": ts}) + "\n")
+                # 1. Append the facts stream — but cap it so one heavily-scanned target
+                # can't grow facts.jsonl without bound (keeps disk + reads sane).
+                fp = os.path.join(d, "facts.jsonl")
+                try:
+                    if os.path.getsize(fp) > 8 * 1024 * 1024:  # 8 MB per target is plenty
+                        facts = []  # stop appending; state/notes still refresh below
+                except Exception:  # noqa: BLE001
+                    pass
+                if facts:
+                    with open(fp, "a", encoding="utf-8") as f:
+                        for fact in facts:
+                            f.write(json.dumps({**fact, "tool": tool, "at": ts}) + "\n")
                 # 2. Update the rolling state.
                 sp = os.path.join(d, "state.json")
                 try:
@@ -4460,6 +4536,14 @@ def main():
             with WORKERS_LOCK:
                 busy = ACTIVE_WORKERS
             if busy == 0:
+                # Emergency disk relief: if the box is critically low on space, prune
+                # the old scan archive + temp NOW instead of waiting for the 3h cycle,
+                # so a nearly-full disk recovers on its own rather than freezing.
+                if _disk_free_mb(WORKSPACE) < 700:
+                    freed = _prune_workspace(1024)
+                    _rm_old_temp()
+                    if freed:
+                        note(f"low disk — freed {freed}MB of old scan archive")
                 inst = poll_install()
                 if inst:
                     print(f"⬇ install {inst['tool']}…")
