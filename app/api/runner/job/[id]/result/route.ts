@@ -133,35 +133,45 @@ export async function POST(
       }
     }
 
-    // The one accuracy chain, shared with every other ingest source.
+    // The one accuracy chain, shared with every other ingest source. This is the
+    // step that MUST succeed before we mark the job done — if it throws, we do NOT
+    // catch it: the job stays "importing" and the runner's retry re-runs it (dedup
+    // makes the re-import idempotent), instead of silently losing the findings.
     const { fresh } = await ingestFindings(engagementId, candidates, { tool: job.tool, host });
 
-    // Source-specific follow-up chaining (suppressed for pipeline-staged jobs).
-    if (!pipelineJob) {
-      if (job.tool === "amass" || job.tool === "subfinder") {
-        // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
-        const hosts = parseSubdomains(output);
-        if (hosts.length > 0) await queueHostScans(engagementId, runnerId, hosts, job.queuedBy, 15);
-      } else if (CRAWL_TOOLS.has(job.tool)) {
-        // Iterative recon: a crawl reveals a new URL surface — mine + re-scan it.
-        const urls = extractEndpoints(output, job.target);
-        await queueEndpointScans(engagementId, runnerId, urls, job.queuedBy, 15);
-        await queueJsSecretScans(engagementId, runnerId, jsUrls(urls), job.queuedBy, 20);
-        await queueParamDiscovery(engagementId, runnerId, urls, job.queuedBy, 12);
+    // Everything below is BEST-EFFORT follow-up (queueing downstream scans,
+    // recomputing intel). A failure here must NOT wedge the job in "importing" or
+    // discard the successful import above, so it's isolated in try/catch and the
+    // job is still marked done.
+    try {
+      // Source-specific follow-up chaining (suppressed for pipeline-staged jobs).
+      if (!pipelineJob) {
+        if (job.tool === "amass" || job.tool === "subfinder") {
+          // Chain: discovered subdomains → httpx + nuclei scans on the same runner.
+          const hosts = parseSubdomains(output);
+          if (hosts.length > 0) await queueHostScans(engagementId, runnerId, hosts, job.queuedBy, 15);
+        } else if (CRAWL_TOOLS.has(job.tool)) {
+          // Iterative recon: a crawl reveals a new URL surface — mine + re-scan it.
+          const urls = extractEndpoints(output, job.target);
+          await queueEndpointScans(engagementId, runnerId, urls, job.queuedBy, 15);
+          await queueJsSecretScans(engagementId, runnerId, jsUrls(urls), job.queuedBy, 20);
+          await queueParamDiscovery(engagementId, runnerId, urls, job.queuedBy, 12);
+        }
+        // Auto-exploit: from fresh RECON findings, queue exploit-validation jobs on
+        // the same runner. Their results come back through this same route.
+        if (RECON_TOOLS.has(job.tool) && fresh.length > 0) {
+          await queueExploitJobs(engagementId, runnerId, fresh, job.queuedBy);
+        }
       }
-      // Auto-exploit: from fresh RECON findings, queue exploit-validation jobs on
-      // the same runner. Their results come back through this same route.
-      if (RECON_TOOLS.has(job.tool) && fresh.length > 0) {
-        await queueExploitJobs(engagementId, runnerId, fresh, job.queuedBy);
+      if (fresh.length > 0) {
+        // Recompute risk across the engagement so attack chains elevate in triage.
+        await recomputeEngagementIntel(engagementId);
       }
+    } catch (err) {
+      console.error(`result route: post-import follow-up failed for job ${job.id}`, err);
     }
 
-    if (fresh.length > 0) {
-      // Recompute risk across the engagement so attack chains elevate in triage.
-      await recomputeEngagementIntel(engagementId).catch(() => {});
-    }
-
-    // Findings are committed — NOW mark the job done.
+    // Findings are committed — NOW mark the job done (even if follow-up failed).
     await prisma.job.update({
       where: { id: job.id },
       data: { status: "done", finishedAt: new Date() },

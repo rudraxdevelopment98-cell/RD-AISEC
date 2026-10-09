@@ -31,7 +31,13 @@ const TAKEOVER_CNAMES =
   /\b([a-z0-9-]+\.)?(github\.io|herokuapp\.com|herokudns\.com|s3\.amazonaws\.com|s3-website|cloudfront\.net|azurewebsites\.net|cloudapp\.net|trafficmanager\.net|blob\.core\.windows\.net|fastly\.net|pantheonsite\.io|wpengine\.com|ghost\.io|surge\.sh|bitbucket\.io|readthedocs\.io|netlify\.app|netlify\.com|zendesk\.com|helpscoutdocs\.com|statuspage\.io|launchrock\.com|unbounce\.com|desk\.com|shopify\.com|fastly|cargocollective\.com|readme\.io|akamaihd\.net|firebaseapp\.com)\b/i;
 
 // Param names that carry object references → IDOR/BOLA surface (top payer).
-const ID_PARAM = /^(id|uid|uuid|gid|pid|oid|.*_id|.*id|user|users|account|acct|customer|member|org|team|order|invoice|doc|document|file|record|ticket|report|profile)$/i;
+// An object-ref param is a short id token, ends in `_id`, or is a known entity
+// name optionally followed by "id" (user/userid/user_id). The old `.*id`
+// catch-all also matched dictionary words ("valid", "paid", "grid", "void",
+// "android") → spurious IDOR leads, so it's gone.
+const ID_ENTITY =
+  "user|users|account|acct|customer|member|owner|org|team|group|order|invoice|payment|doc|document|file|record|ticket|report|profile|product|item|post|comment|message|msg|page|node|object|entity|project|task|booking|reservation|transaction|txn|address|card|subscription";
+const ID_PARAM = new RegExp(`^(id|uid|uuid|guid|gid|pid|oid|aid|rid|eid|tid|cid|nid|.*_id|(${ID_ENTITY})(id)?)$`, "i");
 // Params that reach a URL fetch → SSRF / open redirect.
 const SSRF_PARAM = /^(url|uri|link|next|redirect|redirect_uri|return|returnto|callback|dest|destination|target|to|out|continue|forward|feed|host|site|domain|webhook|proxy|fetch)$/i;
 // Params that reach the filesystem → LFI / traversal.

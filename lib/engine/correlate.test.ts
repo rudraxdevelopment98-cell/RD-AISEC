@@ -37,6 +37,23 @@ t("a single object-id endpoint does NOT (yet) raise an IDOR reuse lead", () => {
   assert.ok(!leads.some((l) => l.cls === "idor"), "reuse needs >= 2 endpoints");
 });
 
+t("dictionary params ending in 'id' (valid/paid/grid) are NOT treated as object ids", () => {
+  const { leads } = correlate([
+    { kind: "endpoint", url: "https://acme.com/a?valid=1" },
+    { kind: "endpoint", url: "https://acme.com/b?paid=1" },
+    { kind: "endpoint", url: "https://acme.com/c?grid=1" },
+  ]);
+  assert.ok(!leads.some((l) => l.cls === "idor"), "valid/paid/grid must not raise IDOR");
+});
+
+t("concatenated entity ids (orderid, userId) still raise an IDOR reuse lead", () => {
+  const { leads } = correlate([
+    { kind: "endpoint", url: "https://api.acme.com/a?orderid=1" },
+    { kind: "endpoint", url: "https://api.acme.com/b?orderid=9" },
+  ]);
+  assert.ok(leads.some((l) => l.cls === "idor"), "orderid is an object reference");
+});
+
 t("SSRF/redirect and LFI params raise their own leads", () => {
   const { leads } = correlate([
     { kind: "endpoint", url: "https://acme.com/proxy?url=http://x" },

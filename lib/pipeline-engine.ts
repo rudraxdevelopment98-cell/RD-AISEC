@@ -507,6 +507,15 @@ export async function recheckPipeline(engagementId: string): Promise<void> {
   if (!def?.jobs) return;
   const prog = await stageJobProgress(engagementId, p.currentKey, await stageStartedAt(p.id, p.currentKey));
   if (!prog.complete) return;
+  // Atomically claim this stage's completion — the SAME guard onPipelineJobFinished
+  // uses — so a real job completion and a concurrent recheck (cron stale-sweep or
+  // resume) in the same window can't both pass `prog.complete` and both advance,
+  // which would double-queue the next stage or skip one.
+  const claimed = await prisma.pipeline.updateMany({
+    where: { id: p.id, status: "running", currentKey: p.currentKey },
+    data: { status: "advancing" },
+  });
+  if (claimed.count !== 1) return; // another path is already advancing it
   await setStage(p.id, p.currentKey, { summary: `${prog.done}/${prog.total} jobs complete` });
   if (p.autoApprove) await advancePipeline(p.id);
   else await prisma.pipeline.update({ where: { id: p.id }, data: { status: "awaiting_approval" } });

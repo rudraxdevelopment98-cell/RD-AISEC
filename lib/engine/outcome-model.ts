@@ -3,7 +3,7 @@
 
 import { prisma } from "@/lib/db";
 import { classifyFindingVuln } from "@/lib/vuln-taxonomy";
-import { learnFromOutcomes, type OutcomeModel, type OutcomeRow, type Outcome } from "@/lib/engine/outcome-learning";
+import { learnFromOutcomes, bucketOutcome, type OutcomeModel, type OutcomeRow } from "@/lib/engine/outcome-learning";
 
 export async function loadOutcomeModel(): Promise<OutcomeModel> {
   const rows = await prisma.finding.findMany({
@@ -13,7 +13,10 @@ export async function loadOutcomeModel(): Promise<OutcomeModel> {
   });
   const mapped: OutcomeRow[] = rows.map((f) => ({
     cls: classifyFindingVuln({ title: f.title, description: f.description ?? "" })?.id ?? (f.category || "misc"),
-    outcome: f.outcome as Outcome,
+    // Normalize the stored outcome string (casing / "not_applicable" vs
+    // "not-applicable" / program-specific states) into a canonical Outcome so the
+    // learner buckets wins and losses correctly.
+    outcome: bucketOutcome(f.outcome),
     bountyAmount: f.bountyAmount ?? 0,
   }));
   return learnFromOutcomes(mapped);
