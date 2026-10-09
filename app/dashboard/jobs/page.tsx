@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { jobStatusTag } from "@/lib/status-style";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { ownerScope, jobOwnerScope } from "@/lib/ownership";
@@ -27,14 +28,6 @@ const JOB_TEMPLATES: { name: string; desc: string; cmd: string }[] = [
   { name: "TLS / SSL audit", desc: "Full protocol + cipher + certificate audit.", cmd: "testssl.sh TARGET" },
   { name: "Nuclei CVEs + exposures", desc: "Templated checks at medium+ severity.", cmd: "nuclei -u TARGET -tags cve,exposure,misconfig -severity medium,high,critical -jsonl" },
 ];
-
-const STATUS_STYLE: Record<string, string> = {
-  queued: "ring-amber accent-amber",
-  running: "ring-sky accent-sky",
-  done: "ring-emerald accent-emerald",
-  failed: "border-sev-crit/40 text-sev-crit",
-  canceled: "border-gray-500/40 text-gray-400",
-};
 
 function elapsed(from: Date | null, to: number): string {
   if (!from) return "—";
@@ -274,7 +267,7 @@ export default async function JobsPage({
               <div key={j.id} className="card">
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5">
-                    <span className={`tag capitalize ${STATUS_STYLE[j.status]}`}>
+                    <span className={`tag capitalize ${jobStatusTag(j.status)}`}>
                       {j.status === "running" && (
                         <span className="pulse-dot mr-1 inline-block h-2 w-2 rounded-full bg-sky-400" />
                       )}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { jobStatusTag } from "@/lib/status-style";
 import { prisma } from "@/lib/db";
 import { Icon } from "@/components/icons";
 import { Console, RailPanel } from "@/components/console";
@@ -10,15 +11,6 @@ export const dynamic = "force-dynamic";
 // and Runner Jobs (executed on a machine you control) side by side, with simple
 // server-rendered charts — the first real "Monitoring" piece (ROADMAP Phase 2).
 
-const STATUS_COLOR: Record<string, string> = {
-  completed: "ring-emerald accent-emerald",
-  done: "ring-emerald accent-emerald",
-  running: "ring-sky accent-sky",
-  pending: "ring-amber accent-amber",
-  queued: "ring-amber accent-amber",
-  failed: "border-sev-crit/40 text-sev-crit",
-  canceled: "border-gray-500/40 text-gray-400",
-};
 
 function Bar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
@@ -261,7 +253,7 @@ export default async function HistoryPage() {
                       </p>
                     </div>
                   </div>
-                  <span className={`tag shrink-0 capitalize ${STATUS_COLOR[a.status] ?? ""}`}>{a.status}</span>
+                  <span className={`tag shrink-0 capitalize ${jobStatusTag(a.status)}`}>{a.status}</span>
                 </div>
               ))}
             </div>

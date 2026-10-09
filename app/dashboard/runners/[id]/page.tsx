@@ -12,6 +12,7 @@ import { unlockFullControl, lockFullControl } from "@/lib/control";
 import { MachineStats } from "@/components/machine-stats";
 import { MaintenanceIndicator } from "@/components/maintenance-indicator";
 import { turboWorkers } from "@/lib/stats-format";
+import { jobStatusClass } from "@/lib/status-style";
 import {
   deleteRunner,
   setRunnerAnonymity,
@@ -35,13 +36,6 @@ export const dynamic = "force-dynamic";
 // Hour choices for the maintenance-window selects (00:00–23:00).
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-const STATUS_COLOR: Record<string, string> = {
-  done: "text-brand",
-  running: "text-sev-low",
-  queued: "text-sev-med",
-  failed: "text-sev-crit",
-  canceled: "text-gray-400",
-};
 
 export default async function MachinePage({
   params,
@@ -539,7 +533,7 @@ export default async function MachinePage({
             <details key={ins.id} className="card" open={ins.status === "installing"}>
               <summary className="flex cursor-pointer items-center gap-2 text-sm">
                 <span className="font-mono text-gray-300">{ins.tool}</span>
-                <span className={STATUS_COLOR[ins.status] ?? "text-gray-400"}>{ins.status}</span>
+                <span className={jobStatusClass(ins.status)}>{ins.status}</span>
               </summary>
               {ins.output && (
                 <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-surface-border bg-black/50 p-2 font-mono text-[10px] leading-relaxed text-gray-300">
@@ -569,7 +563,7 @@ export default async function MachinePage({
                 <span className="font-mono text-xs text-brand">{j.tool}</span>
                 <span className="truncate text-gray-400">{j.target}</span>
               </span>
-              <span className={`shrink-0 text-xs ${STATUS_COLOR[j.status] ?? "text-gray-400"}`}>
+              <span className={`shrink-0 text-xs ${jobStatusClass(j.status)}`}>
                 {j.status}
               </span>
             </Link>

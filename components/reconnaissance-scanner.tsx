@@ -102,7 +102,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
   };
 
   return (
-    <div className="card space-y-6 rounded-lg border border-gray-700 p-6">
+    <div className="card space-y-6">
       <div>
         <h3 className="text-xl font-bold">Reconnaissance Scanner</h3>
         <p className="text-sm text-gray-400">
@@ -120,12 +120,12 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               disabled={isScanning}
-              className="w-full rounded border border-gray-600 bg-gray-800 px-3 py-2 text-white disabled:opacity-50"
+              className="glass-input w-full disabled:opacity-50"
             />
           </div>
 
           {error && (
-            <div className="rounded bg-red-900/20 border border-red-700 p-3 text-sm text-sev-crit">
+            <div className="rounded-lg border border-sev-crit/40 bg-sev-crit/10 p-3 text-sm text-sev-crit">
               {error}
             </div>
           )}
@@ -136,7 +136,7 @@ export function ReconnaissanceScanner({ engagementId }: ReconProgressProps) {
                 <span>Scanning...</span>
                 <span className="text-gray-400">{progress}%</span>
               </div>
-              <div className="h-2 rounded bg-gray-700 overflow-hidden">
+              <div className="h-2 overflow-hidden rounded bg-surface-border">
                 <div
                   className="h-full bg-brand transition-all duration-300"
                   style={{ width: `${progress}%` }}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Icon } from "@/components/icons";
+import { jobStatusTag } from "@/lib/status-style";
 import {
   importJobFindings,
   retryJob,
@@ -24,12 +25,6 @@ export type JobRow = {
   created: string; // ISO
   output: string;
   exitCode: number | null;
-};
-
-const STATUS_STYLE: Record<string, string> = {
-  done: "ring-emerald accent-emerald",
-  failed: "border-sev-crit/40 text-sev-crit",
-  canceled: "border-gray-500/40 text-gray-400",
 };
 
 const STATUSES = ["all", "done", "failed", "canceled"];
@@ -252,7 +247,7 @@ export function JobsTable({
                     {j.engagement ?? "Quick scan"}
                   </div>
                   <div className="col-span-1">
-                    <span className={`tag capitalize ${STATUS_STYLE[j.status] ?? ""}`}>{j.status}</span>
+                    <span className={`tag capitalize ${jobStatusTag(j.status)}`}>{j.status}</span>
                   </div>
                   <div className="col-span-3 text-xs text-gray-500 sm:text-right">
                     {j.finished ? new Date(j.finished).toLocaleString() : "—"}
