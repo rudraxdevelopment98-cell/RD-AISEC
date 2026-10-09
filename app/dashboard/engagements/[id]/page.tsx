@@ -9,6 +9,7 @@ import {
 import { FrameworkBadges } from "@/components/framework-badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Tabs, TabPanel } from "@/components/tabs";
+import { Collapsible } from "@/components/collapsible";
 import { PageHeader } from "@/components/page-header";
 import { engagementLeads } from "@/lib/engine/leads";
 import { askLocalModel } from "@/lib/local-model";
@@ -461,13 +462,12 @@ export default async function EngagementDetail({
 
         {/* White-box source recon — clone a repo on a runner and analyze it for
             frameworks, endpoints, and code-level vulnerability hypotheses. */}
-        <div className="card mt-4">
-          <div className="flex items-center gap-2">
-            <Icon name="search" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">White-box source recon <Hint>Point this at the target&apos;s <b>https git repo</b> (one you&apos;re authorized to test). A runner shallow-clones it, the portal maps frameworks + endpoints and raises code-level vulnerability hypotheses, then deletes the clone. Hypotheses stay &quot;detected&quot; until an exploit validates them.</Hint></h3>
-            <span className="tag ring-sky accent-sky text-[10px]">Shannon-style</span>
-          </div>
-          <form action={setSourceRepo} className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-4 space-y-3">
+        <Collapsible
+          title={<>White-box source recon <Hint>Point this at the target&apos;s <b>https git repo</b> (one you&apos;re authorized to test). A runner shallow-clones it, the portal maps frameworks + endpoints and raises code-level vulnerability hypotheses, then deletes the clone. Hypotheses stay &quot;detected&quot; until an exploit validates them.</Hint></>}
+          right={<span className="tag ring-sky accent-sky text-[10px]">Shannon-style</span>}
+        >
+          <form action={setSourceRepo} className="flex flex-wrap items-center gap-2">
             <input type="hidden" name="engagementId" value={e.id} />
             <input
               type="url"
@@ -492,25 +492,19 @@ export default async function EngagementDetail({
               runs on a connected machine · git clone is read-only and auto-deleted
             </span>
           </form>
-        </div>
+        </Collapsible>
 
         {/* Authenticated / session-aware scanning — carry a login session into
             header-capable scan tools so they test AS the logged-in user, which
             reaches IDOR, broken-access-control and business-logic bugs that are
             invisible to an anonymous scan. Stored encrypted; value never shown
             back. */}
-        <div className="card mt-4">
-          <div className="flex items-center gap-2">
-            <Icon name="lock" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">Authenticated scanning <Hint>Pick the auth type and enter the value — the header is built for you, stored <b>encrypted</b>, and once set <b>every scan on this engagement runs authenticated automatically</b> (injected into {AUTH_HEADER_TOOLS.join(", ")}), reaching IDOR / access-control / business-logic bugs an anonymous scan can&apos;t. The value is never displayed again.</Hint></h3>
-            {authSessionLabel ? (
-              <span className="tag border-brand/50 text-brand text-[10px]">
-                active · {authSessionLabel}
-              </span>
-            ) : (
-              <span className="tag text-[10px]">not set</span>
-            )}
-          </div>
+        <Collapsible
+          title={<>Authenticated scanning <Hint>Pick the auth type and enter the value — the header is built for you, stored <b>encrypted</b>, and once set <b>every scan on this engagement runs authenticated automatically</b> (injected into {AUTH_HEADER_TOOLS.join(", ")}), reaching IDOR / access-control / business-logic bugs an anonymous scan can&apos;t. The value is never displayed again.</Hint></>}
+          right={authSessionLabel
+            ? <span className="tag border-brand/50 text-brand text-[10px]">active · {authSessionLabel}</span>
+            : <span className="tag text-[10px]">not set</span>}
+        >
           <AuthSessionForm engagementId={e.id} active={authSessionLabel} />
           {authSessionLabel && (
             <form action={setEngagementAuthSession} className="mt-2">
@@ -525,33 +519,25 @@ export default async function EngagementDetail({
             <Icon name="alert" className="mr-1 inline h-3 w-3" />
             Only use a session you own or are explicitly authorized to test with.
           </p>
-        </div>
+        </Collapsible>
 
         {/* Two-account IDOR / BOLA testing — the top-paying class a single-session
             scan cannot find. Needs BOTH accounts' sessions + a marker unique to
             account A's data; the runner replays each object endpoint as A, B, and
             anon and a leak of A's data to B/anon becomes a finding. */}
-        <div className="card mt-4">
-          <div className="flex items-center gap-2">
-            <Icon name="target" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">
-              IDOR / BOLA testing (two accounts){" "}
-              <Hint>
+        <Collapsible
+          title={<>IDOR / BOLA testing (two accounts) <Hint>
                 Broken object-level authorization is the highest-paying class a normal scan
                 can&apos;t find — it needs a second account. Above is <b>account A</b> (the scan
                 session). Set <b>account B</b> here plus a <b>marker</b> unique to A&apos;s data (e.g.
                 A&apos;s email or account id). The runner replays each discovered object URL as A, B,
                 and anonymously; if B or anon receives A&apos;s object, that&apos;s a confirmed BOLA.
-              </Hint>
-            </h3>
-            {idorAccountBLabel ? (
-              <span className="tag border-brand/50 text-brand text-[10px]">account B · {idorAccountBLabel}</span>
-            ) : (
-              <span className="tag text-[10px]">not set</span>
-            )}
-          </div>
-
-          <form action={setEngagementIdorAccount} className="mt-3 space-y-2">
+              </Hint></>}
+          right={idorAccountBLabel
+            ? <span className="tag border-brand/50 text-brand text-[10px]">account B · {idorAccountBLabel}</span>
+            : <span className="tag text-[10px]">not set</span>}
+        >
+          <form action={setEngagementIdorAccount} className="space-y-2">
             <input type="hidden" name="id" value={e.id} />
             <input
               type="text"
@@ -586,25 +572,26 @@ export default async function EngagementDetail({
               (run a crawl like katana first for a bigger surface).
             </p>
           </form>
-        </div>
+        </Collapsible>
 
         {/* AI recon — the AI reads in-scope pages and suggests what to test next. */}
-        <AiRecon engagementId={e.id} authorized={e.authorized} />
+        <Collapsible
+          title="AI recon (browse the target)"
+          right={<span className="tag text-[10px]">reads in-scope pages</span>}
+        >
+          <AiRecon engagementId={e.id} authorized={e.authorized} bare />
+        </Collapsible>
 
         {/* Autopilot — the engine runs this authorized engagement by itself:
             a self-approving recon→scan→exploit→report pipeline, restarted on a
             cadence for continuous coverage. Submission stays human-approved. */}
-        <div className="card mt-4">
-          <div className="flex items-center gap-2">
-            <Icon name="bolt" className="h-4 w-4 text-brand" />
-            <h3 className="text-sm font-semibold text-white">Autopilot</h3>
-            {e.autopilot ? (
-              <span className="tag border-brand/50 text-brand text-[10px]">ON · every {e.autopilotEveryH ?? 24}h</span>
-            ) : (
-              <span className="tag text-[10px]">off</span>
-            )}
-          </div>
-          <p className="mt-2 text-[11px] text-gray-500">
+        <Collapsible
+          title="Autopilot"
+          right={e.autopilot
+            ? <span className="tag border-brand/50 text-brand text-[10px]">ON · every {e.autopilotEveryH ?? 24}h</span>
+            : <span className="tag text-[10px]">off</span>}
+        >
+          <p className="text-[11px] text-gray-500">
             When on, the engine keeps a self-approving pipeline (recon → scan → exploit → triage →
             report) running against this engagement and starts a fresh cycle on the cadence below.
             Only runs on an <b>authorized</b>, in-scope engagement; report <b>submission stays
@@ -637,6 +624,7 @@ export default async function EngagementDetail({
               <span className="text-[11px] text-sev-med">Record authorization first.</span>
             )}
           </form>
+        </Collapsible>
         </div>
       </section>
       </TabPanel>

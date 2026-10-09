@@ -11,7 +11,17 @@ import type { ReconBrief } from "@/lib/engine/ai-browse";
  * endpoints, auth model, prioritized tests + tools). Owner + key + scope gated
  * server-side; this is purely the trigger + render surface.
  */
-export function AiRecon({ engagementId, authorized }: { engagementId: string; authorized: boolean }) {
+export function AiRecon({
+  engagementId,
+  authorized,
+  bare = false,
+}: {
+  engagementId: string;
+  authorized: boolean;
+  /** When true, render WITHOUT the outer .card shell (the parent provides it,
+      e.g. a Collapsible). Keeps the Command Center collapsed to one header row. */
+  bare?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
   const [brief, setBrief] = useState<ReconBrief | null>(null);
 
@@ -38,10 +48,10 @@ export function AiRecon({ engagementId, authorized }: { engagementId: string; au
   }
 
   return (
-    <div className="card mt-4">
+    <div className={bare ? "" : "card mt-4"}>
       <div className="flex items-center gap-2">
-        <Icon name="bot" className="h-4 w-4 text-brand" />
-        <h3 className="text-sm font-semibold text-white">AI recon (browse the target)</h3>
+        {!bare && <Icon name="bot" className="h-4 w-4 text-brand" />}
+        {!bare && <h3 className="text-sm font-semibold text-white">AI recon (browse the target)</h3>}
         <span className="tag text-[10px]">reads in-scope pages</span>
         <button onClick={run} disabled={loading || !authorized} className="btn-primary ml-auto text-xs">
           {loading ? (
@@ -89,7 +99,7 @@ export function AiRecon({ engagementId, authorized }: { engagementId: string; au
           {brief.suggestedTests.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-semibold text-gray-300">Prioritized tests</p>
-              <ul className="space-y-1.5">
+              <ul className="max-h-60 space-y-1.5 overflow-y-auto scroll-slim pr-1">
                 {brief.suggestedTests.map((s, i) => (
                   <li key={i} className="text-xs">
                     <span className="text-brand">▸</span> <span className="text-gray-200">{s.title}</span>
@@ -103,7 +113,7 @@ export function AiRecon({ engagementId, authorized }: { engagementId: string; au
           {brief.sensitiveEndpoints.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-semibold text-gray-300">Endpoints worth testing</p>
-              <ul className="space-y-0.5">
+              <ul className="max-h-48 space-y-0.5 overflow-y-auto scroll-slim pr-1">
                 {brief.sensitiveEndpoints.map((u) => (
                   <li key={u} className="truncate font-mono text-[11px] text-gray-400">{u}</li>
                 ))}
