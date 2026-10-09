@@ -308,7 +308,7 @@ export default async function WifiPage({
                       </details>
                     )}
                     {networks.length > 0 && (
-                      <div className="mt-3 overflow-x-auto">
+                      <div className="mt-3 max-h-96 overflow-auto scroll-slim">
                         <p className="mb-1 text-xs font-semibold text-gray-400">{networks.length} access point(s)</p>
                         <table className="w-full text-left text-xs">
                           <thead className="text-gray-500">
@@ -588,7 +588,7 @@ export default async function WifiPage({
                               {data.clients.length === 0 ? (
                                 <p className="mt-2 text-xs text-gray-500">No connected devices seen yet — capture again at peak time, or the AP may be idle.</p>
                               ) : (
-                                <div className="mt-2 overflow-x-auto">
+                                <div className="mt-2 max-h-80 overflow-auto scroll-slim">
                                   <p className="mb-1 text-xs font-semibold text-gray-400">{data.clients.length} device(s) connected / nearby</p>
                                   <table className="w-full text-left text-xs">
                                     <thead className="text-gray-500">
