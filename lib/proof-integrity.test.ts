@@ -30,6 +30,26 @@ t("genuine direct observations (IDOR, SMB, SNMP) stay validated", () => {
   assert.strictEqual(classifyConfidence({ description: "SMB message signing is not required" }).level, "validated");
 });
 
+t("deterministic proofs the gate used to lose now stay validated", () => {
+  // These are concrete, verified events (not version banners) — each must classify
+  // as validated so the gate keeps confirmed instead of demoting to "suspected".
+  assert.strictEqual(classifyConfidence({ description: "dnsrecon completed a DNS zone transfer (AXFR) against ns1.acme.com" }).level, "validated");
+  assert.strictEqual(classifyConfidence({ description: "crackmapexec authenticated to 10.0.0.5 with admin:admin — the credentials are valid on this host." }).level, "validated");
+  assert.strictEqual(classifyConfidence({ description: '10.0.0.9 responds to the SNMP community string "public".' }).level, "validated");
+  assert.strictEqual(classifyConfidence({ description: "A WPA handshake was captured for access point AA:BB:CC:DD:EE:FF." }).level, "validated");
+});
+
+t("Heartbleed (active probe) stays CONFIRMED-critical through the gate, not softened", () => {
+  // CVE-bearing but demonstrated by an active heartbeat probe — the gate must treat
+  // it as a live validation (current), not a stale banner match (verify→medium).
+  const { kept } = gateFindings([
+    { title: "Heartbleed (CVE-2014-0160) on acme.com", severity: "critical", confirmed: true,
+      description: "sslscan reports acme.com is vulnerable to Heartbleed (CVE-2014-0160), which leaks server memory." },
+  ]);
+  assert.strictEqual(kept[0].confirmed, true, "heartbleed stays confirmed");
+  assert.strictEqual(kept[0].severity, "critical", "heartbleed stays critical (not softened to medium)");
+});
+
 t("conclusive nuclei classes (takeover, exposure) stay confirmed through the gate", () => {
   const takeover = gateFindings([
     { title: "Subdomain takeover — sub.acme.com", severity: "high", description: "Tags: takeover\n\nSubdomain takeover confirmed: the template fingerprinted the dangling service.", confirmed: true },

@@ -3,6 +3,13 @@
 
 import assert from "node:assert";
 import { buildIdorEndpoints, parseIdorResult } from "./idor-scan";
+import { gateFindings } from "./finding-gate";
+
+/** Run one IdorFinding through the import gate and report the stored confirmed flag. */
+function gatedConfirmed(f: { title: string; severity: string; description: string }): boolean {
+  const { kept } = gateFindings([{ ...f, confirmed: true }]);
+  return !!kept[0]?.confirmed;
+}
 
 let passed = 0;
 function t(name: string, fn: () => void) {
@@ -63,6 +70,33 @@ t("parseIdorResult: missing baseline (owner failed) → no finding", () => {
     probes: [{ ep: "GET https://t/api/orders/1001", o: { s: 404, n: 0, m: false }, a: { s: 200, n: 500, m: false } }],
   });
   assert.strictEqual(parseIdorResult(out, "").length, 0);
+});
+
+t("parseIdorResult: same-shape only, NO marker → SUSPECTED wording (not proof phrases)", () => {
+  // Owner and attacker both 200 with the same body size, no marker: idor-core
+  // returns a BOLA verdict at confidence 80 (suspected — could be B's own object).
+  const out = JSON.stringify({
+    probes: [{ ep: "GET https://t/api/orders/1001", o: { s: 200, n: 500, m: false }, a: { s: 200, n: 500, m: false }, x: { s: 403, n: 10, m: false } }],
+  });
+  const f = parseIdorResult(out, "");
+  assert.strictEqual(f.length, 1, "suspected break still surfaces as a lead");
+  assert.ok(/Possible IDOR \/ BOLA \(unverified\)/.test(f[0].title), "titled as unverified");
+  assert.ok(!/broken object-level authorization/i.test(`${f[0].title} ${f[0].description}`), "no proof phrase in title/desc");
+  assert.ok(!/differential access test/i.test(f[0].description), "no 'differential access test' proof phrase");
+});
+
+t("GATE: suspected IDOR stays UNCONFIRMED; marker-proven IDOR confirms", () => {
+  const suspected = parseIdorResult(
+    JSON.stringify({ probes: [{ ep: "GET https://t/api/orders/1001", o: { s: 200, n: 500, m: false }, a: { s: 200, n: 500, m: false } }] }),
+    "",
+  )[0];
+  assert.strictEqual(gatedConfirmed(suspected), false, "same-shape-only must NOT be auto-confirmed");
+
+  const proven = parseIdorResult(
+    JSON.stringify({ probes: [{ ep: "GET https://t/api/orders/1001", o: { s: 200, n: 500, m: true }, a: { s: 200, n: 500, m: true } }] }),
+    "alice@example.com",
+  )[0];
+  assert.strictEqual(gatedConfirmed(proven), true, "marker leak IS a confirmed BOLA");
 });
 
 t("parseIdorResult: malformed output → empty, no throw", () => {

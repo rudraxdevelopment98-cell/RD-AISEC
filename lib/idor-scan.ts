@@ -94,14 +94,25 @@ export function parseIdorResult(output: string, marker = ""): IdorFinding[] {
     if (!owner || !attacker) continue;
     const v = assessAccess({ endpoint: ep, owner, attacker, anon: toResp(p.x, marker), ownerMarker: marker || undefined });
     if (v.verdict !== "bola" && v.verdict !== "unauth") continue; // only real access breaks become findings
-    const label = v.verdict === "unauth" ? "Unauthenticated object access" : "IDOR / BOLA (broken object-level authorization)";
+    const bola = v.verdict === "bola";
+    // PROVEN vs SUSPECTED. A marker leak or a byte-identical body hash proves the
+    // other identity received A's object (confidence ≥90). A same-shape-only 200 is
+    // SUSPECTED — it could be B's own object. Only the proven case may carry the
+    // proof wording ("broken object-level authorization" / "differential access
+    // test") that the import gate treats as validated; wording a SUSPECTED break
+    // with those phrases is exactly what falsely promoted it to "confirmed".
+    const proven = v.confidence >= 90;
+    const label = proven
+      ? (bola ? "IDOR / BOLA (broken object-level authorization)" : "Unauthenticated object access")
+      : (bola ? "Possible IDOR / BOLA (unverified)" : "Possible no-auth object read (unverified)");
+    const counterpart = bola ? "second account" : "anonymous";
+    const method = proven
+      ? `Method: differential access test (owner vs. ${counterpart}). `
+      : `Method: cross-identity access comparison (owner vs. ${counterpart}). Suspected — set a marker unique to account A's data to confirm. `;
     findings.push({
       title: `${label}: ${ep}`,
       severity: v.severity,
-      description:
-        `${v.reasons.join(" ")}\n\n` +
-        `Method: differential access test (owner vs. ${v.verdict === "unauth" ? "anonymous" : "second account"}). ` +
-        `Confidence ${v.confidence}%.`,
+      description: `${v.reasons.join(" ")}\n\n${method}Confidence ${v.confidence}%.`,
       evidence: ep,
     });
   }
